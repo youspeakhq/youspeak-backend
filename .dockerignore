@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Docker
+.docker/
+postgres_data/
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Tests
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Alembic
+alembic/versions/*.pyc
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+
+# Docs
+/docs/

@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # FastAPI Application
+  api:
+    build: .
+    container_name: youspeak_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://youspeak_user:youspeak_password@postgres:5432/youspeak_db
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - DEBUG=True
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./app:/app/app
+    networks:
+      - youspeak_network
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: youspeak_postgres
+    environment:
+      - POSTGRES_USER=youspeak_user
+      - POSTGRES_PASSWORD=youspeak_password
+      - POSTGRES_DB=youspeak_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - youspeak_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U youspeak_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: youspeak_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - youspeak_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Adminer for database management (optional)
+  adminer:
+    image: adminer:latest
+    container_name: youspeak_adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - youspeak_network
+    restart: unless-stopped
+
+networks:
+  youspeak_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
