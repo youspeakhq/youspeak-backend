@@ -27,18 +27,28 @@ class UserUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=8)
 
 
+from app.models.enums import UserRole
+
+# ...
+
 # User Response Schema
 class User(UserBase):
     """Schema for user responses"""
     id: UUID
+    email: EmailStr
     is_active: bool
-    is_superuser: bool
-    is_verified: bool
+    is_superuser: bool = False # Deprecated but kept for compat
+    role: UserRole
+    school_id: Optional[UUID] = None
+    profile_picture_url: Optional[str] = None
+    is_verified: bool = False
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+UserResponse = User
 
 
 # User Login Schema

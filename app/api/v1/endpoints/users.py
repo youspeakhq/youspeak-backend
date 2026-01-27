@@ -7,10 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import math
 
 from app.database import get_db
-from app.schemas.user import User, UserUpdate, PaginatedUsers, PasswordChange
+from app.schemas.user import User as UserSchema, UserUpdate, PaginatedUsers, PasswordChange
 from app.services.user_service import UserService
-from app.api.deps import get_current_user, get_current_active_superuser
+from app.api.deps import get_current_user, require_admin
 from app.models.user import User as UserModel
+from app.models.enums import UserRole
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -20,19 +21,10 @@ async def list_users(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(require_admin) # Only admin should list all generic users
 ) -> PaginatedUsers:
     """
     Get paginated list of users.
-    
-    Args:
-        page: Page number (starts at 1)
-        page_size: Number of items per page
-        db: Database session
-        current_user: Current authenticated user
-        
-    Returns:
-        Paginated users list
     """
     skip = (page - 1) * page_size
     users, total = await UserService.get_users(db, skip=skip, limit=page_size)
@@ -48,25 +40,14 @@ async def list_users(
     )
 
 
-@router.get("/{user_id}", response_model=User)
+@router.get("/{user_id}", response_model=UserSchema)
 async def get_user(
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
-) -> User:
+) -> UserSchema:
     """
     Get user by ID.
-    
-    Args:
-        user_id: User ID
-        db: Database session
-        current_user: Current authenticated user
-        
-    Returns:
-        User data
-        
-    Raises:
-        HTTPException: If user not found
     """
     user = await UserService.get_user_by_id(db, user_id)
     if not user:
@@ -77,30 +58,18 @@ async def get_user(
     return user
 
 
-@router.put("/{user_id}", response_model=User)
+@router.put("/{user_id}", response_model=UserSchema)
 async def update_user(
     user_id: UUID,
     user_update: UserUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
-) -> User:
+) -> UserSchema:
     """
     Update user information.
-    
-    Args:
-        user_id: User ID
-        user_update: Updated user data
-        db: Database session
-        current_user: Current authenticated user
-        
-    Returns:
-        Updated user
-        
-    Raises:
-        HTTPException: If user not found or unauthorized
     """
-    # Users can only update their own profile unless they're superuser
-    if current_user.id != user_id and not current_user.is_superuser:
+    # Users can only update their own profile unless they're an admin
+    if current_user.id != user_id and current_user.role != UserRole.SCHOOL_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
@@ -120,18 +89,10 @@ async def update_user(
 async def delete_user(
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(get_current_active_superuser)
+    current_user: UserModel = Depends(require_admin)
 ) -> None:
     """
-    Delete user (superuser only).
-    
-    Args:
-        user_id: User ID
-        db: Database session
-        current_user: Current superuser
-        
-    Raises:
-        HTTPException: If user not found
+    Delete user (admin only).
     """
     success = await UserService.delete_user(db, user_id)
     if not success:
@@ -141,25 +102,14 @@ async def delete_user(
         )
 
 
-@router.post("/change-password", response_model=User)
+@router.post("/change-password", response_model=UserSchema)
 async def change_password(
     password_change: PasswordChange,
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
-) -> User:
+) -> UserSchema:
     """
     Change user password.
-    
-    Args:
-        password_change: Password change data
-        db: Database session
-        current_user: Current authenticated user
-        
-    Returns:
-        Updated user
-        
-    Raises:
-        HTTPException: If current password is incorrect
     """
     user = await UserService.change_password(
         db,

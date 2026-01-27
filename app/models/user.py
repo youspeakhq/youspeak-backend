@@ -38,26 +38,24 @@ class User(BaseModel, SchoolScopedMixin, SoftDeleteMixin):
     taught_classes = relationship(
         "Class",
         secondary="teacher_assignments",
-        back_populates="teachers",
-        foreign_keys="[TeacherAssignment.teacher_id]"
+        back_populates="teachers"
     )
-    created_questions = relationship("Question", back_populates="teacher", foreign_keys="[Question.teacher_id]")
-    created_assignments = relationship("Assignment", back_populates="teacher", foreign_keys="[Assignment.teacher_id]")
+    created_questions = relationship("Question", back_populates="teacher")
+    created_assignments = relationship("Assignment", back_populates="teacher")
     
     # Student relationships
     enrolled_classes = relationship(
         "Class",
         secondary="class_enrollments",
-        back_populates="students",
-        foreign_keys="[ClassEnrollment.student_id]"
+        back_populates="students"
     )
-    submissions = relationship("StudentSubmission", back_populates="student", foreign_keys="[StudentSubmission.student_id]")
-    arena_performances = relationship("ArenaPerformer", back_populates="user", foreign_keys="[ArenaPerformer.user_id]")
-    awards = relationship("Award", back_populates="student", foreign_keys="[Award.student_id]")
+    submissions = relationship("StudentSubmission", back_populates="student")
+    arena_performances = relationship("ArenaPerformer", back_populates="user")
+    awards = relationship("Award", back_populates="student")
     
     # Communication
-    authored_announcements = relationship("Announcement", back_populates="author", foreign_keys="[Announcement.author_id]")
-    started_sessions = relationship("LearningSession", back_populates="started_by_user", foreign_keys="[LearningSession.started_by_user_id]")
+    authored_announcements = relationship("Announcement", back_populates="author")
+    started_sessions = relationship("LearningSession", back_populates="started_by_user")
     
     @property
     def full_name(self) -> str:

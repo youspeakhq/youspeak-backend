@@ -17,25 +17,31 @@ class UserService:
     """Service layer for user-related operations"""
     
     @staticmethod
-    async def create_user(db: AsyncSession, user_create: UserCreate) -> User:
+    async def create_user(
+        db: AsyncSession, 
+        email: str, 
+        password: str, 
+        first_name: str, 
+        last_name: str, 
+        school_id: UUID,
+        role: UserRole = UserRole.STUDENT,
+        is_active: bool = True
+    ) -> User:
         """
         Create a new user.
-        
-        Args:
-            db: Database session
-            user_create: User creation data
-            
-        Returns:
-            Created user
         """
         # Hash password
-        hashed_password = get_password_hash(user_create.password)
+        hashed_password = get_password_hash(password)
         
         # Create user instance
         db_user = User(
-            email=user_create.email,
-            full_name=user_create.full_name,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
             hashed_password=hashed_password,
+            school_id=school_id,
+            role=role,
+            is_active=is_active
         )
         
         db.add(db_user)

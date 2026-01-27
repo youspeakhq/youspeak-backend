@@ -7,15 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.core import security
-from app.core.config import settings
+from app.config import settings
 from app.services.user_service import UserService
 from app.services.school_service import SchoolService
 from app.schemas.auth import (
     LoginRequest, Token, RegisterSchoolRequest, RegisterTeacherRequest, 
     VerifyCodeRequest, PasswordResetRequest
 )
+from app.schemas.school import SchoolCreate
+from app.models.enums import SchoolType, ProgramType, UserRole
 from app.schemas.responses import SuccessResponse, ErrorResponse
-from app.models.enums import UserRole
 
 router = APIRouter()
 
@@ -83,9 +84,16 @@ async def register_school(
         "last_name": school_in.admin_last_name
     }
     
+    # Create SchoolCreate object with defaults
+    school_data = SchoolCreate(
+        name=school_in.school_name,
+        school_type=SchoolType.K12, # Default
+        program_type=ProgramType.BILINGUAL # Default
+    )
+    
     school = await SchoolService.create_school_with_admin(
         db=db,
-        school_data=school_in,
+        school_data=school_data,
         admin_data=admin_data
     )
     
