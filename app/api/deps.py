@@ -1,4 +1,4 @@
-"""API Dependencies"""
+"""Enhanced API Dependencies with RBAC"""
 
 from typing import Optional
 from fastapi import Depends, HTTPException, status
@@ -10,6 +10,7 @@ from app.database import get_db
 from app.core.security import decode_token
 from app.services.user_service import UserService
 from app.models.user import User
+from app.models.enums import UserRole
 
 # Security scheme for bearer token
 security = HTTPBearer()
@@ -83,27 +84,103 @@ async def get_current_user(
             detail="Inactive user"
         )
     
+    # Check for soft delete
+    if user.is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User account has been deleted"
+        )
+    
     return user
 
 
-async def get_current_active_superuser(
+async def require_admin(
     current_user: User = Depends(get_current_user)
 ) -> User:
     """
-    Get current superuser.
+    Require user to be a school admin.
     
     Args:
         current_user: Current authenticated user
         
     Returns:
-        Current superuser
+        Current user (if admin)
         
     Raises:
-        HTTPException: If user is not a superuser
+        HTTPException: If user is not an admin
     """
-    if not current_user.is_superuser:
+    if current_user.role != UserRole.SCHOOL_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
+            detail="Admin access required"
+        )
+    return current_user
+
+
+async def require_teacher(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Require user to be a teacher.
+    
+    Args:
+        current_user: Current authenticated user
+        
+    Returns:
+        Current user (if teacher)
+        
+    Raises:
+        HTTPException: If user is not a teacher
+    """
+    if current_user.role != UserRole.TEACHER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Teacher access required"
+        )
+    return current_user
+
+
+async def require_teacher_or_admin(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Require user to be a teacher or admin.
+    
+    Args:
+        current_user: Current authenticated user
+        
+    Returns:
+        Current user (if teacher or admin)
+        
+    Raises:
+        HTTPException: If user is neither teacher nor admin
+    """
+    if current_user.role not in [UserRole.TEACHER, UserRole.SCHOOL_ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Teacher or Admin access required"
+        )
+    return current_user
+
+
+async def require_student(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Require user to be a student.
+    
+    Args:
+        current_user: Current authenticated user
+        
+    Returns:
+        Current user (if student)
+        
+    Raises:
+        HTTPException: If user is not a student
+    """
+    if current_user.role != UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student access required"
         )
     return current_user

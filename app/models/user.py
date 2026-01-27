@@ -1,40 +1,84 @@
-"""User Database Model"""
+"""Domain 2: User & Authentication Model"""
 
-import uuid
-from datetime import datetime
-from sqlalchemy import Boolean, Column, DateTime, String, Index
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Boolean
+from sqlalchemy.dialects.postgresql import UUID, ENUM
+from sqlalchemy.orm import relationship
 
-from app.database import Base
+from app.models.base import BaseModel, SchoolScopedMixin, SoftDeleteMixin
+from app.models.enums import UserRole
 
 
-class User(Base):
-    """User model for authentication and user management"""
-    
+class User(BaseModel, SchoolScopedMixin, SoftDeleteMixin):
+    """
+    Unified user model for all roles (School Admin, Teacher, Student).
+    Implements multi-tenancy via school_id and soft delete for data preservation.
+    """
     __tablename__ = "users"
     
-    # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    
-    # User information
+    # Authentication
     email = Column(String(255), unique=True, nullable=False, index=True)
-    full_name = Column(String(255), nullable=True)
     hashed_password = Column(String(255), nullable=False)
     
-    # Status flags
-    is_active = Column(Boolean, default=True, nullable=False)
-    is_superuser = Column(Boolean, default=False, nullable=False)
-    is_verified = Column(Boolean, default=False, nullable=False)
+    # Personal Information
+    first_name = Column(String(255), nullable=False)
+    last_name = Column(String(255), nullable=False)
+    profile_picture_url = Column(String(500), nullable=True)
     
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    last_login = Column(DateTime, nullable=True)
+    # Role & Permissions (RBAC)
+    role = Column(ENUM(UserRole, name="user_role"), nullable=False, index=True)
     
-    # Indexes for better query performance
-    __table_args__ = (
-        Index("ix_users_email_active", "email", "is_active"),
+    # Security
+    is_2fa_enabled = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    
+    # Relationships
+    school = relationship("School", back_populates="users")
+    
+    # Teacher relationships
+    taught_classes = relationship(
+        "Class",
+        secondary="teacher_assignments",
+        back_populates="teachers",
+        foreign_keys="[TeacherAssignment.teacher_id]"
     )
+    created_questions = relationship("Question", back_populates="teacher", foreign_keys="[Question.teacher_id]")
+    created_assignments = relationship("Assignment", back_populates="teacher", foreign_keys="[Assignment.teacher_id]")
+    
+    # Student relationships
+    enrolled_classes = relationship(
+        "Class",
+        secondary="class_enrollments",
+        back_populates="students",
+        foreign_keys="[ClassEnrollment.student_id]"
+    )
+    submissions = relationship("StudentSubmission", back_populates="student", foreign_keys="[StudentSubmission.student_id]")
+    arena_performances = relationship("ArenaPerformer", back_populates="user", foreign_keys="[ArenaPerformer.user_id]")
+    awards = relationship("Award", back_populates="student", foreign_keys="[Award.student_id]")
+    
+    # Communication
+    authored_announcements = relationship("Announcement", back_populates="author", foreign_keys="[Announcement.author_id]")
+    started_sessions = relationship("LearningSession", back_populates="started_by_user", foreign_keys="[LearningSession.started_by_user_id]")
+    
+    @property
+    def full_name(self) -> str:
+        """Get user's full name"""
+        return f"{self.first_name} {self.last_name}"
+    
+    @property
+    def is_admin(self) -> bool:
+        """Check if user is school admin"""
+        return self.role == UserRole.SCHOOL_ADMIN
+    
+    @property
+    def is_teacher(self) -> bool:
+        """Check if user is teacher"""
+        return self.role == UserRole.TEACHER
+    
+    @property
+    def is_student(self) -> bool:
+        """Check if user is student"""
+        return self.role == UserRole.STUDENT
     
     def __repr__(self) -> str:
-        return f"<User {self.email}>"
+        return f"<User {self.email} ({self.role})>"
+
