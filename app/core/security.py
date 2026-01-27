@@ -1,5 +1,7 @@
 """Security and Authentication Utilities"""
 
+import secrets
+import string
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -94,5 +96,62 @@ def decode_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
+    except JWTError:
+        return None
+
+
+def generate_access_code(length: int = 8) -> str:
+    """
+    Generate a random access code for teacher invitations.
+    
+    Args:
+        length: Length of the code (default: 8)
+        
+    Returns:
+        Random alphanumeric code (uppercase)
+    """
+    # Use uppercase letters and digits, excluding similar-looking characters
+    alphabet = string.ascii_uppercase + string.digits
+    alphabet = alphabet.replace('O', '').replace('0', '').replace('I', '').replace('1', '')
+    
+    code = ''.join(secrets.choice(alphabet) for _ in range(length))
+    return code
+
+
+def generate_password_reset_token(user_id: str) -> str:
+    """
+    Generate a password reset token.
+    
+    Args:
+        user_id: User ID
+        
+    Returns:
+        JWT token for password reset (expires in 1 hour)
+    """
+    data = {"sub": user_id, "purpose": "password_reset"}
+    expire = datetime.utcnow() + timedelta(hours=1)
+    
+    to_encode = data.copy()
+    to_encode.update({"exp": expire})
+    
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
+
+
+def verify_password_reset_token(token: str) -> Optional[str]:
+    """
+    Verify a password reset token and extract user_id.
+    
+    Args:
+        token: Password reset token
+        
+    Returns:
+        user_id if valid, None otherwise
+    """
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("purpose") != "password_reset":
+            return None
+        return payload.get("sub")
     except JWTError:
         return None

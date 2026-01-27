@@ -12,6 +12,8 @@ from app.models.arena import Arena, ArenaCriteria, ArenaRule, ArenaPerformer, ar
 from app.models.communication import Announcement, AnnouncementReminder
 from app.models.analytics import LearningSession, Award
 from app.models.billing import Bill
+from app.models.access_code import TeacherAccessCode
+
 
 __all__ = [
     # Base classes
@@ -63,4 +65,7 @@ __all__ = [
     
     # Billing
     "Bill",
+    
+    # Access Codes
+    "TeacherAccessCode",
 ]
