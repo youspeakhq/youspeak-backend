@@ -30,7 +30,7 @@ services:
       - POSTGRES_PASSWORD=youspeak_password
       - POSTGRES_DB=youspeak_db
     ports:
-      - "5432:5432"
+      - "5455:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
