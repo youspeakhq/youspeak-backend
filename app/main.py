@@ -2,7 +2,7 @@
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -48,12 +48,12 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.APP_VERSION,
-    description="Production-ready FastAPI backend for global scale",
+    title="YouSpeak Platform API",
+    version="1.0.0",
+    description="Backend API for YouSpeak Education Platform",
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    openapi_url="/api/v1/openapi.json",
     lifespan=lifespan,
 )
 
@@ -92,15 +92,10 @@ async def health_check():
     }
 
 
-@app.get("/", tags=["Root"])
+@app.get("/", include_in_schema=False)
 async def root():
-    """Root endpoint"""
-    return {
-        "message": f"Welcome to {settings.APP_NAME}",
-        "version": settings.APP_VERSION,
-        "docs": "/docs",
-        "health": "/health"
-    }
+    """Root endpoint - Redirects to docs"""
+    return RedirectResponse(url="/docs")
 
 
 # Exception handlers
