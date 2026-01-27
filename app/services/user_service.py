@@ -3,10 +3,12 @@
 from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
+from app.models.enums import UserRole
+from app.models.access_code import TeacherAccessCode
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
 
@@ -226,3 +228,110 @@ class UserService:
         await db.refresh(user)
         
         return user
+    
+    # YouSpeak-specific methods
+    
+    @staticmethod
+    async def verify_access_code(db: AsyncSession, code: str) -> Optional[UUID]:
+        """
+        Verify teacher access code and return school_id if valid.
+        """
+        result = await db.execute(
+            select(TeacherAccessCode).where(
+                TeacherAccessCode.code == code,
+                TeacherAccessCode.is_used == False,
+                or_(
+                    TeacherAccessCode.expires_at.is_(None),
+                    TeacherAccessCode.expires_at > datetime.utcnow()
+                )
+            )
+        )
+        access_code = result.scalar_one_or_none()
+        return access_code.school_id if access_code else None
+    
+    @staticmethod
+    async def create_teacher_with_code(
+        db: AsyncSession,
+        code: str,
+        email: str,
+        password: str,
+        first_name: str,
+        last_name: str
+    ) -> Optional[User]:
+        """Create teacher using access code"""
+        # Verify code
+        school_id = await UserService.verify_access_code(db, code)
+        if not school_id:
+            return None
+        
+        # Check email doesn't exist
+        existing = await UserService.get_user_by_email(db, email)
+        if existing:
+            return None
+        
+        # Create teacher
+        hashed_password = get_password_hash(password)
+        teacher = User(
+            email=email,
+            hashed_password=hashed_password,
+            first_name=first_name,
+            last_name=last_name,
+            role=UserRole.TEACHER,
+            school_id=school_id,
+            is_active=True
+        )
+        
+        db.add(teacher)
+        
+        # Mark code as used
+        result = await db.execute(select(TeacherAccessCode).where(TeacherAccessCode.code == code))
+        access_code = result.scalar_one()
+        access_code.is_used = True
+        access_code.used_by_teacher_id = teacher.id
+        
+        await db.commit()
+        await db.refresh(teacher)
+        return teacher
+    
+    @staticmethod
+    async def get_users_by_school_and_role(
+        db: AsyncSession,
+        school_id: UUID,
+        role: Optional[UserRole] = None,
+        include_deleted: bool = False
+    ) -> List[User]:
+        """Get users by school and role"""
+        query = select(User).where(User.school_id == school_id)
+        
+        if role:
+            query = query.where(User.role == role)
+        
+        if not include_deleted:
+            query = query.where(User.deleted_at.is_(None))
+        
+        result = await db.execute(query)
+        return list(result.scalars().all())
+    
+    @staticmethod
+    async def soft_delete_user(db: AsyncSession, user_id: UUID) -> bool:
+        """Soft delete user"""
+        result = await db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None)))
+        user = result.scalar_one_or_none()
+        if not user:
+            return False
+        
+        user.soft_delete()
+        await db.commit()
+        return True
+    
+    @staticmethod
+    async def restore_user(db: AsyncSession, user_id: UUID) -> bool:
+        """Restore soft-deleted user"""
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user or not user.is_deleted:
+            return False
+        
+        user.restore()
+        await db.commit()
+        return True
