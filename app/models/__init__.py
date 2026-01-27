@@ -4,9 +4,10 @@ from app.models.base import BaseModel, SchoolScopedMixin, SoftDeleteMixin, Statu
 from app.models.enums import *
 from app.models.onboarding import ContactInquiry, School, Language, school_languages
 from app.models.user import User
-from app.models.academic import Semester, Class, ClassSchedule, ClassEnrollment, TeacherAssignment
+from app.models.academic import Semester, Class, ClassSchedule, class_enrollments, teacher_assignments
+
 from app.models.curriculum import Curriculum
-from app.models.assessment import Question, Assignment, AssignmentQuestion, StudentSubmission, assignment_classes
+from app.models.assessment import Question, Assignment, assignment_questions, StudentSubmission, assignment_classes
 from app.models.arena import Arena, ArenaCriteria, ArenaRule, ArenaPerformer, arena_moderators
 from app.models.communication import Announcement, AnnouncementReminder
 from app.models.analytics import LearningSession, Award
@@ -32,8 +33,8 @@ __all__ = [
     "Semester",
     "Class",
     "ClassSchedule",
-    "ClassEnrollment",
-    "TeacherAssignment",
+    "class_enrollments",
+    "teacher_assignments",
     
     # Curriculum
     "Curriculum",
@@ -41,7 +42,7 @@ __all__ = [
     # Assessment
     "Question",
     "Assignment",
-    "AssignmentQuestion",
+    "assignment_questions",
     "StudentSubmission",
     "assignment_classes",
     

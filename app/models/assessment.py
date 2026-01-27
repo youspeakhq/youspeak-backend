@@ -74,21 +74,13 @@ assignment_classes = Table(
 
 
 # Association table for Assignment <-> Question with scoring
-class AssignmentQuestion(BaseModel):
-    """
-    Assignment question content with point values.
-    Links questions to assignments with scoring weights.
-    """
-    __tablename__ = "assignment_questions"
-    
-    assignment_id = Column(UUID(as_uuid=True), ForeignKey("assignments.id", ondelete="CASCADE"), primary_key=True)
-    question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id", ondelete="CASCADE"), primary_key=True)
-    points = Column(Integer, nullable=False, default=1)
-    
-    # Remove inherited id column since we're using composite PK
-    __mapper_args__ = {
-        "exclude_properties": ["id", "created_at", "updated_at"]
-    }
+assignment_questions = Table(
+    "assignment_questions",
+    BaseModel.metadata,
+    Column("assignment_id", UUID(as_uuid=True), ForeignKey("assignments.id", ondelete="CASCADE"), primary_key=True),
+    Column("question_id", UUID(as_uuid=True), ForeignKey("questions.id", ondelete="CASCADE"), primary_key=True),
+    Column("points", Integer, nullable=False, default=1)
+)
 
 
 class StudentSubmission(BaseModel):

@@ -1,15 +1,28 @@
 """Alembic Environment Configuration"""
 
 import asyncio
+import sys
+from pathlib import Path
 from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
+# Add project root to path
+sys.path.append(str(Path(__file__).parent.parent))
+
 # Import your models here
 from app.database import Base
 from app.models.user import User  # noqa
+from app.models.onboarding import School, Language, ContactInquiry  # noqa
+from app.models.academic import Semester, Class, ClassSchedule  # noqa
+from app.models.curriculum import Curriculum  # noqa
+from app.models.assessment import Question, Assignment, StudentSubmission  # noqa
+from app.models.arena import Arena, ArenaCriteria, ArenaRule, ArenaPerformer  # noqa
+from app.models.communication import Announcement, AnnouncementReminder  # noqa
+from app.models.analytics import LearningSession, Award  # noqa
+from app.models.billing import Bill  # noqa
 from app.config import settings
 
 # This is the Alembic Config object

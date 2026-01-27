@@ -1,11 +1,12 @@
-"""Domain 3: Academic & Classroom Models"""
-
+from datetime import datetime
 from sqlalchemy import Column, String, Text, Date, Time, Boolean, Table, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.orm import relationship
 
+from app.database import Base
 from app.models.base import BaseModel, SchoolScopedMixin
 from app.models.enums import DayOfWeek, ClassStatus, StudentRole
+
 
 
 class Semester(BaseModel, SchoolScopedMixin):
@@ -98,37 +99,21 @@ class ClassSchedule(BaseModel):
 
 
 # Association table for Class <-> Student with role support (Pivot Table)
-class ClassEnrollment(BaseModel):
-    """
-    Student enrollment in a class with role assignment.
-    Supports special roles like Class Monitor, Time Keeper, etc.
-    """
-    __tablename__ = "class_enrollments"
-    
-    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE"), primary_key=True)
-    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    role = Column(ENUM(StudentRole, name="student_role"), default=StudentRole.STUDENT, nullable=False)
-    joined_at = Column(DateTime, nullable=False)
-    
-    # Remove inherited id column since we're using composite PK
-    __mapper_args__ = {
-        "exclude_properties": ["id", "created_at", "updated_at"]
-    }
+class_enrollments = Table(
+    "class_enrollments",
+    BaseModel.metadata,
+    Column("class_id", UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE"), primary_key=True),
+    Column("student_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("role", ENUM(StudentRole, name="student_role"), default=StudentRole.STUDENT, nullable=False),
+    Column("joined_at", DateTime, nullable=False)
+)
 
 
 # Association table for Class <-> Teacher (Pivot Table)
-class TeacherAssignment(BaseModel):
-    """
-    Teacher assignment to a class.
-    Supports primary teacher designation.
-    """
-    __tablename__ = "teacher_assignments"
-    
-    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE"), primary_key=True)
-    teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    is_primary = Column(Boolean, default=False, nullable=False)  # Main teacher flag
-    
-    # Remove inherited id column since we're using composite PK
-    __mapper_args__ = {
-        "exclude_properties": ["id", "created_at", "updated_at"]
-    }
+teacher_assignments = Table(
+    "teacher_assignments",
+    BaseModel.metadata,
+    Column("class_id", UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE"), primary_key=True),
+    Column("teacher_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("is_primary", Boolean, default=False, nullable=False)  # Main teacher flag
+)
