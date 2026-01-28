@@ -47,6 +47,11 @@ async def list_students(
         }
     )
 
+from app.services.academic_service import AcademicService
+import secrets
+
+# ...
+
 @router.post("", response_model=SuccessResponse[UserResponse])
 async def create_student(
     student_in: StudentCreate,
@@ -56,10 +61,39 @@ async def create_student(
     """
     Create single student.
     """
-    # Create user logic here, linking to class if provided
-    # ...
+    email = student_in.email
+    if not email:
+        suffix = secrets.token_hex(4)
+        email = f"{student_in.first_name.lower()}.{student_in.last_name.lower()}.{suffix}@youspeak-dummy.com"
+        
+    password = student_in.password or "Student123!"
+
+    # Check email uniqueness (UserService might handle, but good to check)
+    existing = await UserService.get_user_by_email(db, email)
+    if existing:
+        if student_in.email:
+             raise HTTPException(status_code=400, detail="Student email already exists")
+        else:
+             # If generated, regenerate (simple retry or fail)
+             suffix = secrets.token_hex(4)
+             email = f"{student_in.first_name.lower()}.{student_in.last_name.lower()}.{suffix}@youspeak-dummy.com"
+
+    user = await UserService.create_user(
+        db=db,
+        email=email,
+        password=password,
+        first_name=student_in.first_name,
+        last_name=student_in.last_name,
+        school_id=current_user.school_id,
+        role=UserRole.STUDENT,
+        is_active=True
+    )
     
-    return SuccessResponse(message="Student created successfully")
+    # Enroll in class
+    if student_in.class_id:
+        await AcademicService.add_student_to_class(db, student_in.class_id, user.id)
+    
+    return SuccessResponse(data=user, message="Student created successfully")
 
 @router.delete("/{student_id}", response_model=SuccessResponse)
 async def delete_student(

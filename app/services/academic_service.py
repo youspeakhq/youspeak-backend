@@ -49,8 +49,12 @@ class AcademicService:
             db.add(schedule)
             
         await db.commit()
-        await db.refresh(new_class)
-        return new_class
+        await db.commit()
+        
+        # Fetch with eager load to ensure relationships are available for Pydantic
+        stmt = select(Class).options(selectinload(Class.schedules)).where(Class.id == new_class.id)
+        result = await db.execute(stmt)
+        return result.scalar_one()
 
     @staticmethod
     async def get_teacher_classes(db: AsyncSession, teacher_id: UUID) -> List[Class]:

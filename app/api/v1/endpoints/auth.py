@@ -87,8 +87,8 @@ async def register_school(
     # Create SchoolCreate object with defaults
     school_data = SchoolCreate(
         name=school_in.school_name,
-        school_type=SchoolType.K12, # Default
-        program_type=ProgramType.BILINGUAL # Default
+        school_type=SchoolType.SECONDARY, # Default
+        program_type=ProgramType.PARTNERSHIP # Default
     )
     
     school = await SchoolService.create_school_with_admin(

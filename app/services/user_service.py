@@ -5,6 +5,7 @@ from typing import Optional, List
 from uuid import UUID
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 
 from app.models.user import User
 from app.models.enums import UserRole
@@ -12,6 +13,7 @@ from app.models.access_code import TeacherAccessCode
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
 
+logger = logging.getLogger(__name__)
 
 class UserService:
     """Service layer for user-related operations"""
@@ -30,7 +32,11 @@ class UserService:
         """
         Create a new user.
         """
-        # Hash password
+        if password:
+             # Ensure password isn't None though signature says str
+             pass
+
+        # Hash password 
         hashed_password = get_password_hash(password)
         
         # Create user instance

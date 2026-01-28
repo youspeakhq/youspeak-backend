@@ -35,6 +35,12 @@ async def list_teachers(
         meta={"total": len(teachers), "page": 1, "limit": 100}
     )
 
+from datetime import datetime, timedelta
+from app.models.access_code import TeacherAccessCode
+from app.core import security
+
+# ...
+
 @router.post("", response_model=SuccessResponse)
 async def create_teacher_invite(
     teacher_in: TeacherCreate,
@@ -42,13 +48,33 @@ async def create_teacher_invite(
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
-    Create teacher (generates invite).
+    Create teacher (generates invite with Access Code).
     """
-    # Simply generates an invite email/code in reality
-    # For now, we stub it as successful
+    # Check if user exists
+    existing_user = await UserService.get_user_by_email(db, teacher_in.email)
+    if existing_user:
+         raise HTTPException(status_code=400, detail="User with this email already exists")
+
+    # Generate Access Code
+    code = security.generate_access_code()
     
+    access_code = TeacherAccessCode(
+        code=code,
+        school_id=current_user.school_id,
+        created_by_admin_id=current_user.id,
+        # We don't store email in AccessCode model currently, but we could sending email mock here
+        expires_at=datetime.utcnow() + timedelta(days=7),
+        is_used=False
+    )
+    
+    db.add(access_code)
+    await db.commit()
+    
+    # In a real app, successful response would be void (email sent), 
+    # but for Development/Testing we return the code.
     return SuccessResponse(
-        message=f"Invite sent to {teacher_in.email}"
+        data={"access_code": code},
+        message=f"Invite created for {teacher_in.email}"
     )
 
 @router.delete("/{teacher_id}", response_model=SuccessResponse)

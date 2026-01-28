@@ -45,6 +45,7 @@ class SchoolService:
         await db.flush() # Flush to get school.id
         
         # Create Admin User
+        # Create Admin User
         await UserService.create_user(
             db=db,
             email=admin_data["email"],
@@ -54,6 +55,28 @@ class SchoolService:
             role=UserRole.SCHOOL_ADMIN,
             school_id=school.id
         )
+        
+        # Create Default Semester
+        from datetime import datetime, timedelta
+        default_semester = Semester(
+             school_id=school.id,
+             name="Term 1",
+             start_date=datetime.utcnow(),
+             end_date=datetime.utcnow() + timedelta(days=90),
+             is_active=True
+        )
+        db.add(default_semester)
+        
+        # Seed Languages if empty
+        stmt = select(Language).limit(1)
+        result = await db.execute(stmt)
+        if not result.scalar_one_or_none():
+             languages = [
+                 Language(code="en", name="English"),
+                 Language(code="es", name="Spanish"),
+                 Language(code="fr", name="French")
+             ]
+             db.add_all(languages)
         
         await db.commit()
         await db.refresh(school)
@@ -131,3 +154,10 @@ class SchoolService:
         school.languages = list(languages)
         await db.commit()
         return True
+    
+    @staticmethod
+    async def get_semesters(db: AsyncSession, school_id: UUID) -> List[Semester]:
+        """Get all semesters for school"""
+        stmt = select(Semester).where(Semester.school_id == school_id).order_by(desc(Semester.start_date))
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
