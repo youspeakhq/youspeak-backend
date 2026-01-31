@@ -8,6 +8,7 @@ httpx==0.26.0
 black==23.12.1
 ruff==0.1.14
 mypy==1.8.0
+flake8==7.0.0
 
 # Development
 ipython==8.18.1
