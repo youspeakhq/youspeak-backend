@@ -459,8 +459,8 @@ aws ec2 authorize-security-group-ingress \
   --port 5432 \
   --cidr ${MY_IP}/32
 
-echo "✅ Your IP ($MY_IP) can now access the database"
-echo "⚠️ Remember to revoke this rule when done!"
+echo " Your IP ($MY_IP) can now access the database"
+echo " Remember to revoke this rule when done!"
 ```
 
 ### Step 4: Run Database Migrations on Production

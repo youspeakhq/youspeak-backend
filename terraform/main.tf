@@ -20,7 +20,7 @@ terraform {
   }
   
   backend "s3" {
-    bucket = "youspeak-terraform-state"
+    bucket = "youspeak-terraform-state-497068062563"
     key    = "backend/terraform.tfstate"
     region = "us-east-1"
     encrypt = true
@@ -363,7 +363,7 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "postgres" {
   identifier             = "${var.app_name}-db-${var.environment}"
   engine                 = "postgres"
-  engine_version         = "15.4"
+  engine_version         = "15.7"
   instance_class         = var.environment == "production" ? "db.t3.small" : "db.t3.micro"
   allocated_storage      = 20
   storage_encrypted      = true
@@ -389,7 +389,7 @@ resource "aws_elasticache_cluster" "redis" {
   node_type            = var.environment == "production" ? "cache.t3.small" : "cache.t3.micro"
   num_cache_nodes      = 1
   parameter_group_name = "default.redis7"
-  engine_version       = "7.0"
+  engine_version       = "7.1"
   port                 = 6379
   subnet_group_name    = aws_elasticache_subnet_group.main.name
   security_group_ids   = [aws_security_group.redis.id]

@@ -1,12 +1,18 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.venv/
 venv/
+env/
 .env
 
 # Docker
 .docker/
 postgres_data/
+Dockerfile
+docker-compose.yml
 
 # IDE
 .vscode/
@@ -16,7 +22,7 @@ postgres_data/
 .git/
 .gitignore
 
-# Tests
+# Tests & coverage
 .pytest_cache/
 htmlcov/
 .coverage
@@ -28,8 +34,25 @@ alembic/versions/*.pyc
 logs/
 *.log
 
+# Node / frontend
+node_modules/
+
+# Terraform
+terraform/
+.terraform/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Type checkers
+.mypy_cache/
+.pytype/
+.pyre/
+
 # OS
 .DS_Store
 
 # Docs
-/docs/
+docs/
