@@ -231,13 +231,51 @@ jobs:
             ENVIRONMENT=staging
             LOG_LEVEL=INFO
       
+      - name: Register task definition
+        id: register-task
+        env:
+          TASK_DEF_JSON: ${{ steps.task-def.outputs.task-definition }}
+        run: |
+          echo "$TASK_DEF_JSON" > task-def.json
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
+      
+      - name: Run database migrations (one-off task)
+        env:
+          PRIVATE_SUBNET_IDS: ${{ secrets.PRIVATE_SUBNET_IDS }}
+          ECS_SECURITY_GROUP: ${{ secrets.ECS_SECURITY_GROUP }}
+        run: |
+          if [ -z "$PRIVATE_SUBNET_IDS" ] || [ -z "$ECS_SECURITY_GROUP" ]; then
+            echo "::warning::PRIVATE_SUBNET_IDS or ECS_SECURITY_GROUP not set. Skipping migrations (run .aws/set-github-secrets.sh)."
+            exit 0
+          fi
+          TASK_ARN=$(aws ecs run-task \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --task-definition ${{ steps.register-task.outputs.task-definition-arn }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_IDS],securityGroups=[$ECS_SECURITY_GROUP],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides":[{"name":"youspeak-api","command":["python","-m","alembic","upgrade","head"]}]}' \
+            --query 'tasks[0].taskArn' --output text)
+          aws ecs wait tasks-stopped --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN"
+          EXIT_CODE=$(aws ecs describe-tasks --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Migration task exited with code $EXIT_CODE"
+            aws ecs describe-tasks --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN" --query 'tasks[0].containers[0]' --output json
+            exit 1
+          fi
+          echo "Migrations completed successfully"
+      
       - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}-staging
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }}-staging \
+            --task-definition ${{ steps.register-task.outputs.task-definition-arn }} \
+            --force-new-deployment \
+            --no-cli-pager
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }}-staging
 
   deploy-live:
     name: Deploy to Live API (ECS)
@@ -270,13 +308,51 @@ jobs:
             ENVIRONMENT=production
             LOG_LEVEL=WARNING
       
+      - name: Register task definition
+        id: register-task
+        env:
+          TASK_DEF_JSON: ${{ steps.task-def.outputs.task-definition }}
+        run: |
+          echo "$TASK_DEF_JSON" > task-def.json
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
+      
+      - name: Run database migrations (one-off task)
+        env:
+          PRIVATE_SUBNET_IDS: ${{ secrets.PRIVATE_SUBNET_IDS }}
+          ECS_SECURITY_GROUP: ${{ secrets.ECS_SECURITY_GROUP }}
+        run: |
+          if [ -z "$PRIVATE_SUBNET_IDS" ] || [ -z "$ECS_SECURITY_GROUP" ]; then
+            echo "::warning::PRIVATE_SUBNET_IDS or ECS_SECURITY_GROUP not set. Skipping migrations (run .aws/set-github-secrets.sh)."
+            exit 0
+          fi
+          TASK_ARN=$(aws ecs run-task \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --task-definition ${{ steps.register-task.outputs.task-definition-arn }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_IDS],securityGroups=[$ECS_SECURITY_GROUP],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides":[{"name":"youspeak-api","command":["python","-m","alembic","upgrade","head"]}]}' \
+            --query 'tasks[0].taskArn' --output text)
+          aws ecs wait tasks-stopped --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN"
+          EXIT_CODE=$(aws ecs describe-tasks --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Migration task exited with code $EXIT_CODE"
+            aws ecs describe-tasks --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN" --query 'tasks[0].containers[0]' --output json
+            exit 1
+          fi
+          echo "Migrations completed successfully"
+      
       - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}-production
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }}-production \
+            --task-definition ${{ steps.register-task.outputs.task-definition-arn }} \
+            --force-new-deployment \
+            --no-cli-pager
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }}-production
 
       - name: Notify deployment
         if: success()

@@ -51,8 +51,8 @@ Add the printed values in the repo: **Settings → Secrets and variables → Act
 |-------------------------|------------------|
 | `AWS_ACCESS_KEY_ID`     | IAM user → Security credentials → Create access key |
 | `AWS_SECRET_ACCESS_KEY` | Same as above (save when created) |
-| `PRIVATE_SUBNET_IDS`    | Output of `./.aws/print-github-secrets.sh` (comma-separated subnet IDs) |
-| `ECS_SECURITY_GROUP`   | Output of `./.aws/print-github-secrets.sh` (single security group ID) |
+| `PRIVATE_SUBNET_IDS`    | Output of `./.aws/print-github-secrets.sh` (comma-separated subnet IDs). Required for the one-off migration task. |
+| `ECS_SECURITY_GROUP`   | Output of `./.aws/print-github-secrets.sh` (single security group ID). Required for the one-off migration task. |
 
 ---
 
@@ -81,14 +81,16 @@ Do **not** commit `.env.production.local` or `terraform.tfvars`; only the task d
 ## 4. Branch behaviour
 
 - **Push/merge to `main`**  
-  - Tests run → image built and pushed to ECR → deploy to **staging**  
+  - Tests run → image built and pushed to ECR → **run DB migrations** (one-off ECS task) → deploy to **staging**  
   - ECS service: `youspeak-api-service-staging`  
   - Staging URL: `http://<alb_staging_dns>` from `terraform output alb_staging_dns_name`
 
 - **Push/merge to `live`**  
-  - Same flow → deploy to **live**  
+  - Same flow → **run DB migrations** (one-off ECS task) → deploy to **live**  
   - ECS service: `youspeak-api-service-production`  
   - Live URL: `http://<alb_dns_name>` from `terraform output alb_dns_name`
+
+Migrations run **once per deploy** as a short-lived ECS task (`alembic upgrade head`) before the service is updated. If `PRIVATE_SUBNET_IDS` or `ECS_SECURITY_GROUP` are not set, the migration step is skipped (with a warning).
 
 ---
 

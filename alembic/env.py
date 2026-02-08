@@ -6,14 +6,14 @@ from pathlib import Path
 from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
 
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
 # Import your models here
-from app.database import Base
+from app.database import Base, get_async_engine_url_and_connect_args
 from app.models.user import User  # noqa
 from app.models.onboarding import School, Language, ContactInquiry  # noqa
 from app.models.academic import Semester, Class, ClassSchedule  # noqa
@@ -35,11 +35,9 @@ if config.config_file_name is not None:
 # Add your model's MetaData object here for 'autogenerate' support
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url with value from settings
-config.set_main_option(
-    "sqlalchemy.url",
-    settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
-)
+# Override sqlalchemy.url (Alembic offline mode); online mode uses get_async_engine_url_and_connect_args
+_migration_url, _ = get_async_engine_url_and_connect_args()
+config.set_main_option("sqlalchemy.url", _migration_url)
 
 
 def run_migrations_offline() -> None:
@@ -74,15 +72,11 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    """Run migrations in async mode"""
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = settings.DATABASE_URL.replace(
-        "postgresql://", "postgresql+asyncpg://"
-    )
-    
-    connectable = async_engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
+    """Run migrations in async mode (same URL/SSL handling as app for RDS)."""
+    url, connect_args = get_async_engine_url_and_connect_args()
+    connectable = create_async_engine(
+        url,
+        connect_args=connect_args,
         poolclass=pool.NullPool,
     )
 

@@ -5,25 +5,28 @@ import ssl
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Tuple
 
 from app.config import settings
 
-# Convert postgresql:// to postgresql+asyncpg:// for async support
-database_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
-# asyncpg uses ssl=SSLContext or True, not sslmode; strip sslmode from URL (asyncpg#737, SQLAlchemy#6275)
-# RDS uses a cert that can cause CERTIFICATE_VERIFY_FAILED; use a context that encrypts but does not verify
-connect_args = {}
-if re.search(r"[?&]sslmode=(require|required|verify-full)", database_url, re.I):
-    _ssl_ctx = ssl.create_default_context()
-    _ssl_ctx.check_hostname = False
-    _ssl_ctx.verify_mode = ssl.CERT_NONE
-    connect_args["ssl"] = _ssl_ctx
-    database_url = re.sub(r"[?&]sslmode=[^&]+", "", database_url, flags=re.I)
-    database_url = re.sub(r"\?&", "?", database_url).rstrip("?")
-if "?&" in database_url:
-    database_url = database_url.replace("?&", "?")
+def get_async_engine_url_and_connect_args() -> Tuple[str, dict]:
+    """Return (async URL, connect_args) for SQLAlchemy async engine (app and Alembic)."""
+    url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+    args: dict = {}
+    if re.search(r"[?&]sslmode=(require|required|verify-full)", url, re.I):
+        _ctx = ssl.create_default_context()
+        _ctx.check_hostname = False
+        _ctx.verify_mode = ssl.CERT_NONE
+        args["ssl"] = _ctx
+        url = re.sub(r"[?&]sslmode=[^&]+", "", url, flags=re.I)
+        url = re.sub(r"\?&", "?", url).rstrip("?")
+    if "?&" in url:
+        url = url.replace("?&", "?")
+    return url, args
+
+
+database_url, connect_args = get_async_engine_url_and_connect_args()
 
 # Create async engine with connection pooling (pool_pre_ping detects stale RDS connections)
 engine = create_async_engine(
