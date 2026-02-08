@@ -23,7 +23,7 @@ if "?&" in database_url:
 # Create async engine with connection pooling (pool_pre_ping detects stale RDS connections)
 engine = create_async_engine(
     database_url,
-    connect_args=connect_args if connect_args else None,
+    connect_args=connect_args,
     pool_pre_ping=True,
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_MAX_OVERFLOW,
