@@ -20,7 +20,7 @@ terraform {
   }
   
   backend "s3" {
-    bucket = "youspeak-terraform-state"
+    bucket = "youspeak-terraform-state-497068062563"
     key    = "backend/terraform.tfstate"
     region = "us-east-1"
     encrypt = true
@@ -287,6 +287,74 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+# Staging ALB and target group (for main branch deploys)
+resource "aws_lb" "staging" {
+  name               = "${var.app_name}-alb-staging"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb.id]
+  subnets            = aws_subnet.public[*].id
+}
+
+resource "aws_lb_target_group" "api_staging" {
+  name        = "${var.app_name}-api-tg-staging"
+  port        = 8000
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200"
+    path                = "/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 3
+  }
+}
+
+resource "aws_lb_listener" "staging" {
+  load_balancer_arn = aws_lb.staging.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.api_staging.arn
+  }
+}
+
+resource "aws_ecs_service" "staging" {
+  name            = "${var.app_name}-api-service-staging"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = "youspeak-api-task"
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  platform_version = "LATEST"
+
+  network_configuration {
+    subnets          = aws_subnet.private[*].id
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.api_staging.arn
+    container_name   = "youspeak-api"
+    container_port   = 8000
+  }
+
+  health_check_grace_period_seconds = 90
+  enable_execute_command           = true
+
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
+}
+
 # ECR Repository
 resource "aws_ecr_repository" "app" {
   name                 = "${var.app_name}-backend"
@@ -363,7 +431,7 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "postgres" {
   identifier             = "${var.app_name}-db-${var.environment}"
   engine                 = "postgres"
-  engine_version         = "15.4"
+  engine_version         = "15.7"
   instance_class         = var.environment == "production" ? "db.t3.small" : "db.t3.micro"
   allocated_storage      = 20
   storage_encrypted      = true
@@ -454,4 +522,39 @@ output "redis_endpoint" {
   description = "Redis endpoint"
   value       = "${aws_elasticache_cluster.redis.cache_nodes[0].address}:${aws_elasticache_cluster.redis.cache_nodes[0].port}"
   sensitive   = true
+}
+
+output "ecs_execution_role_arn" {
+  description = "ARN of the ECS task execution role"
+  value       = aws_iam_role.ecs_execution.arn
+}
+
+output "secret_database_url_arn" {
+  description = "ARN of the database URL secret"
+  value       = aws_secretsmanager_secret.database_url.arn
+}
+
+output "secret_redis_url_arn" {
+  description = "ARN of the Redis URL secret"
+  value       = aws_secretsmanager_secret.redis_url.arn
+}
+
+output "secret_secret_key_arn" {
+  description = "ARN of the secret key secret"
+  value       = aws_secretsmanager_secret.secret_key.arn
+}
+
+output "private_subnet_ids" {
+  description = "Private subnet IDs for ECS (comma-separated, for GitHub Actions)"
+  value       = join(",", aws_subnet.private[*].id)
+}
+
+output "ecs_security_group_id" {
+  description = "ECS tasks security group ID (for GitHub Actions)"
+  value       = aws_security_group.ecs.id
+}
+
+output "alb_staging_dns_name" {
+  description = "Staging ALB DNS name (main branch deploys here)"
+  value       = aws_lb.staging.dns_name
 }

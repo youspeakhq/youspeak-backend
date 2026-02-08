@@ -158,3 +158,8 @@ alembic/versions/*.pyc
 # Logs
 logs/
 *.log
+
+# Terraform saved plans (one-time use; do not commit)
+terraform/tfplan
+terraform/tfplan*
+*.tfplan

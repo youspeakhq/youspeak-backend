@@ -1,11 +1,12 @@
 #!/bin/bash
-# Script to generate ECS task definition with actual AWS account ID and region
+# Script to generate ECS task definition with Terraform outputs (run from repo root after terraform apply)
 
 set -e
 
 # Colors for output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${YELLOW}Generating ECS Task Definition...${NC}"
@@ -13,17 +14,32 @@ echo -e "${YELLOW}Generating ECS Task Definition...${NC}"
 # Get AWS account ID
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null)
 if [ -z "$AWS_ACCOUNT_ID" ]; then
-    echo "Error: Could not get AWS account ID. Make sure AWS CLI is configured."
+    echo -e "${RED}Error: Could not get AWS account ID. Make sure AWS CLI is configured (aws configure).${NC}"
     exit 1
 fi
 
 # Get AWS region (default to us-east-1)
 AWS_REGION=${AWS_REGION:-us-east-1}
 
+# Require Terraform outputs (run from repo root after terraform apply)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+EXEC_ROLE_ARN=$(terraform -chdir=terraform output -raw ecs_execution_role_arn 2>/dev/null)
+SECRET_DB_ARN=$(terraform -chdir=terraform output -raw secret_database_url_arn 2>/dev/null)
+SECRET_REDIS_ARN=$(terraform -chdir=terraform output -raw secret_redis_url_arn 2>/dev/null)
+SECRET_KEY_ARN=$(terraform -chdir=terraform output -raw secret_secret_key_arn 2>/dev/null)
+
+if [ -z "$EXEC_ROLE_ARN" ] || [ -z "$SECRET_DB_ARN" ]; then
+    echo -e "${RED}Error: Terraform outputs not found. Run from repo root after: cd terraform && terraform init && terraform apply${NC}"
+    exit 1
+fi
+
 echo "AWS Account ID: $AWS_ACCOUNT_ID"
 echo "AWS Region: $AWS_REGION"
+echo "Execution Role: $EXEC_ROLE_ARN"
 
-# Generate task definition from template
+# Generate task definition from template (use execution role for task role as well)
 cat > .aws/task-definition.json <<EOF
 {
   "family": "youspeak-api-task",
@@ -31,8 +47,8 @@ cat > .aws/task-definition.json <<EOF
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
   "memory": "1024",
-  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecsTaskRole",
+  "executionRoleArn": "${EXEC_ROLE_ARN}",
+  "taskRoleArn": "${EXEC_ROLE_ARN}",
   "containerDefinitions": [
     {
       "name": "youspeak-api",
@@ -65,15 +81,15 @@ cat > .aws/task-definition.json <<EOF
       "secrets": [
         {
           "name": "DATABASE_URL",
-          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:youspeak/database-url-production"
+          "valueFrom": "${SECRET_DB_ARN}"
         },
         {
           "name": "REDIS_URL",
-          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:youspeak/redis-url-production"
+          "valueFrom": "${SECRET_REDIS_ARN}"
         },
         {
           "name": "SECRET_KEY",
-          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:youspeak/secret-key-production"
+          "valueFrom": "${SECRET_KEY_ARN}"
         }
       ],
       "logConfiguration": {
