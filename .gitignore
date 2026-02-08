@@ -159,7 +159,15 @@ alembic/versions/*.pyc
 logs/
 *.log
 
-# Terraform saved plans (one-time use; do not commit)
+# Terraform
 terraform/tfplan
 terraform/tfplan*
 *.tfplan
+terraform/.terraform/
+terraform/terraform.tfvars
+terraform-outputs.txt
+
+# Local / production secrets (do not commit)
+.env
+.env.*
+!.env.example

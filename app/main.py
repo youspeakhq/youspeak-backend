@@ -9,8 +9,10 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+from sqlalchemy import text
+
 from app.config import settings
-from app.database import init_db, close_db
+from app.database import init_db, close_db, engine
 from app.core.logging import setup_logging, get_logger
 from app.core.middleware import (
     RequestIDMiddleware,
@@ -90,6 +92,28 @@ async def health_check():
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT
     }
+
+
+@app.get("/health/ready", tags=["Health"])
+async def health_ready():
+    """Readiness: checks database connectivity. Returns 503 if DB is unreachable."""
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        return {
+            "status": "healthy",
+            "database": "connected",
+        }
+    except Exception as e:
+        logger.exception("Database health check failed")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "unhealthy",
+                "database": "disconnected",
+                "detail": str(e),
+            },
+        )
 
 
 @app.get("/", include_in_schema=False)

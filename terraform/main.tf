@@ -69,6 +69,20 @@ variable "secret_key" {
   sensitive   = true
 }
 
+# Optional: enable HTTPS with a custom domain (e.g. youspeak.com).
+# Requires a Route53 hosted zone for the domain in this AWS account.
+variable "domain_name" {
+  description = "Root domain for API (e.g. youspeak.com). Leave empty to keep HTTP only."
+  type        = string
+  default     = ""
+}
+
+locals {
+  enable_https = var.domain_name != ""
+  api_fqdn     = local.enable_https ? "api.${var.domain_name}" : ""
+  staging_fqdn = local.enable_https ? "api-staging.${var.domain_name}" : ""
+}
+
 # VPC
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
@@ -277,10 +291,38 @@ resource "aws_lb_target_group" "api" {
 }
 
 resource "aws_lb_listener" "http" {
+  count             = local.enable_https ? 0 : 1
   load_balancer_arn = aws_lb.main.arn
   port              = "80"
   protocol          = "HTTP"
-  
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.api.arn
+  }
+}
+
+resource "aws_lb_listener" "http_redirect" {
+  count             = local.enable_https ? 1 : 0
+  load_balancer_arn = aws_lb.main.arn
+  port              = "80"
+  protocol          = "HTTP"
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_lb_listener" "https" {
+  count             = local.enable_https ? 1 : 0
+  load_balancer_arn = aws_lb.main.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  certificate_arn   = aws_acm_certificate_validation.api[0].certificate_arn
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.api.arn
@@ -317,13 +359,69 @@ resource "aws_lb_target_group" "api_staging" {
 }
 
 resource "aws_lb_listener" "staging" {
+  count             = local.enable_https ? 0 : 1
   load_balancer_arn = aws_lb.staging.arn
   port              = "80"
   protocol          = "HTTP"
-
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.api_staging.arn
+  }
+}
+
+resource "aws_lb_listener" "staging_http_redirect" {
+  count             = local.enable_https ? 1 : 0
+  load_balancer_arn = aws_lb.staging.arn
+  port              = "80"
+  protocol          = "HTTP"
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_lb_listener" "staging_https" {
+  count             = local.enable_https ? 1 : 0
+  load_balancer_arn = aws_lb.staging.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  certificate_arn   = aws_acm_certificate_validation.api[0].certificate_arn
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.api_staging.arn
+  }
+}
+
+resource "aws_ecs_service" "production" {
+  name            = "${var.app_name}-api-service-production"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = "youspeak-api-task"
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  platform_version = "LATEST"
+
+  network_configuration {
+    subnets          = aws_subnet.private[*].id
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.api.arn
+    container_name   = "youspeak-api"
+    container_port   = 8000
+  }
+
+  health_check_grace_period_seconds = 90
+  enable_execute_command           = true
+
+  lifecycle {
+    ignore_changes = [task_definition]
   }
 }
 
@@ -496,6 +594,65 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+# Route53 zone for domain (required when domain_name is set)
+data "aws_route53_zone" "main" {
+  count = local.enable_https ? 1 : 0
+  name  = "${var.domain_name}."
+}
+
+# ACM certificate for api and api-staging
+resource "aws_acm_certificate" "api" {
+  count             = local.enable_https ? 1 : 0
+  domain_name       = local.api_fqdn
+  validation_method = "DNS"
+  subject_alternative_names = [local.staging_fqdn]
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "cert_validation" {
+  for_each = local.enable_https ? {
+    for dvo in aws_acm_certificate.api[0].domain_validation_options : dvo.domain_name => dvo
+  } : {}
+  zone_id = data.aws_route53_zone.main[0].zone_id
+  name    = each.value.resource_record_name
+  type    = each.value.resource_record_type
+  records = [each.value.resource_record_value]
+  ttl     = 60
+}
+
+resource "aws_acm_certificate_validation" "api" {
+  count                   = local.enable_https ? 1 : 0
+  certificate_arn         = aws_acm_certificate.api[0].arn
+  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
+}
+
+# Route53 A records (alias to ALB) for api and api-staging
+resource "aws_route53_record" "api" {
+  count   = local.enable_https ? 1 : 0
+  zone_id = data.aws_route53_zone.main[0].zone_id
+  name    = local.api_fqdn
+  type    = "A"
+  alias {
+    name                   = aws_lb.main.dns_name
+    zone_id                = aws_lb.main.zone_id
+    evaluate_target_health  = true
+  }
+}
+
+resource "aws_route53_record" "api_staging" {
+  count   = local.enable_https ? 1 : 0
+  zone_id = data.aws_route53_zone.main[0].zone_id
+  name    = local.staging_fqdn
+  type    = "A"
+  alias {
+    name                   = aws_lb.staging.dns_name
+    zone_id                = aws_lb.staging.zone_id
+    evaluate_target_health = true
+  }
+}
+
 # Outputs
 output "alb_dns_name" {
   description = "DNS name of the load balancer"
@@ -557,4 +714,14 @@ output "ecs_security_group_id" {
 output "alb_staging_dns_name" {
   description = "Staging ALB DNS name (main branch deploys here)"
   value       = aws_lb.staging.dns_name
+}
+
+output "api_url_https" {
+  description = "Production API URL (HTTPS). Set when domain_name is configured."
+  value       = local.enable_https ? "https://${local.api_fqdn}" : null
+}
+
+output "api_staging_url_https" {
+  description = "Staging API URL (HTTPS). Set when domain_name is configured."
+  value       = local.enable_https ? "https://${local.staging_fqdn}" : null
 }

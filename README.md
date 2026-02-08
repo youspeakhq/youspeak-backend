@@ -134,6 +134,15 @@ pytest --cov=app tests/
 pytest tests/api/v1/test_auth.py -v
 ```
 
+### Run CI checks locally (before pushing)
+Lint, Docker Compose, and tests—same as GitHub Actions, without pushing:
+
+```bash
+./scripts/run-ci-local.sh
+```
+
+See [docs/LOCAL_CI.md](docs/LOCAL_CI.md) for options and for running the full workflow with [act](https://github.com/nektos/act).
+
 ## Project Structure
 
 ```
