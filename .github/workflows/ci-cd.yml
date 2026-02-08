@@ -233,11 +233,10 @@ jobs:
       
       - name: Register task definition
         id: register-task
-        env:
-          TASK_DEF_JSON: ${{ steps.task-def.outputs.task-definition }}
         run: |
-          echo "$TASK_DEF_JSON" > task-def.json
-          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          TASK_DEF_FILE="${{ steps.task-def.outputs.task-definition }}"
+          [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
       
       - name: Run database migrations (one-off task)
@@ -310,11 +309,10 @@ jobs:
       
       - name: Register task definition
         id: register-task
-        env:
-          TASK_DEF_JSON: ${{ steps.task-def.outputs.task-definition }}
         run: |
-          echo "$TASK_DEF_JSON" > task-def.json
-          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          TASK_DEF_FILE="${{ steps.task-def.outputs.task-definition }}"
+          [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
       
       - name: Run database migrations (one-off task)
