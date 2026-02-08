@@ -195,6 +195,18 @@ Use it for:
 - **After deploying new code:** `GET /health/ready` returns 200 if the app can run `SELECT 1` against the live DB; 503 if not. Example: `curl -s http://<alb_dns_name>/health/ready`
 - **From inside AWS (same network as the app):** Run `./scripts/check-db-from-ecs.sh production` (or `staging`). This uses ECS Exec to run `psql $DATABASE_URL -c 'SELECT 1'` in a running task. Requires AWS CLI and ECS Exec enabled on the service.
 
+## Verify register and login (staging)
+
+RDS requires SSL. The app uses `DATABASE_URL` with `?sslmode=require` (set by Terraform) and translates that to asyncpg’s `ssl=True` in code. To get register/login working:
+
+1. **Terraform:** Ensure the DB secret has `sslmode=require`: `cd terraform && terraform apply` (if you changed `main.tf`).
+2. **Deploy:** Push to `main` so CI builds and deploys to staging; wait for the workflow to finish.
+3. **Test:** From repo root, run:
+   ```bash
+   ./scripts/test_endpoints.sh "http://$(cd terraform && terraform output -raw alb_staging_dns_name)"
+   ```
+   You should see HTTP 200 for health, 200/201 for register, and 200 for login. If register/login still return 500, check `GET /health/ready` and CloudWatch logs for the ECS service.
+
 ---
 
 ## Quick reference

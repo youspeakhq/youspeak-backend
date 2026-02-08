@@ -1,5 +1,7 @@
 """Database Connection and Session Management"""
 
+import re
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from typing import AsyncGenerator
@@ -9,9 +11,20 @@ from app.config import settings
 # Convert postgresql:// to postgresql+asyncpg:// for async support
 database_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
-# Create async engine with connection pooling
+# asyncpg uses ssl=True, not sslmode; strip sslmode from URL and pass ssl (see asyncpg#737, SQLAlchemy#6275)
+connect_args = {}
+if re.search(r"[?&]sslmode=(require|required|verify-full)", database_url, re.I):
+    connect_args["ssl"] = True
+    database_url = re.sub(r"[?&]sslmode=[^&]+", "", database_url, flags=re.I)
+    database_url = re.sub(r"\?&", "?", database_url).rstrip("?")
+if "?&" in database_url:
+    database_url = database_url.replace("?&", "?")
+
+# Create async engine with connection pooling (pool_pre_ping detects stale RDS connections)
 engine = create_async_engine(
     database_url,
+    connect_args=connect_args if connect_args else None,
+    pool_pre_ping=True,
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_timeout=settings.DB_POOL_TIMEOUT,
