@@ -76,6 +76,9 @@ jobs:
       - name: Run database migrations
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key-for-ci-pipeline-min-32-chars
+          ENVIRONMENT: test
         run: |
           alembic upgrade head
       
