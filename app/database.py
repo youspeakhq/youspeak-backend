@@ -1,6 +1,7 @@
 """Database Connection and Session Management"""
 
 import re
+import ssl
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
@@ -11,10 +12,14 @@ from app.config import settings
 # Convert postgresql:// to postgresql+asyncpg:// for async support
 database_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
-# asyncpg uses ssl=True, not sslmode; strip sslmode from URL and pass ssl (see asyncpg#737, SQLAlchemy#6275)
+# asyncpg uses ssl=SSLContext or True, not sslmode; strip sslmode from URL (asyncpg#737, SQLAlchemy#6275)
+# RDS uses a cert that can cause CERTIFICATE_VERIFY_FAILED; use a context that encrypts but does not verify
 connect_args = {}
 if re.search(r"[?&]sslmode=(require|required|verify-full)", database_url, re.I):
-    connect_args["ssl"] = True
+    _ssl_ctx = ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = ssl.CERT_NONE
+    connect_args["ssl"] = _ssl_ctx
     database_url = re.sub(r"[?&]sslmode=[^&]+", "", database_url, flags=re.I)
     database_url = re.sub(r"\?&", "?", database_url).rstrip("?")
 if "?&" in database_url:
