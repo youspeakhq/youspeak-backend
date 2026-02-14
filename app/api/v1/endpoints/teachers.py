@@ -30,9 +30,15 @@ async def list_teachers(
         include_deleted=(status == "deleted")
     )
     
+    total = len(teachers)
     return PaginatedResponse(
         data=teachers,
-        meta={"total": len(teachers), "page": 1, "limit": 100}
+        meta={
+            "page": 1,
+            "page_size": 100,
+            "total": total,
+            "total_pages": 1 if total > 0 else 0
+        }
     )
 
 from datetime import datetime, timedelta

@@ -6,7 +6,7 @@ from uuid import UUID
 from app.models.enums import SchoolType, ProgramType, InquiryType
 
 class ContactInquiryCreate(BaseModel):
-    school_name: str
+    school_name: str = Field(..., min_length=1, description="School name cannot be empty")
     email: EmailStr
     inquiry_type: InquiryType
     message: str

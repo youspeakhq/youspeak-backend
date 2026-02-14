@@ -37,13 +37,15 @@ async def list_students(
     end = start + limit
     paginated = all_students[start:end]
     
+    total = len(all_students)
+    total_pages = (total + limit - 1) // limit if limit > 0 else 0
     return PaginatedResponse(
         data=paginated,
         meta={
             "page": page,
-            "limit": limit,
-            "total": len(all_students),
-            "pages": (len(all_students) + limit - 1) // limit
+            "page_size": limit,
+            "total": total,
+            "total_pages": total_pages
         }
     )
 

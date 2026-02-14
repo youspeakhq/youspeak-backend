@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 
 from app.models.enums import SchoolType, ProgramType
@@ -25,7 +25,7 @@ class RegisterSchoolRequest(BaseModel):
     account_type: str = "school"
     email: EmailStr
     password: str
-    school_name: str
+    school_name: str = Field(..., min_length=1, description="School name cannot be empty")
     school_type: Optional[SchoolType] = None
     program_type: Optional[ProgramType] = None
     address_country: Optional[str] = None

@@ -388,7 +388,7 @@ async def test_list_students_pagination_page_one(
     assert "data" in data
     assert "meta" in data
     assert data["meta"]["page"] == 1
-    assert data["meta"]["limit"] == 10
+    assert data["meta"]["page_size"] == 10
 
 
 @pytest.mark.asyncio
@@ -402,6 +402,7 @@ async def test_list_students_empty_result(
     assert resp.status_code == 200
     assert resp.json()["data"] == []
     assert resp.json()["meta"]["total"] >= 0
+    assert "total_pages" in resp.json()["meta"]
 
 
 @pytest.mark.asyncio

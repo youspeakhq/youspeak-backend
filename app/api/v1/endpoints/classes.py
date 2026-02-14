@@ -48,7 +48,12 @@ async def get_class_roster(
     """
     List students with Roles.
     """
-    # Check access logic needed
+    cls = await AcademicService.get_class_by_id(db, class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+    if not any(c.id == class_id for c in teacher_classes):
+        raise HTTPException(status_code=404, detail="Class not found")
     roster = await AcademicService.get_class_roster(db, class_id)
     return SuccessResponse(data=roster)
 

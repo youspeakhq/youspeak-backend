@@ -61,7 +61,7 @@ async def update_school_programs(
     if not success:
         raise HTTPException(status_code=400, detail="Failed to update programs")
         
-    return SuccessResponse(message="School programs updated successfully")
+    return SuccessResponse(data={"languages": program_in.languages}, message="School programs updated successfully")
 
 @router.post("/logo", response_model=SuccessResponse)
 async def upload_school_logo(
