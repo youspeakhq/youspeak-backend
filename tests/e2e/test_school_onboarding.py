@@ -27,6 +27,8 @@ async def test_contact_inquiry_then_register_and_login(
             "message": "Interested in onboarding",
         },
     )
+    if resp.status_code != 200:
+        print(f"contact-inquiry failed: status={resp.status_code} body={resp.text}")
     assert resp.status_code == 200
     assert "id" in resp.json()["data"]
 

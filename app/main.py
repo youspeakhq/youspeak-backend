@@ -154,11 +154,12 @@ async def general_exception_handler(request: Request, exc: Exception):
         },
         exc_info=True
     )
+    detail = "Internal server error"
+    if settings.ENVIRONMENT.lower() == "test":
+        detail = f"{detail}: {type(exc).__name__}: {exc}"
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "detail": "Internal server error"
-        },
+        content={"detail": detail},
     )
 
 

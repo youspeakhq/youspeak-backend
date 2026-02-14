@@ -55,6 +55,8 @@ async def test_update_school_programs(
         headers=registered_school["headers"],
         json={"languages": ["es", "fr"]},
     )
+    if resp.status_code != 200:
+        print(f"update_school_programs failed: status={resp.status_code} body={resp.text}")
     assert resp.status_code == 200
 
 
