@@ -23,7 +23,8 @@ class AcademicService:
     async def create_class(
         db: AsyncSession,
         school_id: UUID,
-        class_data: ClassCreate
+        class_data: ClassCreate,
+        teacher_id: UUID,
     ) -> Class:
         # Create Class
         new_class = Class(
@@ -37,7 +38,15 @@ class AcademicService:
         )
         db.add(new_class)
         await db.flush()
-        
+
+        # Assign creating teacher to the class
+        stmt = insert(teacher_assignments).values(
+            class_id=new_class.id,
+            teacher_id=teacher_id,
+            is_primary=True,
+        )
+        await db.execute(stmt)
+
         # Add Schedules
         for sched in class_data.schedule:
             schedule = ClassSchedule(
@@ -47,10 +56,9 @@ class AcademicService:
                 end_time=sched.end_time
             )
             db.add(schedule)
-            
+
         await db.commit()
-        await db.commit()
-        
+
         # Fetch with eager load to ensure relationships are available for Pydantic
         stmt = select(Class).options(selectinload(Class.schedules)).where(Class.id == new_class.id)
         result = await db.execute(stmt)

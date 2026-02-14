@@ -44,7 +44,7 @@ async def update_school_profile(
         
     return SuccessResponse(data=school, message="Profile updated successfully")
 
-@router.put("/program", response_model=SuccessResponse)
+@router.put("/program", response_model=SuccessResponse[dict])
 async def update_school_programs(
     program_in: SchoolProgramsUpdate,
     current_user: User = Depends(deps.require_admin),

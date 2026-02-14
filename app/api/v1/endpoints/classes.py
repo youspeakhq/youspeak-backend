@@ -33,9 +33,10 @@ async def create_class(
     """
     # Ideally check permission settings if teachers can create classes
     new_class = await AcademicService.create_class(
-        db, 
-        current_user.school_id, 
-        class_in
+        db,
+        current_user.school_id,
+        class_in,
+        teacher_id=current_user.id,
     )
     return SuccessResponse(data=new_class, message="Class created successfully")
 
