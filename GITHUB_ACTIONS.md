@@ -117,6 +117,9 @@ To require approval before live deploys:
   - Check that Dockerfile and tests pass locally.  
   - Confirm `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are set and have ECR access.
 
+- **Docker layer caching**  
+  - The pipeline uses ECR as a remote build cache (`youspeak-backend:cache`). Subsequent builds reuse layers when `requirements.txt` and earlier Dockerfile steps are unchanged, reducing build time.
+
 - **Deploy fails: “task definition invalid”**  
   - Run `./.aws/generate-task-definition.sh` again and commit the new `.aws/task-definition.json`.  
   - Ensure the file has no placeholder like `YOUR_ACCOUNT_ID`; it must have real ARNs.
