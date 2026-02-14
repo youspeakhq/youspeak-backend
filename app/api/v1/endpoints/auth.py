@@ -11,14 +11,39 @@ from app.config import settings
 from app.services.user_service import UserService
 from app.services.school_service import SchoolService
 from app.schemas.auth import (
-    LoginRequest, Token, RegisterSchoolRequest, RegisterTeacherRequest, 
+    LoginRequest, Token, RegisterSchoolRequest, RegisterTeacherRequest,
     VerifyCodeRequest, PasswordResetRequest
 )
-from app.schemas.school import SchoolCreate
+from app.schemas.school import SchoolCreate, ContactInquiryCreate
 from app.models.enums import SchoolType, ProgramType, UserRole
+from app.models.onboarding import ContactInquiry
 from app.schemas.responses import SuccessResponse, ErrorResponse
 
 router = APIRouter()
+
+
+@router.post("/contact-inquiry", response_model=SuccessResponse)
+async def submit_contact_inquiry(
+    inquiry_in: ContactInquiryCreate,
+    db: AsyncSession = Depends(deps.get_db)
+) -> Any:
+    """
+    Pre-onboarding contact form (Tell us about your school).
+    For demo requests, billing questions, new school onboarding inquiries.
+    """
+    inquiry = ContactInquiry(
+        school_name=inquiry_in.school_name,
+        email=inquiry_in.email,
+        inquiry_type=inquiry_in.inquiry_type,
+        message=inquiry_in.message,
+    )
+    db.add(inquiry)
+    await db.commit()
+    return SuccessResponse(
+        data={"id": str(inquiry.id)},
+        message="Inquiry submitted. We will review and contact you."
+    )
+
 
 @router.post("/login", response_model=SuccessResponse[Token])
 async def login(
@@ -80,15 +105,18 @@ async def register_school(
     admin_data = {
         "email": school_in.email,
         "password": school_in.password,
-        "first_name": school_in.admin_first_name,
-        "last_name": school_in.admin_last_name
+        "first_name": "Admin",
+        "last_name": "School",
     }
     
-    # Create SchoolCreate object with defaults
     school_data = SchoolCreate(
         name=school_in.school_name,
-        school_type=SchoolType.SECONDARY, # Default
-        program_type=ProgramType.PARTNERSHIP # Default
+        school_type=school_in.school_type or SchoolType.SECONDARY,
+        program_type=school_in.program_type or ProgramType.PARTNERSHIP,
+        address_country=school_in.address_country,
+        address_state=school_in.address_state,
+        address_city=school_in.address_city,
+        address_zip=school_in.address_zip,
     )
     
     school = await SchoolService.create_school_with_admin(
@@ -96,6 +124,9 @@ async def register_school(
         school_data=school_data,
         admin_data=admin_data
     )
+    
+    if school_in.languages:
+        await SchoolService.update_programs(db, school.id, school_in.languages)
     
     return SuccessResponse(
         data={"school_id": str(school.id)},

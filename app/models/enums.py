@@ -5,7 +5,8 @@ import enum
 
 # Domain 1: Onboarding
 class InquiryType(str, enum.Enum):
-    """Contact inquiry types"""
+    """Contact inquiry types - matches frontend dropdown options"""
+    PROGRAM_SELECTION_GUIDANCE = "program_selection_guidance"
     BILLING = "billing"
     DEMO_REQUEST = "demo_request"
     NEW_ONBOARDING = "new_onboarding"
