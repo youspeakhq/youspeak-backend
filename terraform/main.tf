@@ -453,6 +453,49 @@ resource "aws_ecs_service" "staging" {
   }
 }
 
+# Auto-scaling for staging: scale to 0-2 tasks based on CPU/memory
+resource "aws_appautoscaling_target" "staging" {
+  max_capacity       = 2
+  min_capacity       = 0  # Scale to zero during low traffic
+  resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.staging.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+resource "aws_appautoscaling_policy" "staging_cpu" {
+  name               = "${var.app_name}-staging-cpu-autoscaling"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.staging.resource_id
+  scalable_dimension = aws_appautoscaling_target.staging.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.staging.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    target_value       = 30.0  # Scale down if CPU < 30%
+    scale_in_cooldown  = 300   # Wait 5 min before scaling in
+    scale_out_cooldown = 60    # Wait 1 min before scaling out
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+  }
+}
+
+resource "aws_appautoscaling_policy" "staging_memory" {
+  name               = "${var.app_name}-staging-memory-autoscaling"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.staging.resource_id
+  scalable_dimension = aws_appautoscaling_target.staging.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.staging.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    target_value       = 30.0  # Scale down if memory < 30%
+    scale_in_cooldown  = 300   # Wait 5 min before scaling in
+    scale_out_cooldown = 60    # Wait 1 min before scaling out
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageMemoryUtilization"
+    }
+  }
+}
+
 # ECR Repository
 resource "aws_ecr_repository" "app" {
   name                 = "${var.app_name}-backend"
@@ -474,9 +517,11 @@ resource "aws_ecs_cluster" "main" {
 }
 
 # CloudWatch Log Group
+# Note: Both staging and production share this log group (task definition uses same name)
+# Setting to 14 days as compromise (could be optimized further with separate log groups)
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/${var.app_name}-api"
-  retention_in_days = 30
+  retention_in_days = 14  # Compromise: 14 days (was 30, saves ~$1/month)
 }
 
 # IAM Roles

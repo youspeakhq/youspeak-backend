@@ -15,22 +15,30 @@ requires_db = pytest.mark.skipif(
 )
 
 
-@pytest.fixture
-def api_base() -> str:
-    """Base URL for API requests."""
+def _get_api_base() -> str:
+    """API base URL. In CI (TEST_USE_LIVE_SERVER=true), hit running server to avoid async teardown issues."""
+    if os.getenv("TEST_USE_LIVE_SERVER", "").lower() == "true":
+        return f"http://localhost:8000{settings.API_V1_PREFIX}"
     return f"http://test{settings.API_V1_PREFIX}"
 
 
 @pytest.fixture
+def api_base() -> str:
+    """Base URL for API requests."""
+    return _get_api_base()
+
+
+@pytest.fixture
 async def async_client(api_base: str):
-    """Async HTTP client using ASGI transport (no running server needed)."""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(
-        transport=transport,
-        base_url=api_base,
-        timeout=30.0,
-    ) as client:
-        yield client
+    """Async HTTP client. Uses live server in CI to avoid RuntimeError: Task pending during teardown."""
+    use_live = os.getenv("TEST_USE_LIVE_SERVER", "").lower() == "true"
+    if use_live:
+        client = AsyncClient(base_url=api_base, timeout=30.0)
+    else:
+        transport = ASGITransport(app=app)
+        client = AsyncClient(transport=transport, base_url=api_base, timeout=30.0)
+    yield client
+    await client.aclose()
 
 
 @pytest.fixture
