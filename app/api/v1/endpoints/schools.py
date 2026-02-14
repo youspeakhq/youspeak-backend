@@ -6,7 +6,12 @@ from uuid import UUID
 from app.api import deps
 from app.models.user import User
 from app.services.school_service import SchoolService
-from app.schemas.school import SchoolResponse, SchoolUpdate, SchoolProgramsUpdate
+from app.schemas.school import (
+    SchoolResponse,
+    SchoolUpdate,
+    SchoolProgramsUpdate,
+    SchoolProgramsResponse,
+)
 from app.schemas.responses import SuccessResponse
 
 router = APIRouter()
@@ -44,7 +49,7 @@ async def update_school_profile(
         
     return SuccessResponse(data=school, message="Profile updated successfully")
 
-@router.put("/program", response_model=SuccessResponse[dict])
+@router.put("/program", response_model=SuccessResponse[SchoolProgramsResponse])
 async def update_school_programs(
     program_in: SchoolProgramsUpdate,
     current_user: User = Depends(deps.require_admin),
@@ -54,14 +59,17 @@ async def update_school_programs(
     Update languages offered.
     """
     success = await SchoolService.update_programs(
-        db, 
-        current_user.school_id, 
-        program_in.languages
+        db,
+        current_user.school_id,
+        program_in.languages,
     )
     if not success:
         raise HTTPException(status_code=400, detail="Failed to update programs")
-        
-    return SuccessResponse(data={"languages": program_in.languages}, message="School programs updated successfully")
+
+    return SuccessResponse(
+        data=SchoolProgramsResponse(languages=program_in.languages),
+        message="School programs updated successfully",
+    )
 
 @router.post("/logo", response_model=SuccessResponse)
 async def upload_school_logo(

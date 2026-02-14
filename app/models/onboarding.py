@@ -17,7 +17,10 @@ class ContactInquiry(BaseModel):
     
     school_name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
-    inquiry_type = Column(ENUM(InquiryType, name="inquiry_type"), nullable=False)
+    inquiry_type = Column(
+        ENUM(InquiryType, name="inquiry_type", values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+    )
     message = Column(Text, nullable=False)
     
     def __repr__(self) -> str:
@@ -33,8 +36,14 @@ class School(BaseModel, StatusMixin):
     
     # Basic Information
     name = Column(String(255), nullable=False)
-    school_type = Column(ENUM(SchoolType, name="school_type"), nullable=False)
-    program_type = Column(ENUM(ProgramType, name="program_type"), nullable=False)
+    school_type = Column(
+        ENUM(SchoolType, name="school_type", values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+    )
+    program_type = Column(
+        ENUM(ProgramType, name="program_type", values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+    )
     
     # Address
     address_country = Column(String(100), nullable=True)

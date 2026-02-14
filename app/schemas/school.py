@@ -36,6 +36,12 @@ class SchoolUpdate(BaseModel):
 class SchoolProgramsUpdate(BaseModel):
     languages: List[str]
 
+
+class SchoolProgramsResponse(BaseModel):
+    """Response schema for school programs (languages) update."""
+
+    languages: List[str]
+
 class SchoolResponse(SchoolBase):
     id: UUID
     is_active: bool

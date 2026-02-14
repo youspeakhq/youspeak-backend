@@ -22,7 +22,7 @@ from app.schemas.responses import SuccessResponse, ErrorResponse
 router = APIRouter()
 
 
-@router.post("/contact-inquiry", response_model=SuccessResponse)
+@router.post("/contact-inquiry", response_model=SuccessResponse[dict])
 async def submit_contact_inquiry(
     inquiry_in: ContactInquiryCreate,
     db: AsyncSession = Depends(deps.get_db)
