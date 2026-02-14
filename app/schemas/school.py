@@ -34,7 +34,6 @@ class SchoolUpdate(BaseModel):
     email: Optional[EmailStr] = None
 
 class SchoolProgramsUpdate(BaseModel):
-    program_id: Optional[str] = None # Assuming referencing an ID or enum
     languages: List[str]
 
 class SchoolResponse(SchoolBase):

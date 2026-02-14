@@ -127,9 +127,14 @@ async def register_school(
     
     if school_in.languages:
         await SchoolService.update_programs(db, school.id, school_in.languages)
-    
+
+    languages = school_in.languages or []
     return SuccessResponse(
-        data={"school_id": str(school.id)},
+        data={
+            "school_id": str(school.id),
+            "program_type": school.program_type.value,
+            "languages": languages,
+        },
         message="School registered successfully"
     )
 
