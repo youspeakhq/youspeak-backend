@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.onboarding import School, Language, school_languages
 from app.models.user import User
-from app.models.enums import UserRole, SchoolType, ProgramType
+from app.models.enums import UserRole, SchoolType, ProgramType, ClassStatus
 from app.models.academic import Class, Semester
 from app.schemas.school import SchoolCreate, SchoolUpdate
 from app.services.user_service import UserService
@@ -108,7 +108,7 @@ class SchoolService:
         # Active Classes
         classes_query = select(func.count(Class.id)).where(
             Class.school_id == school_id,
-            Class.is_active == True
+            Class.status == ClassStatus.ACTIVE
         )
         classes_count = await db.scalar(classes_query)
         

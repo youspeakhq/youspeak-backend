@@ -1,28 +1,34 @@
 import asyncio
+import os
+import uuid
 import httpx
 import pytest
 from app.config import settings
 
-# Base URL for API
-BASE_URL = "http://localhost:8000/api/v1"
+from tests.conftest import requires_db
+
+pytestmark = requires_db
+
+BASE_URL = f"http://test{settings.API_V1_PREFIX}"
+
 
 @pytest.mark.asyncio
 async def test_full_onboarding_flow():
     """
     Test the complete onboarding flow:
     1. Register a new school
-    2. Register a teacher (via access code - mocked for now or requiring admin to generate)
-    3. Login as Admin
-    4. Fetch Profile
+    2. Login as Admin
+    3. Fetch Profile
     """
-    
-    # unique emails for this run
-    import uuid
     run_id = str(uuid.uuid4())[:8]
     admin_email = f"admin_{run_id}@example.com"
     school_name = f"Test School {run_id}"
-    
-    async with httpx.AsyncClient() as client:
+
+    from httpx import ASGITransport
+    from app.main import app
+
+    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url=BASE_URL) as client:
         # 1. Register School
         print(f"\n[1] Registering School: {school_name}")
         try:
@@ -33,8 +39,6 @@ async def test_full_onboarding_flow():
                     "email": admin_email,
                     "password": "StrongPassword123!",
                     "school_name": school_name,
-                    "admin_first_name": "Admin",
-                    "admin_last_name": "User"
                 }
             )
             print(f"Status: {response.status_code}")
@@ -82,10 +86,5 @@ async def test_full_onboarding_flow():
             raise
 
 if __name__ == "__main__":
-    # If run directly as script
-    try:
-        asyncio.run(test_full_onboarding_flow())
-        print("\n✅ All tests passed!")
-    except Exception as e:
-        print(f"\n❌ Test failed: {e}")
-        # Print full response if available in exception for better debugging
+    import sys
+    sys.exit(pytest.main([__file__, "-v", "--no-cov"]))

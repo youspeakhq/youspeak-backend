@@ -21,8 +21,6 @@ async def main():
             "email": admin_email,
             "password": "Password123!",
             "school_name": school_name,
-            "admin_first_name": "Admin",
-            "admin_last_name": "Admin"
         })
         if resp.status_code != 200:
             print(f"FAILED: {resp.text}")

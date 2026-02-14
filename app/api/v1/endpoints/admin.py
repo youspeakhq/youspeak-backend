@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -7,19 +7,22 @@ from app.api import deps
 from app.models.user import User
 from app.services.school_service import SchoolService
 from app.schemas.responses import SuccessResponse
+from app.schemas.admin import AdminStats
 
 router = APIRouter()
 
-@router.get("/stats", response_model=SuccessResponse[Dict[str, int]])
+
+@router.get("/stats", response_model=SuccessResponse[AdminStats])
 async def get_admin_stats(
     current_user: User = Depends(deps.require_admin),
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
-    Aggregated counts (Active Classes, Students).
+    Aggregated dashboard statistics for the school.
+    Returns active classes count, total students, and total teachers.
     """
     stats = await SchoolService.get_stats(db, current_user.school_id)
-    return SuccessResponse(data=stats)
+    return SuccessResponse(data=AdminStats(**stats), message="Stats retrieved successfully")
 
 @router.get("/activity", response_model=SuccessResponse)
 async def get_activity_log(

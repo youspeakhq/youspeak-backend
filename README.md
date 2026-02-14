@@ -119,6 +119,18 @@ alembic downgrade -1
 
 ## Testing
 
+### Unit tests (no database required)
+```bash
+pytest tests/unit_test.py -v
+```
+
+### Integration & E2E tests (require DATABASE_URL, SECRET_KEY)
+Ensure PostgreSQL is running and `.env` has `DATABASE_URL` and `SECRET_KEY`. Run migrations first:
+```bash
+alembic upgrade head
+pytest tests/integration/ tests/e2e/ -v
+```
+
 ### Run all tests
 ```bash
 pytest
@@ -126,13 +138,13 @@ pytest
 
 ### Run with coverage
 ```bash
-pytest --cov=app tests/
+pytest --cov=app tests/ --no-cov-on-fail
 ```
 
-### Run specific test file
-```bash
-pytest tests/api/v1/test_auth.py -v
-```
+### Test structure
+- `tests/unit_test.py` - Unit tests (config, no external deps)
+- `tests/integration/` - Per-endpoint integration tests (auth, schools, admin, students, teachers, classes, references, users)
+- `tests/e2e/` - Full flow E2E tests (school onboarding, teacher+student flow)
 
 ### Run CI checks locally (before pushing)
 Lint, Docker Compose, and tests—same as GitHub Actions, without pushing:
