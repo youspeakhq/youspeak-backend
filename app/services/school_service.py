@@ -138,19 +138,23 @@ class SchoolService:
 
     @staticmethod
     async def update_programs(db: AsyncSession, school_id: UUID, language_codes: List[str]) -> bool:
-        """Update languages offered by school"""
-        school = await SchoolService.get_school_by_id(db, school_id)
+        """Update languages offered by school.
+        Uses selectinload to avoid async lazy-load when assigning many-to-many.
+        """
+        stmt = (
+            select(School)
+            .where(School.id == school_id)
+            .options(selectinload(School.languages))
+        )
+        result = await db.execute(stmt)
+        school = result.scalar_one_or_none()
         if not school:
             return False
-            
-        # Get language objects
+
         stmt = select(Language).where(Language.code.in_(language_codes))
         result = await db.execute(stmt)
         languages = result.scalars().all()
-        
-        # Update relationship
-        # Note: This might need more careful handling if preserving existing ones
-        # For now, we replace
+
         school.languages = list(languages)
         await db.commit()
         return True
