@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
-    # CORS
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
+    # CORS (5173 = Vite default dev server)
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:5173"
     ALLOWED_METHODS: str = "GET,POST,PUT,DELETE,PATCH,OPTIONS"
     ALLOWED_HEADERS: str = "*"
     
