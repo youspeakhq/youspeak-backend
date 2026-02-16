@@ -34,6 +34,17 @@ class UserRole(str, enum.Enum):
 
 
 # Domain 3: Academic & Classroom
+class ProficiencyLevel(str, enum.Enum):
+    """CEFR-style proficiency levels for classrooms"""
+    BEGINNER = "beginner"
+    A1 = "a1"
+    A2 = "a2"
+    B1 = "b1"
+    B2 = "b2"
+    INTERMEDIATE = "intermediate"
+    C1 = "c1"
+
+
 class DayOfWeek(str, enum.Enum):
     """Days of the week for schedules"""
     MONDAY = "Mon"

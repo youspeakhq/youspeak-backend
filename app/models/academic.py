@@ -5,8 +5,37 @@ from sqlalchemy.orm import relationship
 
 from app.database import Base
 from app.models.base import BaseModel, SchoolScopedMixin
-from app.models.enums import DayOfWeek, ClassStatus, StudentRole
+from app.models.enums import DayOfWeek, ClassStatus, ProficiencyLevel, StudentRole
 
+
+
+class Classroom(BaseModel, SchoolScopedMixin):
+    """
+    Admin-created organizational unit. Defines a learning track (language + level).
+    Container for teachers and students. Semester-agnostic.
+    """
+    __tablename__ = "classrooms"
+
+    language_id = Column(ForeignKey("languages.id", ondelete="RESTRICT"), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    level = Column(ENUM(ProficiencyLevel, name="proficiency_level"), nullable=False, index=True)
+
+    school = relationship("School", back_populates="classrooms")
+    language = relationship("Language", back_populates="classrooms")
+    teachers = relationship(
+        "User",
+        secondary="classroom_teachers",
+        back_populates="taught_classrooms"
+    )
+    students = relationship(
+        "User",
+        secondary="classroom_students",
+        back_populates="enrolled_classrooms"
+    )
+    classes = relationship("Class", back_populates="classroom", cascade="save-update, merge")
+
+    def __repr__(self) -> str:
+        return f"<Classroom {self.name}>"
 
 
 class Semester(BaseModel, SchoolScopedMixin):
@@ -31,25 +60,28 @@ class Semester(BaseModel, SchoolScopedMixin):
 
 class Class(BaseModel, SchoolScopedMixin):
     """
-    Class/Course section.
-    Represents a specific class taught in a semester.
+    Class/Course section. Teacher-created scheduled offering.
+    Represents a specific class taught in a semester. Optional link to Classroom.
     """
     __tablename__ = "classes"
-    
+
     # Foreign Keys
     semester_id = Column(UUID(as_uuid=True), ForeignKey("semesters.id", ondelete="CASCADE"), nullable=False, index=True)
     language_id = Column(ForeignKey("languages.id", ondelete="RESTRICT"), nullable=False, index=True)
+    classroom_id = Column(UUID(as_uuid=True), ForeignKey("classrooms.id", ondelete="SET NULL"), nullable=True, index=True)
     
     # Class Details
     name = Column(String(255), nullable=False)  # e.g., "French 101"
     sub_class = Column(String(100), nullable=True)  # Section: "Class A", "Morning Session"
     description = Column(Text, nullable=True)
+    timeline = Column(String(100), nullable=True)  # e.g., "Jan 2026 - May 2026"
     status = Column(ENUM(ClassStatus, name="class_status"), default=ClassStatus.ACTIVE, nullable=False, index=True)
     
     # Relationships
     school = relationship("School", back_populates="classes")
     semester = relationship("Semester", back_populates="classes")
     language = relationship("Language", back_populates="classes")
+    classroom = relationship("Classroom", back_populates="classes")
     
     schedules = relationship("ClassSchedule", back_populates="class_", cascade="all, delete-orphan")
     curriculums = relationship("Curriculum", back_populates="class_", cascade="all, delete-orphan")
@@ -108,6 +140,22 @@ class_enrollments = Table(
     Column("joined_at", DateTime, nullable=False)
 )
 
+
+# Association table for Classroom <-> Teacher
+classroom_teachers = Table(
+    "classroom_teachers",
+    BaseModel.metadata,
+    Column("classroom_id", UUID(as_uuid=True), ForeignKey("classrooms.id", ondelete="CASCADE"), primary_key=True),
+    Column("teacher_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+)
+
+# Association table for Classroom <-> Student
+classroom_students = Table(
+    "classroom_students",
+    BaseModel.metadata,
+    Column("classroom_id", UUID(as_uuid=True), ForeignKey("classrooms.id", ondelete="CASCADE"), primary_key=True),
+    Column("student_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+)
 
 # Association table for Class <-> Teacher (Pivot Table)
 teacher_assignments = Table(

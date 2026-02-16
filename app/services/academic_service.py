@@ -1,3 +1,6 @@
+import csv
+import io
+import secrets
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from datetime import datetime
@@ -6,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.academic import Class, ClassSchedule, Semester, class_enrollments, teacher_assignments
-from app.models.enums import StudentRole, ClassStatus
+from app.models.enums import StudentRole, ClassStatus, UserRole
 from app.schemas.academic import ClassCreate, ClassUpdate, ScheduleBase
 
 class AcademicService:
@@ -34,7 +37,9 @@ class AcademicService:
             name=class_data.name,
             sub_class=class_data.sub_class,
             description=class_data.description,
-            status=ClassStatus.ACTIVE
+            timeline=class_data.timeline,
+            status=ClassStatus.ACTIVE,
+            classroom_id=class_data.classroom_id,
         )
         db.add(new_class)
         await db.flush()
@@ -189,3 +194,108 @@ class AcademicService:
             roster.append(user_dict)
             
         return roster
+
+    @staticmethod
+    def _normalize_csv_headers(row: Dict[str, str]) -> Dict[str, str]:
+        """Map flexible column names to canonical keys."""
+        aliases = {
+            "first_name": ("first_name", "firstname", "first name", "given name"),
+            "last_name": ("last_name", "lastname", "last name", "surname", "family name"),
+            "email": ("email", "e-mail", "mail"),
+        }
+        result = {}
+        for canonical, variants in aliases.items():
+            for key, val in row.items():
+                if key.strip().lower() in [v.lower() for v in variants]:
+                    result[canonical] = val.strip() if val else ""
+                    break
+        return result
+
+    @staticmethod
+    async def import_roster_from_csv(
+        db: AsyncSession,
+        class_id: UUID,
+        file_content: bytes,
+        school_id: UUID,
+        language_id: int,
+    ) -> Dict[str, Any]:
+        """
+        Bulk import students from CSV. Creates new students or enrolls existing ones.
+        CSV columns: first_name, last_name, email (optional).
+        Returns created count, enrolled count, skipped, and errors.
+        """
+        from app.models.user import User
+        from app.services.user_service import UserService
+
+        cls = await AcademicService.get_class_by_id(db, class_id)
+        if not cls or cls.school_id != school_id:
+            return {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["Class not found or access denied"]}
+
+        created = 0
+        enrolled = 0
+        skipped = 0
+        errors: List[str] = []
+        seen_emails: set = set()
+
+        try:
+            content = file_content.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            return {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["Invalid file encoding. Use UTF-8."]}
+
+        reader = csv.DictReader(io.StringIO(content))
+        rows = list(reader)
+        if not rows:
+            return {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["CSV file is empty"]}
+
+        for i, row in enumerate(rows):
+            mapped = AcademicService._normalize_csv_headers(row)
+            first_name = (mapped.get("first_name") or "").strip()
+            last_name = (mapped.get("last_name") or "").strip()
+            email = (mapped.get("email") or "").strip()
+
+            if not first_name or not last_name:
+                errors.append(f"Row {i + 2}: first_name and last_name required")
+                continue
+
+            if not email:
+                email = f"{first_name.lower()}.{last_name.lower()}.{secrets.token_hex(4)}@youspeak-dummy.com"
+
+            if email in seen_emails:
+                skipped += 1
+                continue
+            seen_emails.add(email)
+
+            existing = await UserService.get_user_by_email(db, email)
+            if existing:
+                if existing.school_id != school_id:
+                    errors.append(f"Row {i + 2}: {email} belongs to another school")
+                    continue
+                if existing.role != UserRole.STUDENT:
+                    errors.append(f"Row {i + 2}: {email} is not a student")
+                    continue
+                student_id = existing.id
+            else:
+                try:
+                    new_user = await UserService.create_user(
+                        db=db,
+                        email=email,
+                        password="Student123!",
+                        first_name=first_name,
+                        last_name=last_name,
+                        school_id=school_id,
+                        role=UserRole.STUDENT,
+                        is_active=True,
+                    )
+                    student_id = new_user.id
+                    created += 1
+                except Exception as e:
+                    errors.append(f"Row {i + 2}: failed to create student - {str(e)}")
+                    continue
+
+            added = await AcademicService.add_student_to_class(db, class_id, student_id)
+            if added:
+                enrolled += 1
+            else:
+                skipped += 1
+
+        return {"created": created, "enrolled": enrolled, "skipped": skipped, "errors": errors}

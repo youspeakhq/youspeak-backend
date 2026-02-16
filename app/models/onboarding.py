@@ -58,6 +58,7 @@ class School(BaseModel, StatusMixin):
     users = relationship("User", back_populates="school", cascade="all, delete-orphan")
     semesters = relationship("Semester", back_populates="school", cascade="all, delete-orphan")
     classes = relationship("Class", back_populates="school", cascade="all, delete-orphan")
+    classrooms = relationship("Classroom", back_populates="school", cascade="all, delete-orphan")
     announcements = relationship("Announcement", back_populates="school", cascade="all, delete-orphan")
     bills = relationship("Bill", back_populates="school", cascade="all, delete-orphan")
     
@@ -90,6 +91,7 @@ class Language(BaseModel):
         back_populates="languages"
     )
     classes = relationship("Class", back_populates="language")
+    classrooms = relationship("Classroom", back_populates="language")
     curriculums = relationship("Curriculum", back_populates="language")
     
     def __repr__(self) -> str:

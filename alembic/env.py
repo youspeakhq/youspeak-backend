@@ -16,7 +16,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from app.database import Base, get_async_engine_url_and_connect_args
 from app.models.user import User  # noqa
 from app.models.onboarding import School, Language, ContactInquiry  # noqa
-from app.models.academic import Semester, Class, ClassSchedule  # noqa
+from app.models.academic import Classroom, Semester, Class, ClassSchedule  # noqa
 from app.models.curriculum import Curriculum  # noqa
 from app.models.assessment import Question, Assignment, StudentSubmission  # noqa
 from app.models.arena import Arena, ArenaCriteria, ArenaRule, ArenaPerformer  # noqa

@@ -4,7 +4,16 @@ from app.models.base import BaseModel, SchoolScopedMixin, SoftDeleteMixin, Statu
 from app.models.enums import *
 from app.models.onboarding import ContactInquiry, School, Language, school_languages
 from app.models.user import User
-from app.models.academic import Semester, Class, ClassSchedule, class_enrollments, teacher_assignments
+from app.models.academic import (
+    Classroom,
+    Semester,
+    Class,
+    ClassSchedule,
+    class_enrollments,
+    teacher_assignments,
+    classroom_teachers,
+    classroom_students,
+)
 
 from app.models.curriculum import Curriculum
 from app.models.assessment import Question, Assignment, assignment_questions, StudentSubmission, assignment_classes
@@ -32,11 +41,14 @@ __all__ = [
     "User",
     
     # Academic
+    "Classroom",
     "Semester",
     "Class",
     "ClassSchedule",
     "class_enrollments",
     "teacher_assignments",
+    "classroom_teachers",
+    "classroom_students",
     
     # Curriculum
     "Curriculum",

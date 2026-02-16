@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
@@ -75,3 +75,38 @@ async def add_student_to_roster(
         raise HTTPException(status_code=400, detail="Could not add student")
         
     return SuccessResponse(message="Student added to class")
+
+
+@router.post("/{class_id}/roster/import", response_model=SuccessResponse)
+async def import_class_roster(
+    class_id: UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db)
+) -> Any:
+    """
+    Bulk import students from CSV. Supports PDF, Docs, CSV per frontend.
+    Currently CSV only. Columns: first_name, last_name, email (optional).
+    Creates new students or enrolls existing ones in the class.
+    """
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only CSV files are supported. Use columns: first_name, last_name, email."
+        )
+    content = await file.read()
+    cls = await AcademicService.get_class_by_id(db, class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+    if not any(c.id == class_id for c in teacher_classes):
+        raise HTTPException(status_code=404, detail="Class not found")
+    result = await AcademicService.import_roster_from_csv(
+        db, class_id, content, current_user.school_id, cls.language_id
+    )
+    msg = f"Imported: {result['enrolled']} enrolled, {result['created']} created, {result['skipped']} skipped."
+    if result["errors"]:
+        msg += f" Errors: {'; '.join(result['errors'][:5])}"
+        if len(result["errors"]) > 5:
+            msg += f" (+{len(result['errors']) - 5} more)"
+    return SuccessResponse(data=result, message=msg)

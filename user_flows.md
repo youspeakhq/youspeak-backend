@@ -75,9 +75,37 @@ Teacher clicks link in email (frontend validates code).
 
 ---
 
-## 3. Classroom Setup
+## 2.5. Classroom Setup (Admin)
+**Actor**: Admin
+**Goal**: Create organizational units (classrooms) by language and level.
+
+### Step 2.5.1: Create Classroom
+- **Endpoint**: `POST /api/v1/classrooms`
+- **Headers**: `Authorization: Bearer <AdminToken>`
+- **Payload**:
+  ```json
+  {
+    "name": "AP Chinese Language",
+    "language_id": 4,
+    "level": "b1"
+  }
+  ```
+- **Level values**: `beginner`, `a1`, `a2`, `b1`, `b2`, `intermediate`, `c1`
+- **Response**: `200 OK` (Classroom ID)
+
+### Step 2.5.2: Add Teacher to Classroom
+- **Endpoint**: `POST /api/v1/classrooms/{classroom_id}/teachers`
+- **Payload**: `{ "teacher_id": "<uuid>" }`
+
+### Step 2.5.3: Add Student to Classroom
+- **Endpoint**: `POST /api/v1/classrooms/{classroom_id}/students`
+- **Payload**: `{ "student_id": "<uuid>" }`
+
+---
+
+## 3. Classroom Setup (Teacher - Class)
 **Actor**: Teacher
-**Goal**: Create a class schedule.
+**Goal**: Create a class schedule (scheduled offering).
 
 ### Step 3.1: Login as Teacher
 - **Endpoint**: `POST /api/v1/auth/login`
@@ -95,6 +123,8 @@ Teacher needs to know which Semester to attach the class to.
   ```json
   {
     "name": "Spanish 101",
+    "description": "Brief description",
+    "timeline": "Jan 2026 - May 2026",
     "language_id": 2, 
     "semester_id": "<uuid-from-step-3.2>",
     "schedule": [
@@ -104,6 +134,13 @@ Teacher needs to know which Semester to attach the class to.
   }
   ```
 - **Response**: `200 OK` (Class ID)
+
+### Step 3.4: Upload Class List (Optional)
+- **Endpoint**: `POST /api/v1/my-classes/{class_id}/roster/import`
+- **Headers**: `Authorization: Bearer <TeacherToken>`
+- **Body**: `multipart/form-data` with `file` (CSV)
+- **CSV columns**: `first_name`, `last_name`, `email` (optional)
+- **Response**: `200 OK` with `{ created, enrolled, skipped, errors }`
 
 ---
 

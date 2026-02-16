@@ -40,6 +40,11 @@ class User(BaseModel, SchoolScopedMixin, SoftDeleteMixin):
         secondary="teacher_assignments",
         back_populates="teachers"
     )
+    taught_classrooms = relationship(
+        "Classroom",
+        secondary="classroom_teachers",
+        back_populates="teachers"
+    )
     created_questions = relationship("Question", back_populates="teacher")
     created_assignments = relationship("Assignment", back_populates="teacher")
     
@@ -47,6 +52,11 @@ class User(BaseModel, SchoolScopedMixin, SoftDeleteMixin):
     enrolled_classes = relationship(
         "Class",
         secondary="class_enrollments",
+        back_populates="students"
+    )
+    enrolled_classrooms = relationship(
+        "Classroom",
+        secondary="classroom_students",
         back_populates="students"
     )
     submissions = relationship("StudentSubmission", back_populates="student")
