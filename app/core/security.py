@@ -4,26 +4,45 @@ import secrets
 import string
 from datetime import datetime, timedelta
 from typing import Optional
+
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.config import settings
 
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Bcrypt limit; longer passwords must be truncated
+_BCRYPT_MAX_BYTES = 72
+
+
+def _truncate_password_for_bcrypt(password: str) -> bytes:
+    """Truncate password to bcrypt's 72-byte limit, respecting UTF-8 boundaries."""
+    encoded = password.encode("utf-8")
+    if len(encoded) <= _BCRYPT_MAX_BYTES:
+        return encoded
+    truncated = encoded[:_BCRYPT_MAX_BYTES]
+    while truncated:
+        try:
+            truncated.decode("utf-8")
+            return truncated
+        except UnicodeDecodeError:
+            truncated = truncated[:-1]
+    return b""
 
 
 def get_password_hash(password: str) -> str:
     """
     Hash a password using bcrypt.
+    Bcrypt has a 72-byte limit; longer passwords are truncated to avoid ValueError.
     
     Args:
         password: Plain text password
         
     Returns:
-        Hashed password
+        Hashed password (ASCII string for DB storage)
     """
-    return pwd_context.hash(password)
+    pwd_bytes = _truncate_password_for_bcrypt(password)
+    hashed = bcrypt.hashpw(pwd_bytes, bcrypt.gensalt())
+    return hashed.decode("ascii")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -37,7 +56,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True if password matches, False otherwise
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    pwd_bytes = _truncate_password_for_bcrypt(plain_password)
+    hash_bytes = hashed_password.encode("ascii") if isinstance(hashed_password, str) else hashed_password
+    return bcrypt.checkpw(pwd_bytes, hash_bytes)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

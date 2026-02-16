@@ -218,8 +218,10 @@ class AcademicService:
         result = {}
         for canonical, variants in aliases.items():
             for key, val in row.items():
+                if key is None:
+                    continue
                 if key.strip().lower() in [v.lower() for v in variants]:
-                    result[canonical] = val.strip() if val else ""
+                    result[canonical] = (val or "").strip() if val is not None else ""
                     break
         return result
 
