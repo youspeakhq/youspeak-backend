@@ -18,7 +18,11 @@ class Classroom(BaseModel, SchoolScopedMixin):
 
     language_id = Column(ForeignKey("languages.id", ondelete="RESTRICT"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
-    level = Column(ENUM(ProficiencyLevel, name="proficiency_level"), nullable=False, index=True)
+    level = Column(
+        ENUM(ProficiencyLevel, name="proficiency_level", values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        index=True,
+    )
 
     school = relationship("School", back_populates="classrooms")
     language = relationship("Language", back_populates="classrooms")
