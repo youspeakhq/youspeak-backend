@@ -1,8 +1,10 @@
 """User Service - Business Logic Layer"""
 
+import csv
+import io
 import secrets
-from datetime import datetime
-from typing import Optional, List, Tuple
+from datetime import datetime, timedelta
+from typing import Optional, List, Tuple, Dict, Any
 from uuid import UUID
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,29 +20,54 @@ logger = logging.getLogger(__name__)
 
 class UserService:
     """Service layer for user-related operations"""
-    
+
+    @staticmethod
+    async def generate_next_student_number(db: AsyncSession, school_id: UUID) -> str:
+        """Generate next student_number in format {year}-{seq} (e.g. 2025-001). Unique per school."""
+        from sqlalchemy import cast, Integer
+
+        year = datetime.utcnow().year
+        prefix = f"{year}-"
+        start_pos = len(prefix) + 1
+        result = await db.execute(
+            select(func.max(cast(
+                func.substring(User.student_number, start_pos),
+                Integer
+            ))).where(
+                User.school_id == school_id,
+                User.student_number.isnot(None),
+                User.student_number.like(f"{prefix}%"),
+            )
+        )
+        max_seq = result.scalar_one_or_none()
+        next_seq = (max_seq or 0) + 1
+        return f"{year}-{next_seq:03d}"
+
     @staticmethod
     async def create_user(
-        db: AsyncSession, 
-        email: str, 
-        password: str, 
-        first_name: str, 
-        last_name: str, 
+        db: AsyncSession,
+        email: str,
+        password: str,
+        first_name: str,
+        last_name: str,
         school_id: UUID,
         role: UserRole = UserRole.STUDENT,
-        is_active: bool = True
+        is_active: bool = True,
+        student_number: Optional[str] = None,
     ) -> User:
         """
-        Create a new user.
+        Create a new user. For students, auto-generates student_number as {year}-{seq} if not provided.
         """
-        if password:
-             # Ensure password isn't None though signature says str
-             pass
+        if role == UserRole.STUDENT:
+            if student_number is None:
+                student_number = await UserService.generate_next_student_number(db, school_id)
+            else:
+                existing = await UserService.get_user_by_student_number(db, school_id, student_number)
+                if existing:
+                    raise ValueError(f"Student number {student_number} already exists for this school")
 
-        # Hash password 
         hashed_password = get_password_hash(password)
-        
-        # Create user instance
+
         db_user = User(
             email=email,
             first_name=first_name,
@@ -48,13 +75,14 @@ class UserService:
             hashed_password=hashed_password,
             school_id=school_id,
             role=role,
-            is_active=is_active
+            is_active=is_active,
+            student_number=student_number if role == UserRole.STUDENT else None,
         )
-        
+
         db.add(db_user)
         await db.commit()
         await db.refresh(db_user)
-        
+
         return db_user
     
     @staticmethod
@@ -85,6 +113,19 @@ class UserService:
             User or None if not found
         """
         result = await db.execute(select(User).where(User.email == email))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_user_by_student_number(
+        db: AsyncSession, school_id: UUID, student_number: str
+    ) -> Optional[User]:
+        """Get user by student_number within a school."""
+        result = await db.execute(
+            select(User).where(
+                User.school_id == school_id,
+                User.student_number == student_number,
+            )
+        )
         return result.scalar_one_or_none()
     
     @staticmethod
@@ -354,6 +395,103 @@ class UserService:
         await db.commit()
         await db.refresh(teacher)
         return teacher
+
+    @staticmethod
+    async def import_teachers_from_csv(
+        db: AsyncSession,
+        file_content: bytes,
+        school_id: UUID,
+        admin_id: UUID,
+    ) -> Dict[str, Any]:
+        """
+        Bulk import teachers from CSV.
+        CSV columns: first_name, last_name, email, classroom_id (optional).
+        Creates invited teachers (is_active=False) with access codes.
+        Returns created count, skipped count, errors, and invitations (email, first_name, code) for sending.
+        """
+        from app.core import security
+        from app.services.academic_service import AcademicService
+        from app.services.classroom_service import ClassroomService
+
+        created = 0
+        skipped = 0
+        errors: List[str] = []
+        invitations: List[Dict[str, str]] = []
+        seen_emails: set = set()
+
+        try:
+            content = file_content.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            return {"created": 0, "skipped": 0, "errors": ["Invalid file encoding. Use UTF-8."], "invitations": []}
+
+        reader = csv.DictReader(io.StringIO(content))
+        rows = list(reader)
+        if not rows:
+            return {"created": 0, "skipped": 0, "errors": ["CSV file is empty"], "invitations": []}
+
+        for i, row in enumerate(rows):
+            mapped = AcademicService._normalize_csv_headers(row)
+            first_name = (mapped.get("first_name") or "").strip()
+            last_name = (mapped.get("last_name") or "").strip()
+            email = (mapped.get("email") or "").strip()
+
+            if not first_name or not last_name:
+                errors.append(f"Row {i + 2}: first_name and last_name required")
+                continue
+            if not email:
+                errors.append(f"Row {i + 2}: email required")
+                continue
+
+            if email in seen_emails:
+                skipped += 1
+                continue
+            seen_emails.add(email)
+
+            existing = await UserService.get_user_by_email(db, email)
+            if existing:
+                errors.append(f"Row {i + 2}: {email} already exists")
+                continue
+
+            classroom_id_str = (mapped.get("classroom_id") or "").strip()
+            classroom_id: Optional[UUID] = None
+            if classroom_id_str:
+                try:
+                    classroom_id = UUID(classroom_id_str)
+                except ValueError:
+                    errors.append(f"Row {i + 2}: invalid classroom_id")
+                    continue
+
+            placeholder = secrets.token_hex(32)
+            teacher = await UserService.create_invited_teacher(
+                db=db,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                school_id=school_id,
+                placeholder_password=placeholder,
+            )
+
+            code = security.generate_access_code()
+            access_code = TeacherAccessCode(
+                code=code,
+                school_id=school_id,
+                created_by_admin_id=admin_id,
+                invited_teacher_id=teacher.id,
+                expires_at=datetime.utcnow() + timedelta(days=7),
+                is_used=False,
+            )
+            db.add(access_code)
+
+            if classroom_id:
+                await ClassroomService.add_teacher_to_classroom(
+                    db, classroom_id, teacher.id, school_id, auto_commit=False
+                )
+
+            created += 1
+            invitations.append({"email": email, "first_name": first_name, "code": code})
+
+        await db.commit()
+        return {"created": created, "skipped": skipped, "errors": errors, "invitations": invitations}
 
     @staticmethod
     async def get_users_by_school_and_role(

@@ -93,3 +93,42 @@ async def test_create_student(
     )
     assert resp.status_code == 200
     assert "id" in resp.json()["data"]
+
+
+@pytest.mark.asyncio
+async def test_import_students_csv(
+    async_client: AsyncClient,
+    api_base: str,
+    registered_school: dict,
+    class_id_for_student,
+    unique_suffix: str,
+):
+    """Bulk import students from CSV."""
+    csv_content = (
+        f"first_name,last_name,email,class_id\n"
+        f"Import,One,import1_{unique_suffix}@test.com,{class_id_for_student}\n"
+        f"Import,Two,import2_{unique_suffix}@test.com,\n"
+    ).encode("utf-8")
+    resp = await async_client.post(
+        f"{api_base}/students/import",
+        headers=registered_school["headers"],
+        files={"file": ("students.csv", csv_content, "text/csv")},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["created"] >= 1
+    assert "enrolled" in data
+    assert "skipped" in data
+
+
+@pytest.mark.asyncio
+async def test_import_students_csv_rejects_non_csv(
+    async_client: AsyncClient, api_base: str, registered_school: dict
+):
+    """Import rejects non-CSV files."""
+    resp = await async_client.post(
+        f"{api_base}/students/import",
+        headers=registered_school["headers"],
+        files={"file": ("data.txt", b"not csv", "text/plain")},
+    )
+    assert resp.status_code == 400

@@ -1,7 +1,7 @@
 import secrets
 from datetime import datetime, timedelta
 from typing import Any
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
@@ -102,6 +102,43 @@ async def create_teacher_invite(
         data={"access_code": code, "teacher_id": str(teacher.id)},
         message=f"Teacher created. Invite sent to {teacher_in.email}. Activate via code.",
     )
+
+
+@router.post("/import", response_model=SuccessResponse)
+async def import_teachers_csv(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db),
+    file: UploadFile = File(...),
+) -> Any:
+    """
+    Bulk import teachers from CSV.
+    Columns: first_name, last_name, email, classroom_id (optional).
+    Creates invited teachers (is_active=False) and sends invite emails.
+    """
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only CSV files are supported. Use columns: first_name, last_name, email, classroom_id (optional).",
+        )
+    content = await file.read()
+    result = await UserService.import_teachers_from_csv(
+        db, content, current_user.school_id, current_user.id
+    )
+    for inv in result.get("invitations", []):
+        background_tasks.add_task(
+            send_teacher_invite,
+            inv["email"],
+            inv["first_name"],
+            inv["code"],
+        )
+    msg = f"Imported: {result['created']} created, {result['skipped']} skipped."
+    if result.get("errors"):
+        msg += f" Errors: {'; '.join(result['errors'][:5])}"
+        if len(result["errors"]) > 5:
+            msg += f" (+{len(result['errors']) - 5} more)"
+    return SuccessResponse(data=result, message=msg)
+
 
 @router.delete("/{teacher_id}", response_model=SuccessResponse)
 async def delete_teacher(

@@ -40,3 +40,16 @@ def test_normalize_csv_headers_strips_whitespace():
     result = AcademicService._normalize_csv_headers(row)
     assert result["first_name"] == "Alice"
     assert result["email"] == ""
+
+
+def test_normalize_csv_headers_classroom_and_class_id():
+    row = {
+        "first_name": "Teacher",
+        "last_name": "One",
+        "email": "t@test.com",
+        "classroom_id": "550e8400-e29b-41d4-a716-446655440000",
+        "class": "660e8400-e29b-41d4-a716-446655440001",
+    }
+    result = AcademicService._normalize_csv_headers(row)
+    assert result["classroom_id"] == "550e8400-e29b-41d4-a716-446655440000"
+    assert result.get("class_id") == "660e8400-e29b-41d4-a716-446655440001"

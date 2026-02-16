@@ -85,6 +85,7 @@ class ClassroomService:
         classroom_id: UUID,
         teacher_id: UUID,
         school_id: UUID,
+        auto_commit: bool = True,
     ) -> bool:
         classroom = await ClassroomService.get_classroom_by_id(db, classroom_id, school_id)
         if not classroom:
@@ -108,7 +109,8 @@ class ClassroomService:
                 teacher_id=teacher_id,
             )
         )
-        await db.commit()
+        if auto_commit:
+            await db.commit()
         return True
 
     @staticmethod

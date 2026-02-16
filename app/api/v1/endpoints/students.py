@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
@@ -80,22 +80,57 @@ async def create_student(
              suffix = secrets.token_hex(4)
              email = f"{student_in.first_name.lower()}.{student_in.last_name.lower()}.{suffix}@youspeak-dummy.com"
 
-    user = await UserService.create_user(
-        db=db,
-        email=email,
-        password=password,
-        first_name=student_in.first_name,
-        last_name=student_in.last_name,
-        school_id=current_user.school_id,
-        role=UserRole.STUDENT,
-        is_active=True
-    )
+    student_number = (student_in.student_id or "").strip() or None
+
+    try:
+        user = await UserService.create_user(
+            db=db,
+            email=email,
+            password=password,
+            first_name=student_in.first_name,
+            last_name=student_in.last_name,
+            school_id=current_user.school_id,
+            role=UserRole.STUDENT,
+            is_active=True,
+            student_number=student_number,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     # Enroll in class
     if student_in.class_id:
         await AcademicService.add_student_to_class(db, student_in.class_id, user.id)
     
     return SuccessResponse(data=UserResponse.model_validate(user), message="Student created successfully")
+
+
+@router.post("/import", response_model=SuccessResponse)
+async def import_students_csv(
+    file: UploadFile = File(...),
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Bulk import students from CSV.
+    Columns: first_name, last_name, email (optional), student_id (optional), class_id (optional).
+    student_id: human-readable ID (e.g. 2025-001). Auto-generated if omitted.
+    """
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only CSV files are supported. Use columns: first_name, last_name, email, student_id (optional), class_id (optional).",
+        )
+    content = await file.read()
+    result = await AcademicService.import_students_from_csv(
+        db, content, current_user.school_id
+    )
+    msg = f"Imported: {result['created']} created, {result['enrolled']} enrolled, {result['skipped']} skipped."
+    if result.get("errors"):
+        msg += f" Errors: {'; '.join(result['errors'][:5])}"
+        if len(result["errors"]) > 5:
+            msg += f" (+{len(result['errors']) - 5} more)"
+    return SuccessResponse(data=result, message=msg)
+
 
 @router.delete("/{student_id}", response_model=SuccessResponse)
 async def delete_student(
