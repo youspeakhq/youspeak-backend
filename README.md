@@ -194,6 +194,7 @@ Key variables:
 - `SECRET_KEY` - JWT secret key (min 32 characters)
 - `REDIS_URL` - Redis connection string
 - `ALLOWED_ORIGINS` - CORS allowed origins
+- `RESEND_API_KEY` - Resend API key for teacher invite emails (optional; when unset, emails are logged only)
 
 ## Deployment
 

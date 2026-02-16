@@ -65,6 +65,41 @@ class AcademicService:
         return result.scalar_one()
 
     @staticmethod
+    async def assign_teacher_to_classes(
+        db: AsyncSession,
+        teacher_id: UUID,
+        class_ids: List[UUID],
+        school_id: UUID,
+    ) -> bool:
+        """Assign teacher to classes. Validates all classes belong to school."""
+        if not class_ids:
+            return True
+        stmt = select(Class).where(
+            Class.id.in_(class_ids),
+            Class.school_id == school_id,
+        )
+        result = await db.execute(stmt)
+        valid_classes = result.scalars().all()
+        if len(valid_classes) != len(class_ids):
+            return False
+        for cls in valid_classes:
+            existing = await db.execute(
+                select(teacher_assignments).where(
+                    teacher_assignments.c.class_id == cls.id,
+                    teacher_assignments.c.teacher_id == teacher_id,
+                )
+            )
+            if existing.first():
+                continue
+            stmt = insert(teacher_assignments).values(
+                class_id=cls.id,
+                teacher_id=teacher_id,
+                is_primary=False,
+            )
+            await db.execute(stmt)
+        return True
+
+    @staticmethod
     async def get_teacher_classes(db: AsyncSession, teacher_id: UUID) -> List[Class]:
         """Get all classes assigned to a teacher"""
         # Join through teacher_assignments table

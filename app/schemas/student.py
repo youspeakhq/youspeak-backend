@@ -26,6 +26,7 @@ class StudentUpdate(BaseModel):
     status: Optional[str] = None
 
 class TeacherCreate(BaseModel):
+    """Admin invites teacher. Teacher receives code via email and signs up with it."""
     first_name: str
     last_name: str
     email: str

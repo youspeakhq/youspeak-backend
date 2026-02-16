@@ -304,7 +304,7 @@ class UserService:
         await db.commit()
         await db.refresh(teacher)
         return teacher
-    
+
     @staticmethod
     async def get_users_by_school_and_role(
         db: AsyncSession,

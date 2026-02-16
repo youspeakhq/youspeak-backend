@@ -69,6 +69,13 @@ variable "secret_key" {
   sensitive   = true
 }
 
+variable "resend_api_key" {
+  description = "Resend API key for transactional emails (teacher invites)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Optional: enable HTTPS with a custom domain (e.g. youspeak.com).
 # Requires a Route53 hosted zone for the domain in this AWS account.
 variable "domain_name" {
@@ -556,11 +563,14 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
       Action = [
         "secretsmanager:GetSecretValue"
       ]
-      Resource = [
-        aws_secretsmanager_secret.database_url.arn,
-        aws_secretsmanager_secret.redis_url.arn,
-        aws_secretsmanager_secret.secret_key.arn
-      ]
+      Resource = concat(
+        [
+          aws_secretsmanager_secret.database_url.arn,
+          aws_secretsmanager_secret.redis_url.arn,
+          aws_secretsmanager_secret.secret_key.arn
+        ],
+        var.resend_api_key != "" ? [aws_secretsmanager_secret.resend_api_key[0].arn] : []
+      )
     }]
   })
 }
@@ -632,6 +642,17 @@ resource "aws_secretsmanager_secret" "secret_key" {
 resource "aws_secretsmanager_secret_version" "secret_key" {
   secret_id     = aws_secretsmanager_secret.secret_key.id
   secret_string = var.secret_key
+}
+
+resource "aws_secretsmanager_secret" "resend_api_key" {
+  count = var.resend_api_key != "" ? 1 : 0
+  name  = "${var.app_name}/resend-api-key-${var.environment}"
+}
+
+resource "aws_secretsmanager_secret_version" "resend_api_key" {
+  count         = var.resend_api_key != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.resend_api_key[0].id
+  secret_string = var.resend_api_key
 }
 
 # Data Sources
@@ -744,6 +765,11 @@ output "secret_redis_url_arn" {
 output "secret_secret_key_arn" {
   description = "ARN of the secret key secret"
   value       = aws_secretsmanager_secret.secret_key.arn
+}
+
+output "secret_resend_api_key_arn" {
+  description = "ARN of the Resend API key secret (empty if not configured)"
+  value       = var.resend_api_key != "" ? aws_secretsmanager_secret.resend_api_key[0].arn : ""
 }
 
 output "private_subnet_ids" {

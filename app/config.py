@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_PASSWORD: str = ""
+
+    # Email (Resend)
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "YouSpeak <onboarding@resend.dev>"
+    FRONTEND_SIGNUP_URL: str = "https://app.youspeak.com/signup"
     
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True

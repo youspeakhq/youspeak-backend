@@ -25,6 +25,7 @@ async def test_list_teachers(
 async def test_create_teacher_invite(
     async_client: AsyncClient, api_base: str, registered_school: dict, unique_suffix: str
 ):
+    """Admin invites teacher; code is generated and sent via email. Teacher signs up with code."""
     resp = await async_client.post(
         f"{api_base}/teachers",
         headers=registered_school["headers"],

@@ -29,6 +29,7 @@ EXEC_ROLE_ARN=$(terraform -chdir=terraform output -raw ecs_execution_role_arn 2>
 SECRET_DB_ARN=$(terraform -chdir=terraform output -raw secret_database_url_arn 2>/dev/null)
 SECRET_REDIS_ARN=$(terraform -chdir=terraform output -raw secret_redis_url_arn 2>/dev/null)
 SECRET_KEY_ARN=$(terraform -chdir=terraform output -raw secret_secret_key_arn 2>/dev/null)
+SECRET_RESEND_ARN=$(terraform -chdir=terraform output -raw secret_resend_api_key_arn 2>/dev/null || true)
 
 if [ -z "$EXEC_ROLE_ARN" ] || [ -z "$SECRET_DB_ARN" ]; then
     echo -e "${RED}Error: Terraform outputs not found. Run from repo root after: cd terraform && terraform init && terraform apply${NC}"
@@ -38,6 +39,15 @@ fi
 echo "AWS Account ID: $AWS_ACCOUNT_ID"
 echo "AWS Region: $AWS_REGION"
 echo "Execution Role: $EXEC_ROLE_ARN"
+
+RESEND_SECRET_JSON=""
+if [ -n "$SECRET_RESEND_ARN" ]; then
+  RESEND_SECRET_JSON=",
+        {
+          \"name\": \"RESEND_API_KEY\",
+          \"valueFrom\": \"${SECRET_RESEND_ARN}\"
+        }"
+fi
 
 # Generate task definition from template (use execution role for task role as well)
 cat > .aws/task-definition.json <<EOF
@@ -90,7 +100,7 @@ cat > .aws/task-definition.json <<EOF
         {
           "name": "SECRET_KEY",
           "valueFrom": "${SECRET_KEY_ARN}"
-        }
+        }${RESEND_SECRET_JSON}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
