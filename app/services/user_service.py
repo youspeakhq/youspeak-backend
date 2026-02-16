@@ -29,6 +29,8 @@ class UserService:
         year = datetime.utcnow().year
         prefix = f"{year}-"
         start_pos = len(prefix) + 1
+        # Only consider student_numbers matching {year}-{digits} (ignore custom formats like 2025-abc)
+        pattern = f"^{year}-\\d+$"
         result = await db.execute(
             select(func.max(cast(
                 func.substring(User.student_number, start_pos),
@@ -36,7 +38,7 @@ class UserService:
             ))).where(
                 User.school_id == school_id,
                 User.student_number.isnot(None),
-                User.student_number.like(f"{prefix}%"),
+                User.student_number.op("~")(pattern),
             )
         )
         max_seq = result.scalar_one_or_none()
