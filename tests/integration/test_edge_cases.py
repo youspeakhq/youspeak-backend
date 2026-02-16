@@ -246,8 +246,9 @@ async def test_admin_cannot_access_teacher_my_classes(
 
 @pytest.mark.asyncio
 async def test_unauthenticated_cannot_access_classrooms(async_client: AsyncClient, api_base: str):
+    """No auth header: HTTPBearer returns 403 (FastAPI <0.122 behavior)."""
     resp = await async_client.get(f"{api_base}/classrooms")
-    assert resp.status_code == 401
+    assert resp.status_code == 403
 
 
 @pytest.mark.asyncio

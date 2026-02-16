@@ -23,6 +23,7 @@ from app.models.arena import Arena, ArenaCriteria, ArenaRule, ArenaPerformer  # 
 from app.models.communication import Announcement, AnnouncementReminder  # noqa
 from app.models.analytics import LearningSession, Award  # noqa
 from app.models.billing import Bill  # noqa
+from app.models.access_code import TeacherAccessCode  # noqa
 from app.config import settings
 
 # This is the Alembic Config object

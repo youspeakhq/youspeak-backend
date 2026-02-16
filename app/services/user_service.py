@@ -1,7 +1,8 @@
 """User Service - Business Logic Layer"""
 
+import secrets
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from uuid import UUID
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -262,6 +263,45 @@ class UserService:
         return access_code.school_id if access_code else None
     
     @staticmethod
+    async def create_invited_teacher(
+        db: AsyncSession,
+        email: str,
+        first_name: str,
+        last_name: str,
+        school_id: UUID,
+        placeholder_password: str,
+    ) -> User:
+        """Create teacher with is_active=False. Used when admin invites; teacher activates via code."""
+        hashed = get_password_hash(placeholder_password)
+        teacher = User(
+            email=email,
+            hashed_password=hashed,
+            first_name=first_name,
+            last_name=last_name,
+            role=UserRole.TEACHER,
+            school_id=school_id,
+            is_active=False,
+        )
+        db.add(teacher)
+        await db.flush()
+        return teacher
+
+    @staticmethod
+    async def get_access_code_by_code(db: AsyncSession, code: str) -> Optional[TeacherAccessCode]:
+        """Get access code by code string if valid (not used, not expired)."""
+        result = await db.execute(
+            select(TeacherAccessCode).where(
+                TeacherAccessCode.code == code,
+                TeacherAccessCode.is_used == False,
+                or_(
+                    TeacherAccessCode.expires_at.is_(None),
+                    TeacherAccessCode.expires_at > datetime.utcnow()
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def create_teacher_with_code(
         db: AsyncSession,
         code: str,
@@ -270,18 +310,33 @@ class UserService:
         first_name: str,
         last_name: str
     ) -> Optional[User]:
-        """Create teacher using access code"""
-        # Verify code
-        school_id = await UserService.verify_access_code(db, code)
-        if not school_id:
+        """
+        Activate teacher using access code.
+        If invited_teacher_id is set: update existing teacher (password, is_active=True).
+        Else (legacy): create new teacher.
+        """
+        access_code = await UserService.get_access_code_by_code(db, code)
+        if not access_code:
             return None
-        
-        # Check email doesn't exist
+
+        if access_code.invited_teacher_id:
+            teacher = await db.get(User, access_code.invited_teacher_id)
+            if not teacher or teacher.role != UserRole.TEACHER:
+                return None
+            if teacher.email != email:
+                return None
+            teacher.hashed_password = get_password_hash(password)
+            teacher.is_active = True
+            access_code.is_used = True
+            access_code.used_by_teacher_id = teacher.id
+            await db.commit()
+            await db.refresh(teacher)
+            return teacher
+
+        school_id = access_code.school_id
         existing = await UserService.get_user_by_email(db, email)
         if existing:
             return None
-        
-        # Create teacher
         hashed_password = get_password_hash(password)
         teacher = User(
             email=email,
@@ -292,15 +347,10 @@ class UserService:
             school_id=school_id,
             is_active=True
         )
-        
         db.add(teacher)
-        
-        # Mark code as used
-        result = await db.execute(select(TeacherAccessCode).where(TeacherAccessCode.code == code))
-        access_code = result.scalar_one()
+        await db.flush()
         access_code.is_used = True
         access_code.used_by_teacher_id = teacher.id
-        
         await db.commit()
         await db.refresh(teacher)
         return teacher

@@ -123,7 +123,10 @@ class ClassSchedule(BaseModel):
     __tablename__ = "class_schedules"
     
     class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, index=True)
-    day_of_week = Column(ENUM(DayOfWeek, name="day_of_week"), nullable=False)
+    day_of_week = Column(
+        ENUM(DayOfWeek, name="day_of_week", values_callable=lambda x: [e.name for e in x]),
+        nullable=False,
+    )
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
     

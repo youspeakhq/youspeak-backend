@@ -95,7 +95,7 @@ async def create_student(
     if student_in.class_id:
         await AcademicService.add_student_to_class(db, student_in.class_id, user.id)
     
-    return SuccessResponse(data=user, message="Student created successfully")
+    return SuccessResponse(data=UserResponse.model_validate(user), message="Student created successfully")
 
 @router.delete("/{student_id}", response_model=SuccessResponse)
 async def delete_student(

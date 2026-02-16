@@ -1,6 +1,6 @@
 from typing import Optional, List
-from pydantic import BaseModel, Field
 from uuid import UUID
+from pydantic import BaseModel, Field
 from datetime import datetime
 from app.models.enums import UserRole
 
@@ -26,10 +26,11 @@ class StudentUpdate(BaseModel):
     status: Optional[str] = None
 
 class TeacherCreate(BaseModel):
-    """Admin invites teacher. Teacher receives code via email and signs up with it."""
+    """Admin creates teacher (is_active=False). Teacher activates via code at register."""
     first_name: str
     last_name: str
     email: str
+    classroom_ids: Optional[List[UUID]] = None
 
 class TeacherAssign(BaseModel):
     classroom_id: UUID

@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.models.academic import Classroom, classroom_teachers, classroom_students
 from app.models.enums import UserRole
 from app.schemas.academic import ClassroomCreate
+from app.services.user_service import UserService
 
 
 class ClassroomService:
@@ -88,8 +89,7 @@ class ClassroomService:
         classroom = await ClassroomService.get_classroom_by_id(db, classroom_id, school_id)
         if not classroom:
             return False
-        from app.models.user import User
-        user = await db.get(User, teacher_id)
+        user = await UserService.get_user_by_id(db, teacher_id)
         if not user or user.school_id != school_id or user.role != UserRole.TEACHER:
             return False
         existing = await db.execute(
@@ -121,8 +121,7 @@ class ClassroomService:
         classroom = await ClassroomService.get_classroom_by_id(db, classroom_id, school_id)
         if not classroom:
             return False
-        from app.models.user import User
-        user = await db.get(User, student_id)
+        user = await UserService.get_user_by_id(db, student_id)
         if not user or user.school_id != school_id or user.role != UserRole.STUDENT:
             return False
         existing = await db.execute(

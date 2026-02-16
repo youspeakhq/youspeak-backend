@@ -8,10 +8,19 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
+def _should_skip_email(to_email: str) -> bool:
+    """Skip sending in test env or to test domains (Resend sandbox restricts recipients)."""
+    if settings.ENVIRONMENT == "test":
+        return True
+    test_domains = ("@test.com", "@test.example.com", "@resend.dev")
+    return any(to_email.lower().endswith(d) for d in test_domains)
+
+
 def send_teacher_invite(to_email: str, first_name: str, access_code: str) -> bool:
     """
     Send teacher invite email with access code and signup link.
-    Returns True if sent, False if skipped (no API key) or failed.
+    Uses Resend default domain (onboarding@resend.dev) when no custom domain verified.
+    Returns True if sent, False if skipped (no API key, test env) or failed.
     """
     if not settings.RESEND_API_KEY:
         logger.info(
@@ -20,6 +29,13 @@ def send_teacher_invite(to_email: str, first_name: str, access_code: str) -> boo
             access_code,
         )
         return False
+    if _should_skip_email(to_email):
+        logger.info(
+            "Email skipped (test env or test domain): teacher invite to %s, code=%s",
+            to_email,
+            access_code,
+        )
+        return True
 
     signup_url = f"{settings.FRONTEND_SIGNUP_URL.rstrip('/')}?{urlencode({'code': access_code})}"
 

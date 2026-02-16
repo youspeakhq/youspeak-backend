@@ -99,7 +99,7 @@ async def add_teacher_to_classroom(
             status_code=400,
             detail="Could not add teacher. Teacher may not exist or already assigned.",
         )
-    return SuccessResponse(message="Teacher added to classroom")
+    return SuccessResponse(data={}, message="Teacher added to classroom")
 
 
 @router.post("/{classroom_id}/students", response_model=SuccessResponse)
@@ -118,4 +118,4 @@ async def add_student_to_classroom(
             status_code=400,
             detail="Could not add student. Student may not exist or already assigned.",
         )
-    return SuccessResponse(message="Student added to classroom")
+    return SuccessResponse(data={}, message="Student added to classroom")

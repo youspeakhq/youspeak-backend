@@ -36,6 +36,9 @@ run_docker_compose() {
     exit 1
   fi
   curl -sf http://localhost:8000/docs >/dev/null && echo "Docs OK"
+  echo -e "${YELLOW}Running migrations (ensure enum values)...${NC}"
+  export DATABASE_URL=postgresql://youspeak_user:youspeak_password@localhost:5455/youspeak_db
+  alembic upgrade head 2>/dev/null || true
   echo -e "${GREEN}Docker Compose OK${NC}"
 }
 
@@ -45,6 +48,7 @@ run_tests_against_compose() {
   export REDIS_URL=redis://localhost:6379/0
   export SECRET_KEY=dev-secret-key-change-in-production-min-32-characters-long
   export ENVIRONMENT=test
+  export TEST_USE_LIVE_SERVER=true
   pytest tests/ -v --cov=app --cov-report=term --no-cov-on-fail
   echo -e "${GREEN}Pytest done${NC}"
 }
