@@ -1,4 +1,8 @@
-"""Email service for transactional emails (Resend)."""
+"""Email service for transactional emails (Resend).
+
+To send to any recipient, verify a domain at resend.com/domains and set
+EMAIL_FROM to an address at that domain. See docs/EMAIL_SETUP.md.
+"""
 
 import logging
 from urllib.parse import urlencode

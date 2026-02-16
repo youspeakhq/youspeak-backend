@@ -194,7 +194,8 @@ Key variables:
 - `SECRET_KEY` - JWT secret key (min 32 characters)
 - `REDIS_URL` - Redis connection string
 - `ALLOWED_ORIGINS` - CORS allowed origins
-- `RESEND_API_KEY` - Resend API key for teacher invite emails (optional; when unset, emails are logged only)
+- `RESEND_API_KEY` - Resend API key for transactional emails (optional; when unset, emails are logged only)
+- `EMAIL_FROM` - Sender address. Default `onboarding@resend.dev` only sends to your Resend account. **To send to any recipient**, verify a domain at [resend.com/domains](https://resend.com/domains) and set e.g. `YouSpeak <noreply@mail.youspeak.com>`. See [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md).
 
 ## Deployment
 

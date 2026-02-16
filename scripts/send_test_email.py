@@ -6,8 +6,8 @@ Usage:
   python scripts/send_test_email.py
   # Requires RESEND_API_KEY in .env (or export)
 
-Note: Resend sandbox only allows sending to your verified account email.
-To send to other addresses, verify a domain at resend.com/domains.
+To send to any recipient: verify a domain at resend.com/domains, set EMAIL_FROM
+to an address at that domain (e.g. noreply@mail.youspeak.com). See docs/EMAIL_SETUP.md.
 """
 import os
 import sys
