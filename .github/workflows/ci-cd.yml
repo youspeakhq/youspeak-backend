@@ -121,6 +121,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Create .env for Docker Compose
+        run: |
+          cp .env.example .env
+      
       - name: Start Docker Compose
         run: |
           docker compose up -d --build
