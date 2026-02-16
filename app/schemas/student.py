@@ -16,10 +16,9 @@ class StudentCreate(BaseModel):
     last_name: str
     class_id: UUID
     lang_id: int
-    # email is optional for students in some systems, but User model requires it.
-    # We'll assume admin provides one or it's generated. Spec says CSV import.
-    email: Optional[str] = None 
-    password: Optional[str] = None # Admin might set default
+    email: Optional[str] = None
+    password: Optional[str] = None
+    student_id: Optional[str] = None  # Human-readable ID (e.g. 2025-001). Auto-generated if omitted.
 
 class StudentUpdate(BaseModel):
     classroom_id: Optional[UUID] = None
@@ -39,8 +38,9 @@ class UserResponse(UserBase):
     id: UUID
     school_id: UUID
     profile_picture_url: Optional[str] = None
+    student_number: Optional[str] = None
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 

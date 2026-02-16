@@ -37,15 +37,16 @@ class User(UserBase):
     id: UUID
     email: EmailStr
     is_active: bool
-    is_superuser: bool = False # Deprecated but kept for compat
+    is_superuser: bool = False  # Deprecated but kept for compat
     role: UserRole
     school_id: Optional[UUID] = None
     profile_picture_url: Optional[str] = None
+    student_number: Optional[str] = None
     is_verified: bool = False
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 UserResponse = User

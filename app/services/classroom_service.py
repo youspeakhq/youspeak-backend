@@ -35,7 +35,10 @@ class ClassroomService:
         db: AsyncSession,
         classroom_id: UUID,
         school_id: UUID,
+        cache: Optional[Dict[UUID, Optional[Classroom]]] = None,
     ) -> Optional[Classroom]:
+        if cache is not None and classroom_id in cache:
+            return cache[classroom_id]
         result = await db.execute(
             select(Classroom)
             .where(
@@ -43,7 +46,10 @@ class ClassroomService:
                 Classroom.school_id == school_id,
             )
         )
-        return result.scalar_one_or_none()
+        classroom = result.scalar_one_or_none()
+        if cache is not None:
+            cache[classroom_id] = classroom
+        return classroom
 
     @staticmethod
     async def list_classrooms(
@@ -86,13 +92,18 @@ class ClassroomService:
         teacher_id: UUID,
         school_id: UUID,
         auto_commit: bool = True,
+        classroom_cache: Optional[Dict[UUID, Optional[Classroom]]] = None,
+        skip_user_validation: bool = False,
     ) -> bool:
-        classroom = await ClassroomService.get_classroom_by_id(db, classroom_id, school_id)
+        classroom = await ClassroomService.get_classroom_by_id(
+            db, classroom_id, school_id, cache=classroom_cache
+        )
         if not classroom:
             return False
-        user = await UserService.get_user_by_id(db, teacher_id)
-        if not user or user.school_id != school_id or user.role != UserRole.TEACHER:
-            return False
+        if not skip_user_validation:
+            user = await UserService.get_user_by_id(db, teacher_id)
+            if not user or user.school_id != school_id or user.role != UserRole.TEACHER:
+                return False
         existing = await db.execute(
             select(classroom_teachers).where(
                 and_(

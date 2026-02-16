@@ -3,6 +3,13 @@
 import os
 import uuid
 import pytest
+
+# Load .env so DATABASE_URL, SECRET_KEY available for requires_db check
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app

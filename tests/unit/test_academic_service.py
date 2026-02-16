@@ -53,3 +53,21 @@ def test_normalize_csv_headers_classroom_and_class_id():
     result = AcademicService._normalize_csv_headers(row)
     assert result["classroom_id"] == "550e8400-e29b-41d4-a716-446655440000"
     assert result.get("class_id") == "660e8400-e29b-41d4-a716-446655440001"
+
+
+def test_normalize_csv_headers_student_number():
+    row = {
+        "first_name": "Alice",
+        "last_name": "Smith",
+        "email": "a@test.com",
+        "student_id": "2025-001",
+    }
+    result = AcademicService._normalize_csv_headers(row)
+    assert result["student_number"] == "2025-001"
+
+
+def test_normalize_csv_headers_student_number_aliases():
+    for col in ("student_number", "student id", "Student Number"):
+        row = {"first_name": "X", "last_name": "Y", "email": "x@y.com", col: "2025-042"}
+        result = AcademicService._normalize_csv_headers(row)
+        assert result["student_number"] == "2025-042"

@@ -23,6 +23,7 @@ class User(BaseModel, SchoolScopedMixin, SoftDeleteMixin):
     first_name = Column(String(255), nullable=False)
     last_name = Column(String(255), nullable=False)
     profile_picture_url = Column(String(500), nullable=True)
+    student_number = Column(String(20), nullable=True)
     
     # Role & Permissions (RBAC)
     role = Column(ENUM(UserRole, name="user_role"), nullable=False, index=True)

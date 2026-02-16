@@ -54,9 +54,11 @@ class UserService:
         role: UserRole = UserRole.STUDENT,
         is_active: bool = True,
         student_number: Optional[str] = None,
+        auto_commit: bool = True,
     ) -> User:
         """
         Create a new user. For students, auto-generates student_number as {year}-{seq} if not provided.
+        When auto_commit=False, uses flush instead of commit (for batch imports).
         """
         if role == UserRole.STUDENT:
             if student_number is None:
@@ -80,9 +82,12 @@ class UserService:
         )
 
         db.add(db_user)
-        await db.commit()
-        await db.refresh(db_user)
-
+        if auto_commit:
+            await db.commit()
+            await db.refresh(db_user)
+        else:
+            await db.flush()
+            await db.refresh(db_user)
         return db_user
     
     @staticmethod
@@ -114,6 +119,22 @@ class UserService:
         """
         result = await db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_existing_emails(db: AsyncSession, emails: List[str]) -> set:
+        """Return set of emails that already exist in users table. One query for bulk check."""
+        if not emails:
+            return set()
+        result = await db.execute(select(User.email).where(User.email.in_(emails)))
+        return {row[0] for row in result.all()}
+
+    @staticmethod
+    async def get_users_by_emails(db: AsyncSession, emails: List[str]) -> Dict[str, User]:
+        """Return dict of email -> User for existing users. One query for bulk lookup."""
+        if not emails:
+            return {}
+        result = await db.execute(select(User).where(User.email.in_(emails)))
+        return {u.email: u for u in result.scalars().all()}
 
     @staticmethod
     async def get_user_by_student_number(
@@ -418,6 +439,7 @@ class UserService:
         errors: List[str] = []
         invitations: List[Dict[str, str]] = []
         seen_emails: set = set()
+        classroom_cache: Dict[UUID, Any] = {}
 
         try:
             content = file_content.decode("utf-8-sig")
@@ -428,6 +450,17 @@ class UserService:
         rows = list(reader)
         if not rows:
             return {"created": 0, "skipped": 0, "errors": ["CSV file is empty"], "invitations": []}
+
+        emails_to_check = []
+        for row in rows:
+            mapped = AcademicService._normalize_csv_headers(row)
+            first_name = (mapped.get("first_name") or "").strip()
+            last_name = (mapped.get("last_name") or "").strip()
+            email = (mapped.get("email") or "").strip()
+            if first_name and last_name and email:
+                emails_to_check.append(email)
+
+        existing_emails = await UserService.get_existing_emails(db, list(set(emails_to_check)))
 
         for i, row in enumerate(rows):
             mapped = AcademicService._normalize_csv_headers(row)
@@ -447,8 +480,7 @@ class UserService:
                 continue
             seen_emails.add(email)
 
-            existing = await UserService.get_user_by_email(db, email)
-            if existing:
+            if email in existing_emails:
                 errors.append(f"Row {i + 2}: {email} already exists")
                 continue
 
@@ -470,6 +502,7 @@ class UserService:
                 school_id=school_id,
                 placeholder_password=placeholder,
             )
+            existing_emails.add(email)
 
             code = security.generate_access_code()
             access_code = TeacherAccessCode(
@@ -484,7 +517,10 @@ class UserService:
 
             if classroom_id:
                 await ClassroomService.add_teacher_to_classroom(
-                    db, classroom_id, teacher.id, school_id, auto_commit=False
+                    db, classroom_id, teacher.id, school_id,
+                    auto_commit=False,
+                    classroom_cache=classroom_cache,
+                    skip_user_validation=True,
                 )
 
             created += 1

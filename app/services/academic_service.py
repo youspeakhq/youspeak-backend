@@ -14,13 +14,22 @@ from app.schemas.academic import ClassCreate, ClassUpdate, ScheduleBase
 
 class AcademicService:
     @staticmethod
-    async def get_class_by_id(db: AsyncSession, class_id: UUID) -> Optional[Class]:
+    async def get_class_by_id(
+        db: AsyncSession,
+        class_id: UUID,
+        cache: Optional[Dict[UUID, Optional[Class]]] = None,
+    ) -> Optional[Class]:
+        if cache is not None and class_id in cache:
+            return cache[class_id]
         result = await db.execute(
             select(Class)
             .options(selectinload(Class.schedules))
             .where(Class.id == class_id)
         )
-        return result.scalar_one_or_none()
+        cls = result.scalar_one_or_none()
+        if cache is not None:
+            cache[class_id] = cls
+        return cls
     
     @staticmethod
     async def create_class(
@@ -122,10 +131,10 @@ class AcademicService:
         db: AsyncSession,
         class_id: UUID,
         student_id: UUID,
-        role: StudentRole = StudentRole.STUDENT
+        role: StudentRole = StudentRole.STUDENT,
+        auto_commit: bool = True,
     ) -> bool:
         """Add student to class roster"""
-        # Check if already enrolled
         stmt = select(class_enrollments).where(
             and_(
                 class_enrollments.c.class_id == class_id,
@@ -134,9 +143,8 @@ class AcademicService:
         )
         result = await db.execute(stmt)
         if result.first():
-            return False # Already enrolled
-            
-        # Insert
+            return False
+
         stmt = insert(class_enrollments).values(
             class_id=class_id,
             student_id=student_id,
@@ -144,7 +152,8 @@ class AcademicService:
             joined_at=datetime.utcnow()
         )
         await db.execute(stmt)
-        await db.commit()
+        if auto_commit:
+            await db.commit()
         return True
 
     @staticmethod
@@ -224,7 +233,7 @@ class AcademicService:
     ) -> Dict[str, Any]:
         """
         Bulk import students from CSV. Creates new students or enrolls existing ones.
-        CSV columns: first_name, last_name, email (optional).
+        CSV columns: first_name, last_name, email (optional), student_id (optional).
         Returns created count, enrolled count, skipped, and errors.
         """
         from app.models.user import User
@@ -250,6 +259,16 @@ class AcademicService:
         if not rows:
             return {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["CSV file is empty"]}
 
+        provided_emails = []
+        for row in rows:
+            mapped = AcademicService._normalize_csv_headers(row)
+            email = (mapped.get("email") or "").strip()
+            first_name = (mapped.get("first_name") or "").strip()
+            last_name = (mapped.get("last_name") or "").strip()
+            if email and first_name and last_name:
+                provided_emails.append(email)
+        existing_users = await UserService.get_users_by_emails(db, list(set(provided_emails)))
+
         for i, row in enumerate(rows):
             mapped = AcademicService._normalize_csv_headers(row)
             first_name = (mapped.get("first_name") or "").strip()
@@ -269,7 +288,7 @@ class AcademicService:
                 continue
             seen_emails.add(email)
 
-            existing = await UserService.get_user_by_email(db, email)
+            existing = existing_users.get(email)
             if existing:
                 if existing.school_id != school_id:
                     errors.append(f"Row {i + 2}: {email} belongs to another school")
@@ -290,9 +309,11 @@ class AcademicService:
                         role=UserRole.STUDENT,
                         is_active=True,
                         student_number=student_number,
+                        auto_commit=False,
                     )
                     student_id = new_user.id
                     created += 1
+                    existing_users[email] = new_user
                 except ValueError as e:
                     errors.append(f"Row {i + 2}: {e}")
                     continue
@@ -300,12 +321,15 @@ class AcademicService:
                     errors.append(f"Row {i + 2}: failed to create student - {str(e)}")
                     continue
 
-            added = await AcademicService.add_student_to_class(db, class_id, student_id)
+            added = await AcademicService.add_student_to_class(
+                db, class_id, student_id, auto_commit=False
+            )
             if added:
                 enrolled += 1
             else:
                 skipped += 1
 
+        await db.commit()
         return {"created": created, "enrolled": enrolled, "skipped": skipped, "errors": errors}
 
     @staticmethod
@@ -316,7 +340,7 @@ class AcademicService:
     ) -> Dict[str, Any]:
         """
         School-level bulk import of students from CSV.
-        CSV columns: first_name, last_name, email (optional), class_id (optional).
+        CSV columns: first_name, last_name, email (optional), student_id (optional), class_id (optional).
         Creates students at school. If class_id provided and valid, enrolls in that class.
         Returns created count, enrolled count, skipped count, and errors.
         """
@@ -328,6 +352,7 @@ class AcademicService:
         skipped = 0
         errors: List[str] = []
         seen_emails: set = set()
+        class_cache: Dict[UUID, Optional[Class]] = {}
 
         try:
             content = file_content.decode("utf-8-sig")
@@ -338,6 +363,16 @@ class AcademicService:
         rows = list(reader)
         if not rows:
             return {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["CSV file is empty"]}
+
+        provided_emails = []
+        for row in rows:
+            mapped = AcademicService._normalize_csv_headers(row)
+            email = (mapped.get("email") or "").strip()
+            first_name = (mapped.get("first_name") or "").strip()
+            last_name = (mapped.get("last_name") or "").strip()
+            if email and first_name and last_name:
+                provided_emails.append(email)
+        existing_users = await UserService.get_users_by_emails(db, list(set(provided_emails)))
 
         for i, row in enumerate(rows):
             mapped = AcademicService._normalize_csv_headers(row)
@@ -358,7 +393,7 @@ class AcademicService:
                 continue
             seen_emails.add(email)
 
-            existing = await UserService.get_user_by_email(db, email)
+            existing = existing_users.get(email)
             if existing:
                 if existing.school_id != school_id:
                     errors.append(f"Row {i + 2}: {email} belongs to another school")
@@ -379,9 +414,11 @@ class AcademicService:
                         role=UserRole.STUDENT,
                         is_active=True,
                         student_number=student_number,
+                        auto_commit=False,
                     )
                     student_id = new_user.id
                     created += 1
+                    existing_users[email] = new_user
                 except ValueError as e:
                     errors.append(f"Row {i + 2}: {e}")
                     continue
@@ -393,9 +430,11 @@ class AcademicService:
             if class_id_str:
                 try:
                     cid = UUID(class_id_str)
-                    cls = await AcademicService.get_class_by_id(db, cid)
+                    cls = await AcademicService.get_class_by_id(db, cid, cache=class_cache)
                     if cls and cls.school_id == school_id:
-                        added = await AcademicService.add_student_to_class(db, cid, student_id)
+                        added = await AcademicService.add_student_to_class(
+                            db, cid, student_id, auto_commit=False
+                        )
                         if added:
                             enrolled += 1
                         else:
@@ -405,4 +444,5 @@ class AcademicService:
                 except ValueError:
                     errors.append(f"Row {i + 2}: invalid class_id format")
 
+        await db.commit()
         return {"created": created, "enrolled": enrolled, "skipped": skipped, "errors": errors}
