@@ -54,6 +54,8 @@ class User(UserBase):
 UserResponse = User
 
 
+
+
 # User Login Schema
 class UserLogin(BaseModel):
     """Schema for user login"""

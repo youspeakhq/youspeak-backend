@@ -39,8 +39,35 @@ async def list_students(
     
     total = len(all_students)
     total_pages = (total + limit - 1) // limit if limit > 0 else 0
+
+    # Build response dicts while the DB session is still open so that
+    # selectinload-populated enrolled_classrooms is accessible without lazy loading.
+    from app.schemas.academic import ClassroomBrief
+
+    def _student_dict(u: User) -> dict:
+        classrooms = [
+            ClassroomBrief.model_validate(c)
+            for c in (u.enrolled_classrooms or [])
+        ]
+        return UserResponse(
+            id=u.id,
+            email=u.email,
+            full_name=u.full_name,
+            is_active=u.is_active,
+            role=u.role,
+            school_id=u.school_id,
+            profile_picture_url=u.profile_picture_url,
+            student_number=u.student_number,
+            is_verified=False,
+            created_at=u.created_at,
+            updated_at=u.updated_at,
+            last_login=getattr(u, "last_login", None),
+            classrooms=classrooms,
+        )
+
+    serialized = [_student_dict(u) for u in paginated]
     return PaginatedResponse(
-        data=paginated,
+        data=serialized,
         meta={
             "page": page,
             "page_size": limit,

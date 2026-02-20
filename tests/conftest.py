@@ -25,7 +25,8 @@ requires_db = pytest.mark.skipif(
 def _get_api_base() -> str:
     """API base URL. In CI (TEST_USE_LIVE_SERVER=true), hit running server to avoid async teardown issues."""
     if os.getenv("TEST_USE_LIVE_SERVER", "").lower() == "true":
-        return f"http://localhost:8000{settings.API_V1_PREFIX}"
+        base = os.getenv("LIVE_SERVER_URL", f"http://localhost:8000")
+        return f"{base}{settings.API_V1_PREFIX}"
     return f"http://test{settings.API_V1_PREFIX}"
 
 
