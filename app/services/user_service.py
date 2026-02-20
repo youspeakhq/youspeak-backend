@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Tuple, Dict, Any
 from uuid import UUID
 from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
@@ -539,14 +540,18 @@ class UserService:
         include_deleted: bool = False
     ) -> List[User]:
         """Get users by school and role"""
-        query = select(User).where(User.school_id == school_id)
-        
+        query = (
+            select(User)
+            .where(User.school_id == school_id)
+            .options(selectinload(User.enrolled_classrooms))
+        )
+
         if role:
             query = query.where(User.role == role)
-        
+
         if not include_deleted:
             query = query.where(User.deleted_at.is_(None))
-        
+
         result = await db.execute(query)
         return list(result.scalars().all())
     

@@ -1,7 +1,7 @@
 """User Pydantic Schemas"""
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
@@ -28,6 +28,7 @@ class UserUpdate(BaseModel):
 
 
 from app.models.enums import UserRole
+from app.schemas.academic import ClassroomBrief
 
 # ...
 
@@ -46,6 +47,7 @@ class User(UserBase):
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
+    classrooms: List[ClassroomBrief] = []
 
     model_config = ConfigDict(from_attributes=True)
 

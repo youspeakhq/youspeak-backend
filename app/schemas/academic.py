@@ -16,6 +16,17 @@ class ClassroomCreate(ClassroomBase):
     pass
 
 
+class ClassroomBrief(BaseModel):
+    """Minimal classroom info for embedding in student/teacher responses."""
+    id: UUID
+    name: str
+    level: ProficiencyLevel
+    language_id: int
+
+    class Config:
+        from_attributes = True
+
+
 class ClassroomUpdate(BaseModel):
     name: Optional[str] = None
     level: Optional[ProficiencyLevel] = None
