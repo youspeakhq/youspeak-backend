@@ -28,7 +28,8 @@ class CurriculumService:
             .where(Curriculum.school_id == school_id)
             .options(
                 selectinload(Curriculum.classes),
-                selectinload(Curriculum.language)
+                selectinload(Curriculum.language),
+                selectinload(Curriculum.topics)
             )
         )
         
@@ -235,7 +236,8 @@ class CurriculumService:
         """
         base_curr = await CurriculumService.get_curriculum_by_id(db, base_curriculum_id, school_id)
         if not base_curr:
-            raise ValueError("Base curriculum not found")
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Base curriculum not found")
             
         merged_curriculum = Curriculum(
             school_id=school_id,

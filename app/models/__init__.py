@@ -56,6 +56,7 @@ __all__ = [
     "Curriculum",
     "curriculum_classes",
     "Topic",
+    "Topic",
     
     # Assessment
     "Question",
