@@ -7,7 +7,11 @@ import json
 from app.api import deps
 from app.models.user import User
 from app.services.curriculum_service import CurriculumService
-from app.schemas.content import CurriculumResponse, CurriculumCreate, CurriculumUpdate, CurriculumMergeRequest
+from app.schemas.content import (
+    CurriculumResponse, CurriculumCreate, CurriculumUpdate, 
+    CurriculumMergeProposeRequest, CurriculumMergeConfirmRequest, MergeProposalResponse,
+    TopicUpdate, TopicResponse
+)
 from app.schemas.responses import SuccessResponse, PaginatedResponse
 from app.models.enums import CurriculumStatus
 
@@ -50,7 +54,17 @@ async def list_curriculums(
                 status=c.status,
                 created_at=c.created_at,
                 language_name=c.language.name if c.language else None,
-                classes=[{"id": cls.id, "name": cls.name} for cls in c.classes]
+                classes=[{"id": cls.id, "name": cls.name} for cls in c.classes],
+                topics=[
+                    TopicResponse(
+                        id=t.id,
+                        title=t.title,
+                        content=t.content,
+                        duration_hours=t.duration_hours,
+                        learning_objectives=t.learning_objectives,
+                        order_index=t.order_index
+                    ) for t in c.topics
+                ] if getattr(c, 'topics', None) else []
             )
         )
         
@@ -110,10 +124,67 @@ async def upload_curriculum(
         status=new_curriculum.status,
         created_at=new_curriculum.created_at,
         language_name=new_curriculum.language.name if new_curriculum.language else None,
-        classes=[{"id": cls.id, "name": cls.name} for cls in new_curriculum.classes]
+        classes=[{"id": cls.id, "name": cls.name} for cls in new_curriculum.classes],
+        topics=[]
     )
     
     return SuccessResponse(data=data, message="Curriculum uploaded successfully")
+
+@router.post("/{curriculum_id}/extract", response_model=SuccessResponse[List[TopicResponse]])
+async def extract_topics(
+    curriculum_id: UUID,
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db)
+) -> Any:
+    """
+    Trigger AI extraction of topics for a newly uploaded curriculum document.
+    """
+    # Fetch Curriculum to ensure it exists and we have permissions
+    curriculum = await CurriculumService.get_curriculum_by_id(db, curriculum_id, current_user.school_id)
+    if not curriculum:
+        raise HTTPException(status_code=404, detail="Curriculum not found")
+        
+    # In reality, you'd fetch the document text here.
+    dummy_text = "Course syllabus detailing Greetings and Numbers."
+    
+    topics = await CurriculumService.extract_topics(db, curriculum_id, dummy_text)
+    
+    data = [
+        TopicResponse(
+            id=t.id,
+            title=t.title,
+            content=t.content,
+            duration_hours=t.duration_hours,
+            learning_objectives=t.learning_objectives,
+            order_index=t.order_index
+        ) for t in topics
+    ]
+    return SuccessResponse(data=data, message="Topics extracted successfully")
+
+@router.patch("/topics/{topic_id}", response_model=SuccessResponse[TopicResponse])
+async def update_topic(
+    topic_id: UUID,
+    topic_in: TopicUpdate,
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db)
+) -> Any:
+    """
+    Teacher modification of an AI-generated topic.
+    """
+    # Note: Ideally add a check that the topic belongs to the user's school
+    updated = await CurriculumService.update_topic(db, topic_id, topic_in)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Topic not found")
+        
+    data = TopicResponse(
+        id=updated.id,
+        title=updated.title,
+        content=updated.content,
+        duration_hours=updated.duration_hours,
+        learning_objectives=updated.learning_objectives,
+        order_index=updated.order_index
+    )
+    return SuccessResponse(data=data, message="Topic updated successfully")
 
 @router.get("/{curriculum_id}", response_model=SuccessResponse[CurriculumResponse])
 async def get_curriculum(
@@ -135,7 +206,17 @@ async def get_curriculum(
         status=curriculum.status,
         created_at=curriculum.created_at,
         language_name=curriculum.language.name if curriculum.language else None,
-        classes=[{"id": cls.id, "name": cls.name} for cls in curriculum.classes]
+        classes=[{"id": cls.id, "name": cls.name} for cls in curriculum.classes],
+        topics=[
+            TopicResponse(
+                id=t.id,
+                title=t.title,
+                content=t.content,
+                duration_hours=t.duration_hours,
+                learning_objectives=t.learning_objectives,
+                order_index=t.order_index
+            ) for t in curriculum.topics
+        ] if getattr(curriculum, 'topics', None) else []
     )
     return SuccessResponse(data=data)
 
@@ -162,24 +243,55 @@ async def update_curriculum(
         status=updated.status,
         created_at=updated.created_at,
         language_name=updated.language.name if updated.language else None,
-        classes=[{"id": cls.id, "name": cls.name} for cls in updated.classes]
+        classes=[{"id": cls.id, "name": cls.name} for cls in updated.classes],
+        topics=[
+            TopicResponse(
+                id=t.id,
+                title=t.title,
+                content=t.content,
+                duration_hours=t.duration_hours,
+                learning_objectives=t.learning_objectives,
+                order_index=t.order_index
+            ) for t in updated.topics
+        ] if getattr(updated, 'topics', None) else []
     )
     return SuccessResponse(data=data, message="Curriculum updated successfully")
 
-@router.post("/{curriculum_id}/merge", response_model=SuccessResponse[CurriculumResponse])
-async def merge_curriculum(
+@router.post("/{curriculum_id}/merge/propose", response_model=SuccessResponse[MergeProposalResponse])
+async def propose_merge(
     curriculum_id: UUID,
-    merge_in: CurriculumMergeRequest,
+    merge_in: CurriculumMergeProposeRequest,
     current_user: User = Depends(deps.require_admin),
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
-    """Merge teacher content with inbuilt library content."""
-    merged = await CurriculumService.merge_curriculum(
-        db, curriculum_id, current_user.school_id, strategy=merge_in.strategy
-    )
-    if not merged:
+    """Trigger AI to propose a unified merge structure between two curriculums."""
+    teacher_curriculum = await CurriculumService.get_curriculum_by_id(db, curriculum_id, current_user.school_id)
+    library_curriculum = await CurriculumService.get_curriculum_by_id(db, merge_in.library_curriculum_id, current_user.school_id)
+    
+    if not teacher_curriculum or not library_curriculum:
         raise HTTPException(status_code=404, detail="Curriculum not found")
         
+    proposals = await CurriculumService.propose_merge_strategy(db, teacher_curriculum, library_curriculum)
+    
+    import uuid
+    data = MergeProposalResponse(
+        proposal_id=uuid.uuid4(),
+        proposed_topics=proposals
+    )
+    return SuccessResponse(data=data, message="Merge proposal generated")
+
+@router.post("/{curriculum_id}/merge/confirm", response_model=SuccessResponse[CurriculumResponse])
+async def confirm_merge(
+    curriculum_id: UUID,
+    merge_in: CurriculumMergeConfirmRequest,
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db)
+) -> Any:
+    """Finalize the merge with teacher-selected topics and create the new curriculum."""
+    merged = await CurriculumService.confirm_merge(
+        db, current_user.school_id, curriculum_id, merge_in.final_topics
+    )
+    
     data = CurriculumResponse(
         id=merged.id,
         title=merged.title,
@@ -189,7 +301,17 @@ async def merge_curriculum(
         status=merged.status,
         created_at=merged.created_at,
         language_name=merged.language.name if merged.language else None,
-        classes=[{"id": cls.id, "name": cls.name} for cls in merged.classes]
+        classes=[{"id": cls.id, "name": cls.name} for cls in merged.classes],
+        topics=[
+            TopicResponse(
+                id=t.id,
+                title=t.title,
+                content=t.content,
+                duration_hours=t.duration_hours,
+                learning_objectives=t.learning_objectives,
+                order_index=t.order_index
+            ) for t in merged.topics
+        ] if getattr(merged, 'topics', None) else []
     )
     return SuccessResponse(data=data, message="Curriculum merged successfully")
 

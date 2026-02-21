@@ -24,16 +24,52 @@ class CurriculumCreate(BaseModel):
     source_type: CurriculumSourceType = CurriculumSourceType.TEACHER_UPLOAD
     class_ids: List[UUID] = []
 
+class TopicCreate(BaseModel):
+    title: str
+    content: Optional[str] = None
+    duration_hours: Optional[float] = None
+    learning_objectives: List[str] = []
+    order_index: int = 0
+
+class TopicUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    duration_hours: Optional[float] = None
+    learning_objectives: Optional[List[str]] = None
+    order_index: Optional[int] = None
+
+class TopicResponse(BaseModel):
+    id: UUID
+    title: str
+    content: Optional[str] = None
+    duration_hours: Optional[float] = None
+    learning_objectives: List[str]
+    order_index: int
+    
+    class Config:
+        from_attributes = True
+
 class CurriculumUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[CurriculumStatus] = None
     class_ids: Optional[List[UUID]] = None
 
-class CurriculumMergeRequest(BaseModel):
-    source_id: UUID
-    library_ids: List[UUID]
-    strategy: str = "append"
+class CurriculumMergeProposeRequest(BaseModel):
+    library_curriculum_id: UUID
+
+class TopicProposal(BaseModel):
+    action: str # "keep", "blend", "replace", "add"
+    source: str # "teacher", "library", "both"
+    topic: TopicCreate # The proposed merged topic
+
+class MergeProposalResponse(BaseModel):
+    proposal_id: UUID # Could be a cache ID for the temporary proposal
+    proposed_topics: List[TopicProposal]
+
+class CurriculumMergeConfirmRequest(BaseModel):
+    # The final list of topics the teacher has approved from the wizard
+    final_topics: List[TopicCreate]
 
 class CurriculumResponse(BaseModel): # Changed from CurriculumBase to BaseModel
     id: UUID
@@ -45,6 +81,7 @@ class CurriculumResponse(BaseModel): # Changed from CurriculumBase to BaseModel
     created_at: datetime
     language_name: Optional[str] = None
     classes: List[ClassBrief] = []
+    topics: List[TopicResponse] = []
     
     class Config:
         from_attributes = True

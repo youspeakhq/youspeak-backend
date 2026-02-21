@@ -13,9 +13,10 @@ from app.models.academic import (
     teacher_assignments,
     classroom_teachers,
     classroom_students,
+    curriculum_classes,
 )
 
-from app.models.curriculum import Curriculum
+from app.models.curriculum import Curriculum, Topic
 from app.models.assessment import Question, Assignment, assignment_questions, StudentSubmission, assignment_classes
 from app.models.arena import Arena, ArenaCriteria, ArenaRule, ArenaPerformer, arena_moderators
 from app.models.communication import Announcement, AnnouncementReminder
@@ -53,6 +54,8 @@ __all__ = [
     
     # Curriculum
     "Curriculum",
+    "curriculum_classes",
+    "Topic",
     
     # Assessment
     "Question",
