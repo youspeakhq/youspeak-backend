@@ -14,7 +14,7 @@ class UserBase(BaseModel):
 class StudentCreate(BaseModel):
     first_name: str
     last_name: str
-    class_id: UUID
+    class_id: Optional[UUID] = None
     lang_id: int
     email: Optional[str] = None
     password: Optional[str] = None
