@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 from datetime import datetime
 
@@ -22,8 +22,7 @@ class ArenaResponse(BaseModel):
     status: ArenaStatus
     start_time: Optional[datetime]
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Announcement ---
 class AnnouncementCreate(BaseModel):
@@ -41,5 +40,4 @@ class AnnouncementResponse(BaseModel):
     created_at: datetime
     author_name: str
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

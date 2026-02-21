@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import datetime
 from uuid import UUID
 
@@ -32,6 +32,7 @@ class SchoolUpdate(BaseModel):
     address_zip: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
+    logo_url: Optional[str] = None
 
 class SchoolProgramsUpdate(BaseModel):
     languages: List[str]
@@ -47,13 +48,11 @@ class SchoolResponse(SchoolBase):
     is_active: bool
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LanguageResponse(BaseModel):
     id: int
     name: str
     code: str
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

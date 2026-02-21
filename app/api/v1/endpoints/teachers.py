@@ -1,5 +1,6 @@
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta , timezone
+from app.utils.time import get_utc_now
 from typing import Any
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,7 +105,7 @@ async def create_teacher_invite(
         school_id=current_user.school_id,
         created_by_admin_id=current_user.id,
         invited_teacher_id=teacher.id,
-        expires_at=datetime.utcnow() + timedelta(days=7),
+        expires_at=get_utc_now() + timedelta(days=7),
         is_used=False,
     )
     db.add(access_code)

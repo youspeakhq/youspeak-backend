@@ -3,7 +3,8 @@ import io
 import secrets
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
+from app.utils.time import get_utc_now
 from sqlalchemy import select, and_, delete, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -149,7 +150,7 @@ class AcademicService:
             class_id=class_id,
             student_id=student_id,
             role=role,
-            joined_at=datetime.utcnow()
+            joined_at=get_utc_now()
         )
         await db.execute(stmt)
         if auto_commit:

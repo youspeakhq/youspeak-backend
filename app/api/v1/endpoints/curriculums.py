@@ -7,10 +7,11 @@ import json
 from app.api import deps
 from app.models.user import User
 from app.services.curriculum_service import CurriculumService
+from app.services import storage_service as storage
 from app.schemas.content import (
     CurriculumResponse, CurriculumCreate, CurriculumUpdate, 
     CurriculumMergeProposeRequest, CurriculumMergeConfirmRequest, MergeProposalResponse,
-    TopicUpdate, TopicResponse
+    TopicUpdate, TopicResponse, CurriculumGenerateRequest
 )
 from app.schemas.responses import SuccessResponse, PaginatedResponse
 from app.models.enums import CurriculumStatus
@@ -101,9 +102,15 @@ async def upload_curriculum(
         except (ValueError, json.JSONDecodeError):
             raise HTTPException(status_code=400, detail="Invalid class_ids format")
 
-    # Mock file upload logic - in production this would save to S3/GCS
-    file_url = f"https://storage.youspeak.com/curriculums/{current_user.school_id}/{file.filename}"
-    
+    content = await file.read()
+    key_prefix = f"curriculums/{current_user.school_id}"
+    try:
+        file_url = await storage.upload(
+            key_prefix, file.filename or "document.pdf", content, content_type=file.content_type
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
     curriculum_in = CurriculumCreate(
         title=title,
         language_id=language_id,
@@ -130,6 +137,32 @@ async def upload_curriculum(
     
     return SuccessResponse(data=data, message="Curriculum uploaded successfully")
 
+@router.post("/generate", response_model=SuccessResponse[List[TopicResponse]])
+async def generate_curriculum(
+    generate_in: CurriculumGenerateRequest,
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db)
+) -> Any:
+    """
+    Generate a full curriculum structure from a text prompt.
+    """
+    topics_create = await CurriculumService.generate_curriculum_topics(
+        db, generate_in.prompt, generate_in.language_id
+    )
+    
+    import uuid
+    data = [
+        TopicResponse(
+            id=uuid.uuid4(), # Return temporary IDs for UI tracking before persistence
+            title=t.title,
+            content=t.content,
+            duration_hours=t.duration_hours,
+            learning_objectives=t.learning_objectives,
+            order_index=t.order_index
+        ) for t in topics_create
+    ]
+    return SuccessResponse(data=data, message="Curriculum generated successfully")
+
 @router.post("/{curriculum_id}/extract", response_model=SuccessResponse[List[TopicResponse]])
 async def extract_topics(
     curriculum_id: UUID,
@@ -144,10 +177,11 @@ async def extract_topics(
     if not curriculum:
         raise HTTPException(status_code=404, detail="Curriculum not found")
         
-    # In reality, you'd fetch the document text here.
-    dummy_text = "Course syllabus detailing Greetings and Numbers."
+    if not curriculum.file_url:
+        raise HTTPException(status_code=400, detail="Curriculum has no document to extract from")
     
-    topics = await CurriculumService.extract_topics(db, curriculum_id, dummy_text)
+    # Use the real document URL for extraction
+    topics = await CurriculumService.extract_topics(db, curriculum_id, curriculum.file_url)
     
     data = [
         TopicResponse(

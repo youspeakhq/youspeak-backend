@@ -6,6 +6,7 @@ from uuid import UUID
 from app.api import deps
 from app.models.user import User
 from app.services.school_service import SchoolService
+from app.services import storage_service as storage
 from app.schemas.school import (
     SchoolResponse,
     SchoolUpdate,
@@ -78,17 +79,20 @@ async def upload_school_logo(
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
-    Upload branding logo.
+    Upload branding logo to storage (Cloudflare R2).
     """
-    # TODO: Implement actual S3/storage upload
-    # For now mock it
-    
-    # Verify file type
-    if file.content_type not in ["image/jpeg", "image/png"]:
+    if file.content_type not in ("image/jpeg", "image/png"):
         raise HTTPException(status_code=400, detail="Invalid file type")
-        
-    logo_url = f"https://s3.youspeak.com/logos/{current_user.school_id}/{file.filename}"
-    
+
+    content = await file.read()
+    key_prefix = f"logos/{current_user.school_id}"
+    try:
+        logo_url = await storage.upload(
+            key_prefix, file.filename or "logo", content, content_type=file.content_type
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
     # Update school record
     await SchoolService.update_school(
         db, 

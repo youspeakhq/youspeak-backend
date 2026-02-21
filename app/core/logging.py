@@ -3,12 +3,12 @@
 import logging
 import sys
 from typing import Any
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger import json
 
 from app.config import settings
 
 
-class CustomJsonFormatter(jsonlogger.JsonFormatter):
+class CustomJsonFormatter(json.JsonFormatter):
     """Custom JSON formatter with additional fields"""
     
     def add_fields(self, log_record: dict, record: logging.LogRecord, message_dict: dict) -> None:

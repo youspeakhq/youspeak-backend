@@ -1,5 +1,5 @@
 from typing import Optional, List, Union, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
@@ -13,8 +13,7 @@ class ClassBrief(BaseModel):
     id: UUID
     name: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Curriculum ---
 class CurriculumCreate(BaseModel):
@@ -46,13 +45,13 @@ class TopicResponse(BaseModel):
     learning_objectives: List[str]
     order_index: int
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CurriculumUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[CurriculumStatus] = None
+    file_url: Optional[str] = None
     class_ids: Optional[List[UUID]] = None
 
 class CurriculumMergeProposeRequest(BaseModel):
@@ -83,8 +82,11 @@ class CurriculumResponse(BaseModel): # Changed from CurriculumBase to BaseModel
     classes: List[ClassBrief] = []
     topics: List[TopicResponse] = []
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+class CurriculumGenerateRequest(BaseModel):
+    prompt: str
+    language_id: int
 
 class AIGenerateRequest(BaseModel):
     topics: List[str]
@@ -113,5 +115,4 @@ class AssessmentResponse(BaseModel):
     status: AssignmentStatus
     due_date: Optional[datetime]
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

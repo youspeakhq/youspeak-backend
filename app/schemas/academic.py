@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
 from datetime import datetime, time, date
 
@@ -23,8 +23,7 @@ class ClassroomBrief(BaseModel):
     level: ProficiencyLevel
     language_id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ClassroomUpdate(BaseModel):
@@ -38,8 +37,7 @@ class ClassroomResponse(ClassroomBase):
     teacher_count: int = 0
     student_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ClassroomAddTeacher(BaseModel):
@@ -85,8 +83,7 @@ class ClassResponse(ClassBase):
     classroom_id: Optional[UUID] = None
     schedules: List[ScheduleBase] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ClassWithStats(ClassResponse):
     student_count: int = 0

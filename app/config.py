@@ -40,11 +40,22 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_PASSWORD: str = ""
+    # AI Settings
+    OPENAI_API_KEY: str = ""
+    AWS_REGION: str = "us-east-1"
+    BEDROCK_MODEL_ID: str = "anthropic.claude-3-sonnet-20240229-v1:0"
 
     # Email (Resend)
     RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "YouSpeak <onboarding@resend.dev>"
     FRONTEND_SIGNUP_URL: str = "https://app.youspeak.com/signup"
+
+    # Storage (Cloudflare R2 – S3-compatible)
+    STORAGE_PUBLIC_BASE_URL: str = "https://storage.youspeak.com"
+    R2_ACCOUNT_ID: str = ""
+    R2_ACCESS_KEY_ID: str = ""
+    R2_SECRET_ACCESS_KEY: str = ""
+    R2_BUCKET_NAME: str = "youspeak"
     
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True

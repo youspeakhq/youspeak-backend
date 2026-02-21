@@ -1,5 +1,7 @@
 from typing import Optional, List, Dict, Any
 from uuid import UUID
+from datetime import datetime, timedelta, timezone
+from app.utils.time import get_utc_now
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -57,12 +59,11 @@ class SchoolService:
         )
         
         # Create Default Semester
-        from datetime import datetime, timedelta
         default_semester = Semester(
              school_id=school.id,
              name="Term 1",
-             start_date=datetime.utcnow(),
-             end_date=datetime.utcnow() + timedelta(days=90),
+             start_date=get_utc_now(),
+             end_date=get_utc_now() + timedelta(days=90),
              is_active=True
         )
         db.add(default_semester)

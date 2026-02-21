@@ -1,7 +1,7 @@
 """Standardized API Response Schemas"""
 
 from typing import Generic, TypeVar, Optional, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 T = TypeVar('T')

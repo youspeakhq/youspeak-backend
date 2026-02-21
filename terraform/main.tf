@@ -575,6 +575,27 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
   })
 }
 
+# ECS Task Role (for Bedrock and other runtime AWS services)
+resource "aws_iam_role" "ecs_task" {
+  name = "${var.app_name}-ecs-task-role-${var.environment}"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ecs-tasks.amazonaws.com"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "bedrock" {
+  role       = aws_iam_role.ecs_task.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
+}
+
 # RDS PostgreSQL
 resource "aws_db_subnet_group" "main" {
   name       = "${var.app_name}-db-subnet-${var.environment}"
@@ -750,6 +771,11 @@ output "redis_endpoint" {
 output "ecs_execution_role_arn" {
   description = "ARN of the ECS task execution role"
   value       = aws_iam_role.ecs_execution.arn
+}
+
+output "ecs_task_role_arn" {
+  description = "ARN of the ECS task role (for Bedrock access)"
+  value       = aws_iam_role.ecs_task.arn
 }
 
 output "secret_database_url_arn" {

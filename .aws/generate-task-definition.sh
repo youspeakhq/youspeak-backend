@@ -26,6 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 EXEC_ROLE_ARN=$(terraform -chdir=terraform output -raw ecs_execution_role_arn 2>/dev/null)
+TASK_ROLE_ARN=$(terraform -chdir=terraform output -raw ecs_task_role_arn 2>/dev/null)
 SECRET_DB_ARN=$(terraform -chdir=terraform output -raw secret_database_url_arn 2>/dev/null)
 SECRET_REDIS_ARN=$(terraform -chdir=terraform output -raw secret_redis_url_arn 2>/dev/null)
 SECRET_KEY_ARN=$(terraform -chdir=terraform output -raw secret_secret_key_arn 2>/dev/null)
@@ -39,6 +40,7 @@ fi
 echo "AWS Account ID: $AWS_ACCOUNT_ID"
 echo "AWS Region: $AWS_REGION"
 echo "Execution Role: $EXEC_ROLE_ARN"
+echo "Task Role: $TASK_ROLE_ARN"
 
 RESEND_SECRET_JSON=""
 if [ -n "$SECRET_RESEND_ARN" ]; then
@@ -58,7 +60,7 @@ cat > .aws/task-definition.json <<EOF
   "cpu": "512",
   "memory": "1024",
   "executionRoleArn": "${EXEC_ROLE_ARN}",
-  "taskRoleArn": "${EXEC_ROLE_ARN}",
+  "taskRoleArn": "${TASK_ROLE_ARN}",
   "containerDefinitions": [
     {
       "name": "youspeak-api",

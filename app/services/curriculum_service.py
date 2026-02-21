@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime
@@ -5,11 +6,21 @@ from sqlalchemy import select, func, delete, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
+from app.utils.ai import get_ai_client
+import httpx
+from docling.document_converter import DocumentConverter
+import tempfile
+
 from app.models.curriculum import Curriculum, Topic
 from app.models.academic import Class, curriculum_classes
 from app.models.onboarding import Language
 from app.models.enums import CurriculumStatus, CurriculumSourceType
-from app.schemas.content import CurriculumCreate, CurriculumUpdate, TopicCreate, TopicUpdate, TopicProposal
+from app.schemas.content import (
+    CurriculumCreate, CurriculumUpdate, TopicCreate, TopicUpdate, 
+    TopicProposal, AIGenerateRequest
+)
+
 
 class CurriculumService:
     @staticmethod
@@ -141,42 +152,87 @@ class CurriculumService:
         return True
 
     @staticmethod
-    async def extract_topics(db: AsyncSession, curriculum_id: UUID, text_content: str) -> List[Topic]:
+    async def extract_topics(db: AsyncSession, curriculum_id: UUID, file_url_or_path: str) -> List[Topic]:
         """
-        Mock AI Extraction: Parses uploaded PDF text and generates Topic structure.
+        Real AI Extraction: Parses uploaded PDF using Docling and generates Topic structure.
         """
-        # Mocking an LLM call that extracts topics from `text_content`
-        mock_ai_output = [
-            TopicCreate(
-                title="Greetings and Introduction", 
-                duration_hours=1.5, 
-                learning_objectives=["Introduce oneself", "Basic greetings"],
-                order_index=1
-            ),
-            TopicCreate(
-                title="Numbers and Time", 
-                duration_hours=2.0, 
-                learning_objectives=["Count to 100", "Tell time"],
-                order_index=2
-            )
-        ]
+        converter = DocumentConverter()
         
-        topics_to_insert = []
-        for index, item in enumerate(mock_ai_output, 1):
-            db_topic = Topic(
-                curriculum_id=curriculum_id,
-                title=item.title,
-                duration_hours=item.duration_hours,
-                learning_objectives=item.learning_objectives,
-                order_index=item.order_index or index
+        # Handle remote URL vs local path
+        if file_url_or_path.startswith("http"):
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(file_url_or_path)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                    tmp.write(resp.content)
+                    temp_path = tmp.name
+        else:
+            temp_path = file_url_or_path
+
+        try:
+            # Step 1: High-fidelity PDF to Markdown via Docling
+            result = converter.convert(temp_path)
+            markdown_content = result.document.export_to_markdown()
+
+            # Step 2: Structured extraction via Instructor
+            ai_client = get_ai_client()
+            topics_data = await ai_client.chat.completions.create(
+                model=settings.BEDROCK_MODEL_ID,
+                response_model=List[TopicCreate],
+                messages=[
+                    {"role": "system", "content": "You are a specialized curriculum analyst. Extract a structured list of topics from the syllabus text provided. Maintain the original order and include specific learning objectives."},
+                    {"role": "user", "content": f"Syllabus Content:\n\n{markdown_content}"}
+                ]
             )
-            db.add(db_topic)
-            topics_to_insert.append(db_topic)
             
-        await db.commit()
-        for t in topics_to_insert:
-            await db.refresh(t)
-        return topics_to_insert
+            topics_to_insert = []
+            for index, item in enumerate(topics_data, 1):
+                db_topic = Topic(
+                    curriculum_id=curriculum_id,
+                    title=item.title,
+                    duration_hours=item.duration_hours,
+                    learning_objectives=item.learning_objectives,
+                    content=item.content,
+                    order_index=item.order_index or index
+                )
+                db.add(db_topic)
+                topics_to_insert.append(db_topic)
+                
+            await db.commit()
+            for t in topics_to_insert:
+                await db.refresh(t)
+            return topics_to_insert
+            
+        finally:
+            if file_url_or_path.startswith("http") and os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    @staticmethod
+    async def generate_curriculum_topics(
+        db: AsyncSession, 
+        prompt: str, 
+        language_id: int
+    ) -> List[TopicCreate]:
+        """
+        Produce a structured topic list from a natural language prompt.
+        """
+        # Fetch language name for context
+        result = await db.execute(select(Language).where(Language.id == language_id))
+        lang = result.scalar_one_or_none()
+        lang_name = lang.name if lang else "English"
+
+        if os.getenv("TEST_MODE") == "true": # Skip AI for quick tests if needed
+             return [TopicCreate(title="Test Topic", duration_hours=1.0)]
+
+        ai_client = get_ai_client()
+        topics = await ai_client.chat.completions.create(
+            model=settings.BEDROCK_MODEL_ID,
+            response_model=List[TopicCreate],
+            messages=[
+                {"role": "system", "content": f"You are an expert curriculum designer for {lang_name} language learning."},
+                {"role": "user", "content": f"Generate a detailed curriculum structure for: {prompt}. Each topic must include learning objectives and estimated duration."}
+            ]
+        )
+        return topics
 
     @staticmethod
     async def update_topic(db: AsyncSession, topic_id: UUID, update_data: TopicUpdate) -> Optional[Topic]:
@@ -200,28 +256,45 @@ class CurriculumService:
         library_curriculum: Curriculum
     ) -> List[TopicProposal]:
         """
-        Mock AI Merge Proposer: Analyzes topics from both curricula and suggests a unified layout.
+        Real AI Merge Proposer: Semantically aligns and merges topics from two curricula.
         """
-        proposals = []
-        
-        # Example Mock: The AI recognizes "Greetings" in both, so it proposes a blend.
-        # It takes "Numbers" from Teacher, and adds "Colors" from Library.
-        
-        if teacher_curriculum.topics:
-            t_topic = teacher_curriculum.topics[0]
-            proposals.append(
-                TopicProposal(
-                    action="blend",
-                    source="both",
-                    topic=TopicCreate(
-                        title=f"{t_topic.title} + {library_curriculum.title} Intro",
-                        duration_hours=t_topic.duration_hours,
-                        learning_objectives=t_topic.learning_objectives + ["Library objective"],
-                        order_index=1
+        # Prepare context for the LLM
+        teacher_context = [
+            {
+                "title": t.title,
+                "duration": t.duration_hours,
+                "objectives": t.learning_objectives
+            } for t in teacher_curriculum.topics
+        ]
+        library_context = [
+            {
+                "title": t.title,
+                "duration": t.duration_hours,
+                "objectives": t.learning_objectives
+            } for t in library_curriculum.topics
+        ]
+
+        ai_client = get_ai_client()
+        proposals = await ai_client.chat.completions.create(
+            model=settings.BEDROCK_MODEL_ID,
+            response_model=List[TopicProposal],
+            messages=[
+                {
+                    "role": "system", 
+                    "content": (
+                        "You are a curriculum synchronization expert. Your goal is to merge a Teacher's "
+                        "curriculum with a Master Library curriculum. Identify overlaps and redundant topics. "
+                        "Propose actions for each topic: 'blend' (combine both), 'replace' (use Library version), "
+                        "'add' (keep unique topic), or 'keep' (no change needed). "
+                        "Return a unified sequence of TopicProposal objects."
                     )
-                )
-            )
-            
+                },
+                {
+                    "role": "user", 
+                    "content": f"Teacher topics: {teacher_context}\n\nLibrary sessions: {library_context}"
+                }
+            ]
+        )
         return proposals
 
     @staticmethod

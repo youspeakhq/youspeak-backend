@@ -3,6 +3,10 @@ from httpx import AsyncClient
 from uuid import UUID
 import json
 import io
+from typing import List
+from unittest.mock import AsyncMock, patch, MagicMock
+from app.schemas.content import TopicCreate, TopicProposal
+import importlib
 
 from tests.conftest import requires_db
 from app.database import init_db
@@ -14,6 +18,10 @@ pytestmark = requires_db
 @pytest.fixture(scope="session", autouse=True)
 async def setup_curriculum_tables():
     """Ensure curriculum tables are created in the test database."""
+    import app.services.curriculum_service
+    importlib.reload(app.services.curriculum_service)
+    print(f"\nDEBUG: curriculum_service file: {app.services.curriculum_service.__file__}")
+    print(f"\nDEBUG: curriculum_service attributes: {dir(app.services.curriculum_service)}")
     import os
     if os.getenv("TEST_USE_LIVE_SERVER", "").lower() != "true":
         await init_db()
@@ -214,3 +222,82 @@ async def test_curriculum_merge_proposal(
     # The mock returns 1 blended topic if the teacher curriculum has topics
     assert len(data["proposed_topics"]) == 1
     assert data["proposed_topics"][0]["action"] == "blend"
+
+@pytest.mark.asyncio
+async def test_curriculum_generation(
+    async_client: AsyncClient, 
+    api_base: str, 
+    registered_school: dict
+):
+    """Test generating curriculum topics from a prompt."""
+    headers = registered_school["headers"]
+    
+    # Mock AI response
+    mock_topics = [
+        TopicCreate(title="Intro", duration_hours=1.0, learning_objectives=["Goal 1"]),
+        TopicCreate(title="Advanced", duration_hours=2.0, learning_objectives=["Goal 2"])
+    ]
+    
+    generate_data = {
+        "prompt": "Learn French for travelers",
+        "language_id": 1
+    }
+    resp = await async_client.post(
+        f"{api_base}/curriculums/generate",
+        headers=headers,
+        json=generate_data
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert len(data) == 2
+    assert data[0]["title"] == "Mock Topic 1" 
+    assert "id" in data[0] # Temporary UUID
+
+# Optimization: Add a global mock for AI components to avoid real calls in other tests
+@pytest.fixture(autouse=True)
+def mock_ai_engines():
+    """Surgical mocks for AI and external libraries."""
+    mock_client = MagicMock()
+    mock_llm = AsyncMock()
+    mock_client.chat.completions.create = mock_llm
+    
+    # Default mock for topic extraction/generation
+    mock_llm.return_value = [
+        TopicCreate(title="Mock Topic 1", duration_hours=1.0, learning_objectives=["Obj 1"]),
+        TopicCreate(title="Mock Topic 2", duration_hours=1.5, learning_objectives=["Obj 2"])
+    ]
+    
+    # Handle Merge Proposals
+    async def side_effect(*args, **kwargs):
+        response_model = kwargs.get("response_model")
+        if response_model == List[TopicProposal] or response_model == TopicProposal:
+            return [
+                TopicProposal(
+                    action="blend", 
+                    source="both", 
+                    topic=TopicCreate(title="Blended Topic", duration_hours=1.0)
+                )
+            ]
+        return mock_llm.return_value
+
+    mock_llm.side_effect = side_effect
+    
+    # Surgical patches: patch the CLASSES as they are imported in the service
+    with patch("app.services.curriculum_service.get_ai_client", return_value=mock_client), \
+         patch("app.services.curriculum_service.DocumentConverter", autospec=True) as mock_doc:
+        
+        # Mock Docling conversion
+        mock_res = MagicMock()
+        mock_res.document.export_to_markdown.return_value = "Mocked Markdown Content"
+        mock_doc_instance = mock_doc.return_value
+        mock_doc_instance.convert.return_value = mock_res
+        
+        # Mock httpx ONLY inside the curriculum service
+        with patch("app.services.curriculum_service.httpx.AsyncClient") as mock_service_http:
+            mock_http_instance = mock_service_http.return_value.__aenter__.return_value
+            mock_http_resp = MagicMock()
+            mock_http_resp.content = b"%PDF-1.4 mock content"
+            mock_http_resp.status_code = 200
+            mock_http_instance.get = AsyncMock(return_value=mock_http_resp)
+            
+            yield mock_llm, mock_doc_instance

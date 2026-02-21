@@ -1,7 +1,8 @@
 """Base Models and Mixins for DRY principles"""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
+from app.utils.time import get_utc_now
 from sqlalchemy import Column, DateTime, String, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declared_attr
@@ -21,8 +22,8 @@ class BaseModel(Base):
     __abstract__ = True
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_utc_now, nullable=False)
+    updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
 
 
 class SchoolScopedMixin:
@@ -55,7 +56,7 @@ class SoftDeleteMixin:
     
     def soft_delete(self):
         """Mark record as deleted without removing from database"""
-        self.deleted_at = datetime.utcnow()
+        self.deleted_at = get_utc_now()
     
     def restore(self):
         """Restore a soft-deleted record"""

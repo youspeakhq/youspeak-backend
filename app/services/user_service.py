@@ -3,7 +3,8 @@
 import csv
 import io
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from app.utils.time import get_utc_now
 from typing import Optional, List, Tuple, Dict, Any
 from uuid import UUID
 from sqlalchemy import select, func, or_
@@ -28,7 +29,7 @@ class UserService:
         """Generate next student_number in format {year}-{seq} (e.g. 2025-001). Unique per school."""
         from sqlalchemy import cast, Integer
 
-        year = datetime.utcnow().year
+        year = get_utc_now().year
         prefix = f"{year}-"
         start_pos = len(prefix) + 1
         # Only consider student_numbers matching {year}-{digits} (ignore custom formats like 2025-abc)
@@ -274,7 +275,7 @@ class UserService:
             return None
         
         # Update last login
-        user.last_login = datetime.utcnow()
+        user.last_login = get_utc_now()
         await db.commit()
         
         return user
@@ -325,7 +326,7 @@ class UserService:
                 TeacherAccessCode.is_used == False,
                 or_(
                     TeacherAccessCode.expires_at.is_(None),
-                    TeacherAccessCode.expires_at > datetime.utcnow()
+                    TeacherAccessCode.expires_at > get_utc_now()
                 )
             )
         )
@@ -365,7 +366,7 @@ class UserService:
                 TeacherAccessCode.is_used == False,
                 or_(
                     TeacherAccessCode.expires_at.is_(None),
-                    TeacherAccessCode.expires_at > datetime.utcnow()
+                    TeacherAccessCode.expires_at > get_utc_now()
                 )
             )
         )
@@ -518,7 +519,7 @@ class UserService:
                 school_id=school_id,
                 created_by_admin_id=admin_id,
                 invited_teacher_id=teacher.id,
-                expires_at=datetime.utcnow() + timedelta(days=7),
+                expires_at=get_utc_now() + timedelta(days=7),
                 is_used=False,
             )
             db.add(access_code)
@@ -609,7 +610,7 @@ class UserService:
     @staticmethod
     async def cleanup_expired_trash(db: AsyncSession) -> int:
         """Permanently delete users whose trash retention has expired"""
-        now = datetime.utcnow()
+        now = get_utc_now()
         expired_result = await db.execute(
             select(StudentTrash).where(StudentTrash.expires_at <= now)
         )
