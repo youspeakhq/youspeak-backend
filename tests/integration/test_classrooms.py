@@ -260,18 +260,33 @@ async def test_add_teacher_to_classroom(
     teacher_id, _ = teacher_id_and_headers
     if not teacher_id:
         pytest.skip("Could not resolve teacher_id from login response")
+    
+    # 1. Assign teacher
     resp = await async_client.post(
         f"{api_base}/classrooms/{classroom_id}/teachers",
         headers=registered_school["headers"],
         json={"teacher_id": str(teacher_id)},
     )
     assert resp.status_code == 200
+
+    # 2. Verify on Classroom side
     resp = await async_client.get(
         f"{api_base}/classrooms/{classroom_id}",
         headers=registered_school["headers"],
     )
     assert resp.status_code == 200
     assert resp.json()["data"]["teacher_count"] >= 1
+
+    # 3. Verify on Teacher side (RELATIONAL INTEGRITY CHECK)
+    resp = await async_client.get(
+        f"{api_base}/teachers",
+        headers=registered_school["headers"],
+    )
+    assert resp.status_code == 200
+    teachers = resp.json()["data"]
+    target = next((t for t in teachers if t["id"] == teacher_id), None)
+    assert target is not None
+    assert any(c["id"] == classroom_id for c in target["classrooms"]), "Classroom missing from teacher view"
 
 
 @pytest.mark.asyncio
@@ -283,6 +298,7 @@ async def test_add_student_to_classroom(
     class_id_for_student,
     unique_suffix: str,
 ):
+    # 1. Create student
     resp = await async_client.post(
         f"{api_base}/students",
         headers=registered_school["headers"],
@@ -295,18 +311,33 @@ async def test_add_student_to_classroom(
     )
     assert resp.status_code == 200
     student_id = resp.json()["data"]["id"]
+
+    # 2. Assign student
     resp = await async_client.post(
         f"{api_base}/classrooms/{classroom_id}/students",
         headers=registered_school["headers"],
         json={"student_id": str(student_id)},
     )
     assert resp.status_code == 200
+
+    # 3. Verify on Classroom side
     resp = await async_client.get(
         f"{api_base}/classrooms/{classroom_id}",
         headers=registered_school["headers"],
     )
     assert resp.status_code == 200
     assert resp.json()["data"]["student_count"] >= 1
+
+    # 4. Verify on Student side (RELATIONAL INTEGRITY CHECK)
+    resp = await async_client.get(
+        f"{api_base}/students",
+        headers=registered_school["headers"],
+    )
+    assert resp.status_code == 200
+    students = resp.json()["data"]
+    target = next((s for s in students if s["id"] == student_id), None)
+    assert target is not None
+    assert any(c["id"] == classroom_id for c in target["classrooms"]), "Classroom missing from student view"
 
 
 @pytest.mark.asyncio
