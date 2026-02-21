@@ -14,8 +14,16 @@ services:
       - DEBUG=True
       - SECRET_KEY=dev-secret-key-change-in-production-min-32-characters-long
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     volumes:
       - ./app:/app/app
     networks:
@@ -69,6 +77,30 @@ services:
     networks:
       - youspeak_network
     restart: unless-stopped
+
+  # CI test runner (run after compose up: docker compose run test)
+  test:
+    build:
+      context: .
+      target: test
+    container_name: youspeak_test
+    environment:
+      - DATABASE_URL=postgresql://youspeak_user:youspeak_password@postgres:5432/youspeak_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=test-secret-key-for-ci-pipeline-min-32-chars
+      - ENVIRONMENT=test
+      - TEST_USE_LIVE_SERVER=true
+    depends_on:
+      api:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - youspeak_network
+    # Run with: docker compose run test
+    # Or pytest only: docker compose run test pytest tests/ -v --tb=short
 
 networks:
   youspeak_network:

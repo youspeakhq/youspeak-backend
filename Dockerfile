@@ -50,9 +50,29 @@ ENV PATH=/home/appuser/.local/bin:$PATH
 # Expose port
 EXPOSE 8000
 
-# Health check
+# Health check (stdlib only; requests is not in requirements)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)" || exit 1
 
 # Migrations run once per deploy via CI/CD (one-off ECS task), not at container startup
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Stage 3: Test (CI lint + migrate + pytest inside compose)
+FROM python:3.9-slim as test
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    postgresql-client \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt requirements-dev.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+
+COPY . .
+
+# Default: run lint, migrations, then pytest (overridable for quick pytest-only)
+ENV PYTHONUNBUFFERED=1
+CMD ["sh", "-c", "flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics && flake8 app --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics && alembic upgrade head && pytest tests/ -v --tb=short --cov=app --cov-report=term"]
