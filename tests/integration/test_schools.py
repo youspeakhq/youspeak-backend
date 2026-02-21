@@ -10,7 +10,7 @@ from httpx import AsyncClient
 @pytest.mark.asyncio
 async def test_get_school_profile_requires_auth(async_client: AsyncClient, api_base: str):
     resp = await async_client.get(f"{api_base}/schools/profile")
-    assert resp.status_code == 403  # No Bearer token
+    assert resp.status_code == 401  # No Bearer token
 
 
 @pytest.mark.asyncio

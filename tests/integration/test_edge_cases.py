@@ -144,7 +144,7 @@ async def test_password_reset_invalid_token(async_client: AsyncClient, api_base:
 @pytest.mark.asyncio
 async def test_protected_endpoint_no_auth(async_client: AsyncClient, api_base: str):
     resp = await async_client.get(f"{api_base}/schools/profile")
-    assert resp.status_code == 403
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -162,7 +162,7 @@ async def test_protected_endpoint_malformed_auth(async_client: AsyncClient, api_
         f"{api_base}/schools/profile",
         headers={"Authorization": "NotBearer token"},
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 401
 
 
 # --- RBAC edge cases ---
@@ -246,9 +246,9 @@ async def test_admin_cannot_access_teacher_my_classes(
 
 @pytest.mark.asyncio
 async def test_unauthenticated_cannot_access_classrooms(async_client: AsyncClient, api_base: str):
-    """No auth header: HTTPBearer returns 403 (FastAPI <0.122 behavior)."""
+    """No auth header: expect 401 Unauthorized."""
     resp = await async_client.get(f"{api_base}/classrooms")
-    assert resp.status_code == 403
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
