@@ -176,6 +176,10 @@ class UserService:
         # Get users
         result = await db.execute(
             select(User)
+            .options(
+                selectinload(User.enrolled_classrooms),
+                selectinload(User.taught_classrooms)
+            )
             .offset(skip)
             .limit(limit)
             .order_by(User.created_at.desc())
@@ -540,11 +544,18 @@ class UserService:
         include_deleted: bool = False
     ) -> List[User]:
         """Get users by school and role"""
-        query = (
-            select(User)
-            .where(User.school_id == school_id)
-            .options(selectinload(User.enrolled_classrooms))
-        )
+        if role == UserRole.TEACHER:
+            query = (
+                select(User)
+                .where(User.school_id == school_id)
+                .options(selectinload(User.taught_classrooms))
+            )
+        else:
+            query = (
+                select(User)
+                .where(User.school_id == school_id)
+                .options(selectinload(User.enrolled_classrooms))
+            )
 
         if role:
             query = query.where(User.role == role)

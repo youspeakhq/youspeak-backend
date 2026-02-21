@@ -13,7 +13,7 @@ from app.api.deps import get_current_user, require_admin
 from app.models.user import User as UserModel
 from app.models.enums import UserRole
 
-router = APIRouter(prefix="/users", tags=["Users"])
+router = APIRouter()
 
 
 @router.get("", response_model=PaginatedUsers)
@@ -29,10 +29,46 @@ async def list_users(
     skip = (page - 1) * page_size
     users, total = await UserService.get_users(db, skip=skip, limit=page_size)
     
+    # Build response dicts while the DB session is still open so that
+    # relationships are accessible without lazy loading.
+    from app.schemas.academic import ClassroomBrief
+    from app.schemas.user import UserResponse
+
+    def _user_dict(u: UserModel) -> dict:
+        # Combine classrooms from both relationships
+        all_classrooms = []
+        if u.role == UserRole.TEACHER:
+            all_classrooms = [
+                ClassroomBrief.model_validate(c)
+                for c in (u.taught_classrooms or [])
+            ]
+        elif u.role == UserRole.STUDENT:
+            all_classrooms = [
+                ClassroomBrief.model_validate(c)
+                for c in (u.enrolled_classrooms or [])
+            ]
+            
+        return UserResponse(
+            id=u.id,
+            email=u.email,
+            full_name=u.full_name,
+            is_active=u.is_active,
+            role=u.role,
+            school_id=u.school_id,
+            profile_picture_url=u.profile_picture_url,
+            student_number=u.student_number if u.role == UserRole.STUDENT else None,
+            is_verified=True if u.role != UserRole.STUDENT else False,
+            created_at=u.created_at,
+            updated_at=u.updated_at,
+            last_login=getattr(u, "last_login", None),
+            classrooms=all_classrooms,
+        )
+
+    serialized = [_user_dict(u) for u in users]
     total_pages = math.ceil(total / page_size)
     
     return PaginatedUsers(
-        items=users,
+        items=serialized,
         total=total,
         page=page,
         page_size=page_size,

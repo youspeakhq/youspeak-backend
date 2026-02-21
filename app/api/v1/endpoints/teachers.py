@@ -35,9 +35,35 @@ async def list_teachers(
         include_deleted=(status == "deleted")
     )
     
+    # Build response dicts while the DB session is still open so that
+    # relationships are accessible without lazy loading.
+    from app.schemas.academic import ClassroomBrief
+
+    def _teacher_dict(u: User) -> dict:
+        classrooms = [
+            ClassroomBrief.model_validate(c)
+            for c in (u.taught_classrooms or [])
+        ]
+        return UserResponse(
+            id=u.id,
+            email=u.email,
+            full_name=u.full_name,
+            is_active=u.is_active,
+            role=u.role,
+            school_id=u.school_id,
+            profile_picture_url=u.profile_picture_url,
+            student_number=None,
+            is_verified=True, # Teachers are usually verified if active
+            created_at=u.created_at,
+            updated_at=u.updated_at,
+            last_login=getattr(u, "last_login", None),
+            classrooms=classrooms,
+        )
+
+    serialized = [_teacher_dict(u) for u in teachers]
     total = len(teachers)
     return PaginatedResponse(
-        data=teachers,
+        data=serialized,
         meta={
             "page": 1,
             "page_size": 100,
