@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import math
 
 from app.database import get_db
-from app.schemas.user import User as UserSchema, UserUpdate, PaginatedUsers, PasswordChange
+from app.schemas.user import User as UserSchema, UserUpdate, PasswordChange
+from app.schemas.responses import PaginatedResponse
 from app.services.user_service import UserService
 from app.api.deps import get_current_user, require_admin
 from app.models.user import User as UserModel
@@ -16,13 +17,13 @@ from app.models.enums import UserRole
 router = APIRouter()
 
 
-@router.get("", response_model=PaginatedUsers)
+@router.get("", response_model=PaginatedResponse[UserSchema])
 async def list_users(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(require_admin) # Only admin should list all generic users
-) -> PaginatedUsers:
+) -> PaginatedResponse[UserSchema]:
     """
     Get paginated list of users.
     """
@@ -67,12 +68,14 @@ async def list_users(
     serialized = [_user_dict(u) for u in users]
     total_pages = math.ceil(total / page_size)
     
-    return PaginatedUsers(
-        items=serialized,
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages
+    return PaginatedResponse(
+        data=serialized,
+        meta={
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "total_pages": total_pages
+        }
     )
 
 

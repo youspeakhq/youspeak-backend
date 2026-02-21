@@ -16,11 +16,11 @@ async def test_list_users_admin(
         f"{api_base}/users",
         headers=registered_school["headers"],
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 200, resp.text
     data = resp.json()
-    assert "items" in data
-    assert isinstance(data["items"], list)
-    assert "total" in data
+    assert "data" in data
+    assert isinstance(data["data"], list)
+    assert "meta" in data
 
 
 @pytest.mark.asyncio
@@ -39,11 +39,12 @@ async def test_list_users_includes_classrooms(
         headers=headers,
         json={"name": f"UnifiedRoom {unique_suffix}", "language_id": 1, "level": "a1"},
     )
+    assert cr_resp.status_code == 200, cr_resp.text
     classroom_id = cr_resp.json()["data"]["id"]
 
     # 2. Create a teacher with this classroom
     email_t = f"t_unified_{unique_suffix}@test.com"
-    await async_client.post(
+    resp_t = await async_client.post(
         f"{api_base}/teachers",
         headers=headers,
         json={
@@ -53,6 +54,7 @@ async def test_list_users_includes_classrooms(
             "classroom_ids": [classroom_id]
         }
     )
+    assert resp_t.status_code == 200, resp_t.text
 
     # 3. Create a student and enroll them in it
     resp_s = await async_client.post(
@@ -64,6 +66,7 @@ async def test_list_users_includes_classrooms(
             "lang_id": 1
         }
     )
+    assert resp_s.status_code == 200, resp_s.text
     student_id = resp_s.json()["data"]["id"]
     await async_client.post(
         f"{api_base}/classrooms/{classroom_id}/students",
@@ -73,8 +76,8 @@ async def test_list_users_includes_classrooms(
 
     # 4. Fetch generic user list
     resp = await async_client.get(f"{api_base}/users", headers=headers)
-    assert resp.status_code == 200
-    users = resp.json()["items"]
+    assert resp.status_code == 200, resp.text
+    users = resp.json()["data"]
     
     # Find teacher and student
     teacher_found = next((u for u in users if u["email"] == email_t), None)

@@ -81,13 +81,3 @@ class PasswordChange(BaseModel):
     """Schema for changing password"""
     current_password: str
     new_password: str = Field(..., min_length=8, description="New password must be at least 8 characters")
-
-
-# Pagination Schema
-class PaginatedUsers(BaseModel):
-    """Schema for paginated user list"""
-    items: list[User]
-    total: int
-    page: int
-    page_size: int
-    total_pages: int
