@@ -28,18 +28,31 @@ def get_async_engine_url_and_connect_args() -> Tuple[str, dict]:
 
 database_url, connect_args = get_async_engine_url_and_connect_args()
 
-# Create async engine with connection pooling (pool_pre_ping detects stale RDS connections)
-engine = create_async_engine(
-    database_url,
-    connect_args=connect_args,
-    pool_pre_ping=True,
-    pool_size=settings.DB_POOL_SIZE,
-    max_overflow=settings.DB_MAX_OVERFLOW,
-    pool_timeout=settings.DB_POOL_TIMEOUT,
-    pool_recycle=settings.DB_POOL_RECYCLE,
-    echo=settings.DEBUG,
-    future=True,
-)
+import sys
+from sqlalchemy.pool import NullPool
+
+# Detect if we're running tests to avoid async loop connection pool leaks
+is_testing = "pytest" in sys.modules
+
+engine_kwargs = {
+    "connect_args": connect_args,
+    "echo": settings.DEBUG,
+    "future": True,
+}
+
+if is_testing:
+    engine_kwargs["poolclass"] = NullPool
+else:
+    engine_kwargs.update({
+        "pool_pre_ping": True,
+        "pool_size": settings.DB_POOL_SIZE,
+        "max_overflow": settings.DB_MAX_OVERFLOW,
+        "pool_timeout": settings.DB_POOL_TIMEOUT,
+        "pool_recycle": settings.DB_POOL_RECYCLE,
+    })
+
+# Create async engine
+engine = create_async_engine(database_url, **engine_kwargs)
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(

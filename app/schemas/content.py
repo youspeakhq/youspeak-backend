@@ -9,26 +9,42 @@ from app.models.enums import (
     CurriculumSourceType, CurriculumStatus
 )
 
-# --- Curriculum ---
-class CurriculumBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    source_type: CurriculumSourceType
+class ClassBrief(BaseModel):
+    id: UUID
+    name: str
 
-class CurriculumUpload(BaseModel):
-    # File upload handled via Multipart
-    pass
+    class Config:
+        from_attributes = True
+
+# --- Curriculum ---
+class CurriculumCreate(BaseModel):
+    title: str
+    language_id: int
+    description: Optional[str] = None
+    source_type: CurriculumSourceType = CurriculumSourceType.TEACHER_UPLOAD
+    class_ids: List[UUID] = []
+
+class CurriculumUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[CurriculumStatus] = None
+    class_ids: Optional[List[UUID]] = None
 
 class CurriculumMergeRequest(BaseModel):
     source_id: UUID
     library_ids: List[UUID]
     strategy: str = "append"
 
-class CurriculumResponse(CurriculumBase):
+class CurriculumResponse(BaseModel): # Changed from CurriculumBase to BaseModel
     id: UUID
+    title: str # Added from CurriculumBase
+    description: Optional[str] = None # Added from CurriculumBase
+    source_type: CurriculumSourceType # Added from CurriculumBase
     file_url: Optional[str] = None
     status: CurriculumStatus
     created_at: datetime
+    language_name: Optional[str] = None
+    classes: List[ClassBrief] = []
     
     class Config:
         from_attributes = True

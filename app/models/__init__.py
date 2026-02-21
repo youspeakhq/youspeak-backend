@@ -22,6 +22,7 @@ from app.models.communication import Announcement, AnnouncementReminder
 from app.models.analytics import LearningSession, Award
 from app.models.billing import Bill
 from app.models.access_code import TeacherAccessCode
+from app.models.student_trash import StudentTrash
 
 
 __all__ = [
@@ -80,4 +81,7 @@ __all__ = [
     
     # Access Codes
     "TeacherAccessCode",
+    
+    # Trash
+    "StudentTrash",
 ]

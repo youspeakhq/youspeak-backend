@@ -88,7 +88,11 @@ class Class(BaseModel, SchoolScopedMixin):
     classroom = relationship("Classroom", back_populates="classes")
     
     schedules = relationship("ClassSchedule", back_populates="class_", cascade="all, delete-orphan")
-    curriculums = relationship("Curriculum", back_populates="class_", cascade="all, delete-orphan")
+    curriculums = relationship(
+        "Curriculum", 
+        secondary="curriculum_classes", 
+        back_populates="classes"
+    )
     learning_sessions = relationship("LearningSession", back_populates="class_", cascade="all, delete-orphan")
     arenas = relationship("Arena", back_populates="class_", cascade="all, delete-orphan")
     awards = relationship("Award", back_populates="class_", cascade="all, delete-orphan")
@@ -171,4 +175,12 @@ teacher_assignments = Table(
     Column("class_id", UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE"), primary_key=True),
     Column("teacher_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
     Column("is_primary", Boolean, default=False, nullable=False)  # Main teacher flag
+)
+
+# Association table for Curriculum <-> Class (Pivot Table)
+curriculum_classes = Table(
+    "curriculum_classes",
+    BaseModel.metadata,
+    Column("curriculum_id", UUID(as_uuid=True), ForeignKey("curriculums.id", ondelete="CASCADE"), primary_key=True),
+    Column("class_id", UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE"), primary_key=True),
 )

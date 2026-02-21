@@ -22,6 +22,8 @@ async def get_my_classes(
     classes = await AcademicService.get_teacher_classes(db, current_user.id)
     return SuccessResponse(data=classes)
 
+from sqlalchemy.exc import IntegrityError
+
 @router.post("", response_model=SuccessResponse[ClassResponse])
 async def create_class(
     class_in: ClassCreate,
@@ -31,14 +33,16 @@ async def create_class(
     """
     Create new class.
     """
-    # Ideally check permission settings if teachers can create classes
-    new_class = await AcademicService.create_class(
-        db,
-        current_user.school_id,
-        class_in,
-        teacher_id=current_user.id,
-    )
-    return SuccessResponse(data=new_class, message="Class created successfully")
+    try:
+        new_class = await AcademicService.create_class(
+            db,
+            current_user.school_id,
+            class_in,
+            teacher_id=current_user.id,
+        )
+        return SuccessResponse(data=new_class, message="Class created successfully")
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Invalid data provided, e.g., nonexistent semester_id or language_id.")
 
 @router.get("/{class_id}/roster", response_model=SuccessResponse)
 async def get_class_roster(

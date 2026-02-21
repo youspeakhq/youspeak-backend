@@ -29,7 +29,7 @@ async def list_students(
         db, 
         current_user.school_id, 
         UserRole.STUDENT,
-        include_deleted=(status == "deleted")
+        status=status,
     )
     
     # Manual pagination for now
@@ -172,7 +172,7 @@ async def delete_student(
     if not success:
         raise HTTPException(status_code=404, detail="Student not found")
         
-    return SuccessResponse(message="Student moved to trash")
+    return SuccessResponse(data=None, message="Student moved to trash")
 
 @router.post("/{student_id}/restore", response_model=SuccessResponse)
 async def restore_student(
@@ -187,4 +187,15 @@ async def restore_student(
     if not success:
         raise HTTPException(status_code=404, detail="Student not found or not deleted")
         
-    return SuccessResponse(message="Student restored successfully")
+    return SuccessResponse(data=None, message="Student restored successfully")
+
+@router.post("/trash/cleanup", response_model=SuccessResponse)
+async def cleanup_trash(
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db)
+) -> Any:
+    """
+    Permanently wipe expired trash (30+ days old).
+    """
+    count = await UserService.cleanup_expired_trash(db)
+    return SuccessResponse(data=None, message=f"Cleaned up {count} expired student records")

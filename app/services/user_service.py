@@ -14,6 +14,7 @@ import logging
 from app.models.user import User
 from app.models.enums import UserRole
 from app.models.access_code import TeacherAccessCode
+from app.models.student_trash import StudentTrash
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
 
@@ -541,9 +542,9 @@ class UserService:
         db: AsyncSession,
         school_id: UUID,
         role: Optional[UserRole] = None,
-        include_deleted: bool = False
+        status: str = "active"
     ) -> List[User]:
-        """Get users by school and role"""
+        """Get users by school and role, filtering by status (active or deleted)"""
         if role == UserRole.TEACHER:
             query = (
                 select(User)
@@ -560,7 +561,9 @@ class UserService:
         if role:
             query = query.where(User.role == role)
 
-        if not include_deleted:
+        if status == "deleted":
+            query = query.where(User.deleted_at.isnot(None))
+        else:
             query = query.where(User.deleted_at.is_(None))
 
         result = await db.execute(query)
@@ -568,24 +571,59 @@ class UserService:
     
     @staticmethod
     async def soft_delete_user(db: AsyncSession, user_id: UUID) -> bool:
-        """Soft delete user"""
+        """Soft delete user and move to trash if student"""
         result = await db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None)))
         user = result.scalar_one_or_none()
         if not user:
             return False
         
         user.soft_delete()
+        
+        # If user is a student, create a trash record
+        if user.role == UserRole.STUDENT:
+            trash = StudentTrash(user_id=user_id)
+            db.add(trash)
+            
         await db.commit()
         return True
     
     @staticmethod
     async def restore_user(db: AsyncSession, user_id: UUID) -> bool:
-        """Restore soft-deleted user"""
+        """Restore soft-deleted user and remove from trash"""
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user or not user.is_deleted:
             return False
         
         user.restore()
+        
+        # Remove trash record if it exists
+        trash_result = await db.execute(select(StudentTrash).where(StudentTrash.user_id == user_id))
+        trash = trash_result.scalar_one_or_none()
+        if trash:
+            await db.delete(trash)
+            
         await db.commit()
         return True
+
+    @staticmethod
+    async def cleanup_expired_trash(db: AsyncSession) -> int:
+        """Permanently delete users whose trash retention has expired"""
+        now = datetime.utcnow()
+        expired_result = await db.execute(
+            select(StudentTrash).where(StudentTrash.expires_at <= now)
+        )
+        expired_records = expired_result.scalars().all()
+        
+        count = 0
+        for record in expired_records:
+            # Permanently delete the user (CASCADE will handle the trash record)
+            user = await db.get(User, record.user_id)
+            if user:
+                await db.delete(user)
+                count += 1
+        
+        if count > 0:
+            await db.commit()
+            
+        return count

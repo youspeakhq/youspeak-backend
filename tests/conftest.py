@@ -49,6 +49,7 @@ async def async_client(api_base: str):
     await client.aclose()
 
 
+
 @pytest.fixture
 def unique_suffix() -> str:
     """Unique suffix for test data to avoid collisions."""
@@ -92,3 +93,66 @@ async def registered_school(async_client: AsyncClient, api_base: str, unique_suf
         "school_name": school_name,
         "headers": headers,
     }
+
+
+@pytest.fixture
+async def class_id_for_student(
+    async_client: AsyncClient, api_base: str, registered_school: dict, unique_suffix: str
+):
+    """Create a teacher, have them create a class, return class_id."""
+    teacher_email = f"t_{unique_suffix}@test.com"
+    # Admin invites teacher
+    resp = await async_client.post(
+        f"{api_base}/teachers",
+        headers=registered_school["headers"],
+        json={"first_name": "T", "last_name": "One", "email": teacher_email},
+    )
+    assert resp.status_code == 200
+    code = resp.json()["data"]["access_code"]
+    # Register teacher
+    await async_client.post(
+        f"{api_base}/auth/register/teacher",
+        json={
+            "access_code": code,
+            "email": teacher_email,
+            "password": "Pass123!",
+            "first_name": "T",
+            "last_name": "One",
+        },
+    )
+    # Login teacher
+    resp = await async_client.post(
+        f"{api_base}/auth/login",
+        json={"email": teacher_email, "password": "Pass123!"},
+    )
+    token = resp.json()["data"]["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    # Get semesters
+    resp = await async_client.get(f"{api_base}/schools/semesters", headers=headers)
+    semesters = resp.json().get("data", [])
+    if not semesters:
+        # Create one if missing
+        await async_client.post(
+            f"{api_base}/classrooms", # Admin can create semesters/classrooms or just mock one
+            headers=registered_school["headers"], # Actually fallback to registered_school to ensure semester exists or just assume it exists
+            json={"name": f"Dummy_{unique_suffix}", "language_id": 1, "level": "a1"}
+        )
+        resp = await async_client.get(f"{api_base}/schools/semesters", headers=headers)
+        semesters = resp.json().get("data", [])
+        
+    semester_id = semesters[0]["id"]
+    # Create class
+    resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=headers,
+        json={
+            "name": f"Test Class {unique_suffix}",
+            "schedule": [
+                {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
+            ],
+            "language_id": 1,
+            "semester_id": semester_id,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    return resp.json()["data"]["id"]

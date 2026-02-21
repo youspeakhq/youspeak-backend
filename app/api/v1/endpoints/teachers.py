@@ -32,7 +32,7 @@ async def list_teachers(
         db, 
         current_user.school_id, 
         UserRole.TEACHER,
-        include_deleted=(status == "deleted")
+        status=status,
     )
     
     # Build response dicts while the DB session is still open so that

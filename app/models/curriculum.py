@@ -4,11 +4,11 @@ from sqlalchemy import Column, String, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.models.base import BaseModel, SchoolScopedMixin
 from app.models.enums import CurriculumSourceType, CurriculumStatus
 
 
-class Curriculum(BaseModel):
+class Curriculum(BaseModel, SchoolScopedMixin):
     """
     Content/Curriculum management with merge logic support.
     Supports library content, teacher uploads, and merged versions.
@@ -16,7 +16,6 @@ class Curriculum(BaseModel):
     __tablename__ = "curriculums"
     
     # Foreign Keys
-    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE"), nullable=True, index=True)
     language_id = Column(ForeignKey("languages.id", ondelete="RESTRICT"), nullable=False, index=True)
     
     # Content Details
@@ -27,8 +26,13 @@ class Curriculum(BaseModel):
     status = Column(ENUM(CurriculumStatus, name="curriculum_status"), default=CurriculumStatus.DRAFT, nullable=False, index=True)
     
     # Relationships
-    class_ = relationship("Class", back_populates="curriculums")
     language = relationship("Language", back_populates="curriculums")
+    classes = relationship(
+        "Class",
+        secondary="curriculum_classes",
+        back_populates="curriculums"
+    )
+    school = relationship("School", back_populates="curriculums")
     
     def __repr__(self) -> str:
         return f"<Curriculum {self.title} ({self.source_type})>"
