@@ -71,6 +71,19 @@ The **test** job and **Docker Compose** job both receive these env vars from sec
 
 The **Docker Compose** job uses an override file `docker-compose.ci.yml` so the API service runs with `ENVIRONMENT=test`. That way the app does **not** run `create_all()` on startup; the test container then runs `alembic upgrade head` as the single source of schema. This avoids "relation X already exists" errors that occur when the API (with `ENVIRONMENT=development`) creates tables and Alembic later tries to create the same ones. To run the same flow locally: `./scripts/run-ci-local.sh` (it uses the same override).
 
+### Build and Push job: Docker layer cache
+
+The **Build and Push Docker Image** job uses ECR as a registry cache (`ref=.../youspeak-backend:cache`) with `mode=max`, so layers (including the builder stage that runs `pip install -r requirements.txt`) are reused when inputs are unchanged.
+
+- **Next push with no change to `requirements.txt`**  
+  The `COPY requirements.txt` and `RUN pip install ...` layers are restored from cache; the step is skipped and **nothing is re-downloaded**.
+
+- **First run or when the cache image does not exist**  
+  There is no cache to pull, so the build continues without cache and you see a full pip download. The job then pushes the new cache to `:cache` for the next run.
+
+- **Push that only adds or changes a line in `requirements.txt`**  
+  Only the changed layer and everything after it re-run. The Dockerfile uses `RUN --mount=type=cache,target=/root/.cache/pip`, and with `mode=max` that cache can be restored from the registry, so pip may only download the new or changed package(s). If the mount cache is not restored (e.g. first time after a change), pip will re-download all packages for that run; the next run with the same `requirements.txt` will then hit the layer cache again.
+
 ---
 
 ## 3. Task definition in the repo
@@ -100,14 +113,17 @@ Do **not** commit `.env.production.local` or `terraform.tfvars`; only the task d
 - **Push/merge to `main`**  
   - Tests run → image built and pushed to ECR → **run DB migrations** (one-off ECS task) → deploy to **staging**  
   - ECS service: `youspeak-api-service-staging`  
-  - Staging URL: `http://<alb_staging_dns>` from `terraform output alb_staging_dns_name`
+  - Staging URL (Terraform is the source of truth):  
+    - With custom domain: `terraform output -raw api_staging_url_https` (e.g. `https://api-staging.<domain_name>`)  
+    - Without custom domain: `http://$(terraform output -raw alb_staging_dns_name)`  
+  - To show the correct "View deployment" link in GitHub, set the **repository variable** `STAGING_API_URL` (Settings → Secrets and variables → Actions → Variables) to that Terraform output. The deploy-staging job uses `url: ${{ vars.STAGING_API_URL }}` for the staging environment.
 
 - **Push/merge to `live`**  
   - Same flow → **run DB migrations** (one-off ECS task) → deploy to **live**  
   - ECS service: `youspeak-api-service-production`  
   - Live URL: `http://<alb_dns_name>` from `terraform output alb_dns_name`
 
-Migrations run **once per deploy** as a short-lived ECS task (`alembic upgrade head`) before the service is updated. If `PRIVATE_SUBNET_IDS` or `ECS_SECURITY_GROUP` are not set, the migration step is skipped (with a warning).
+Migrations run **once per deploy** as a short-lived ECS task (`alembic upgrade head`) before the service is updated. The workflow uses the **same network configuration as the target ECS service** (from `describe-services`), so the migration task can reach RDS/Redis. If the service cannot be described (e.g. first run), it falls back to `PRIVATE_SUBNET_IDS` and `ECS_SECURITY_GROUP` secrets. If those are not set, the migration step is skipped (with a warning). On migration failure, the last 50 CloudWatch log lines for the task are printed to help debug connection errors.
 
 ---
 

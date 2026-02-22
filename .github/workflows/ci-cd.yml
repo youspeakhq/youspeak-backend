@@ -215,11 +215,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
+      # Registry cache (ref=...:cache): unchanged requirements.txt → pip layer reused, no re-download.
+      # First run or when :cache is missing: full download; then cache is pushed for next run.
+      # When requirements.txt changes: only that layer re-runs; pip cache mount may reduce re-downloads.
       - name: Build and push image to Amazon ECR
         id: build-image
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./Dockerfile
+          target: runtime
           push: true
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
@@ -252,7 +257,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment:
       name: staging
-      url: https://api-staging.youspeak.com
+      # Set from Terraform: terraform output -raw api_staging_url_https (or http://$(terraform output -raw alb_staging_dns_name) if no custom domain). Repo variable: STAGING_API_URL.
+      url: ${{ vars.STAGING_API_URL }}
     
     steps:
       - name: Checkout code
@@ -289,22 +295,39 @@ jobs:
           PRIVATE_SUBNET_IDS: ${{ secrets.PRIVATE_SUBNET_IDS }}
           ECS_SECURITY_GROUP: ${{ secrets.ECS_SECURITY_GROUP }}
         run: |
-          if [ -z "$PRIVATE_SUBNET_IDS" ] || [ -z "$ECS_SECURITY_GROUP" ]; then
-            echo "::warning::PRIVATE_SUBNET_IDS or ECS_SECURITY_GROUP not set. Skipping migrations (run .aws/set-github-secrets.sh)."
-            exit 0
+          set -e
+          CLUSTER="${{ env.ECS_CLUSTER }}"
+          SERVICE="${{ env.ECS_SERVICE }}-staging"
+          TASK_DEF="${{ steps.register-task.outputs.task-definition-arn }}"
+          # Prefer network config from the staging service (same VPC/subnets/SG as running tasks)
+          NET_JSON=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" --query 'services[0].networkConfiguration.awsvpcConfiguration' --output json 2>/dev/null || true)
+          if [ -z "$NET_JSON" ] || [ "$NET_JSON" = "null" ] || ! echo "$NET_JSON" | grep -q subnets; then
+            if [ -z "$PRIVATE_SUBNET_IDS" ] || [ -z "$ECS_SECURITY_GROUP" ]; then
+              echo "::warning::PRIVATE_SUBNET_IDS or ECS_SECURITY_GROUP not set and could not get config from service. Skipping migrations (run .aws/set-github-secrets.sh)."
+              exit 0
+            fi
+            # Build JSON from secrets (trim spaces; subnets comma-separated)
+            SUBNETS_JSON=$(echo "$PRIVATE_SUBNET_IDS" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            NET_JSON=$(jq -n --argjson subnets "$SUBNETS_JSON" --arg sg "$ECS_SECURITY_GROUP" '{subnets: $subnets, securityGroups: [$sg], assignPublicIp: "DISABLED"}')
+          else
+            NET_JSON=$(echo "$NET_JSON" | jq '. + {assignPublicIp: "DISABLED"}')
           fi
+          echo "Using network config: $NET_JSON"
           TASK_ARN=$(aws ecs run-task \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --task-definition ${{ steps.register-task.outputs.task-definition-arn }} \
+            --cluster "$CLUSTER" \
+            --task-definition "$TASK_DEF" \
             --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_IDS],securityGroups=[$ECS_SECURITY_GROUP],assignPublicIp=DISABLED}" \
+            --network-configuration "{\"awsvpcConfiguration\": $NET_JSON}" \
             --overrides '{"containerOverrides":[{"name":"youspeak-api","command":["python","-m","alembic","upgrade","head"]}]}' \
             --query 'tasks[0].taskArn' --output text)
-          aws ecs wait tasks-stopped --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN"
-          EXIT_CODE=$(aws ecs describe-tasks --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
           if [ "$EXIT_CODE" != "0" ]; then
             echo "::error::Migration task exited with code $EXIT_CODE"
-            aws ecs describe-tasks --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN" --query 'tasks[0].containers[0]' --output json
+            aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0]' --output json
+            TASK_ID=$(echo "$TASK_ARN" | awk -F/ '{print $NF}')
+            echo "--- Migration task logs (if available) ---"
+            aws logs get-log-events --log-group-name "/ecs/youspeak-api" --log-stream-name "ecs/youspeak-api/$TASK_ID" --limit 50 --query 'events[*].message' --output text 2>/dev/null || true
             exit 1
           fi
           echo "Migrations completed successfully"
@@ -365,22 +388,37 @@ jobs:
           PRIVATE_SUBNET_IDS: ${{ secrets.PRIVATE_SUBNET_IDS }}
           ECS_SECURITY_GROUP: ${{ secrets.ECS_SECURITY_GROUP }}
         run: |
-          if [ -z "$PRIVATE_SUBNET_IDS" ] || [ -z "$ECS_SECURITY_GROUP" ]; then
-            echo "::warning::PRIVATE_SUBNET_IDS or ECS_SECURITY_GROUP not set. Skipping migrations (run .aws/set-github-secrets.sh)."
-            exit 0
+          set -e
+          CLUSTER="${{ env.ECS_CLUSTER }}"
+          SERVICE="${{ env.ECS_SERVICE }}-production"
+          TASK_DEF="${{ steps.register-task.outputs.task-definition-arn }}"
+          NET_JSON=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" --query 'services[0].networkConfiguration.awsvpcConfiguration' --output json 2>/dev/null || true)
+          if [ -z "$NET_JSON" ] || [ "$NET_JSON" = "null" ] || ! echo "$NET_JSON" | grep -q subnets; then
+            if [ -z "$PRIVATE_SUBNET_IDS" ] || [ -z "$ECS_SECURITY_GROUP" ]; then
+              echo "::warning::PRIVATE_SUBNET_IDS or ECS_SECURITY_GROUP not set and could not get config from service. Skipping migrations (run .aws/set-github-secrets.sh)."
+              exit 0
+            fi
+            SUBNETS_JSON=$(echo "$PRIVATE_SUBNET_IDS" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            NET_JSON=$(jq -n --argjson subnets "$SUBNETS_JSON" --arg sg "$ECS_SECURITY_GROUP" '{subnets: $subnets, securityGroups: [$sg], assignPublicIp: "DISABLED"}')
+          else
+            NET_JSON=$(echo "$NET_JSON" | jq '. + {assignPublicIp: "DISABLED"}')
           fi
+          echo "Using network config: $NET_JSON"
           TASK_ARN=$(aws ecs run-task \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --task-definition ${{ steps.register-task.outputs.task-definition-arn }} \
+            --cluster "$CLUSTER" \
+            --task-definition "$TASK_DEF" \
             --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_IDS],securityGroups=[$ECS_SECURITY_GROUP],assignPublicIp=DISABLED}" \
+            --network-configuration "{\"awsvpcConfiguration\": $NET_JSON}" \
             --overrides '{"containerOverrides":[{"name":"youspeak-api","command":["python","-m","alembic","upgrade","head"]}]}' \
             --query 'tasks[0].taskArn' --output text)
-          aws ecs wait tasks-stopped --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN"
-          EXIT_CODE=$(aws ecs describe-tasks --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
           if [ "$EXIT_CODE" != "0" ]; then
             echo "::error::Migration task exited with code $EXIT_CODE"
-            aws ecs describe-tasks --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN" --query 'tasks[0].containers[0]' --output json
+            aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0]' --output json
+            TASK_ID=$(echo "$TASK_ARN" | awk -F/ '{print $NF}')
+            echo "--- Migration task logs (if available) ---"
+            aws logs get-log-events --log-group-name "/ecs/youspeak-api" --log-stream-name "ecs/youspeak-api/$TASK_ID" --limit 50 --query 'events[*].message' --output text 2>/dev/null || true
             exit 1
           fi
           echo "Migrations completed successfully"
