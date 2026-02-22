@@ -126,8 +126,15 @@ jobs:
           cp .env.example .env
       
       - name: Start Docker Compose
+        id: compose
         run: |
           docker compose up -d --build
+      
+      - name: Dump API logs on failure
+        if: failure() && steps.compose.outcome == 'failure'
+        run: |
+          docker compose logs api || true
+          docker compose ps -a || true
       
       - name: Wait for API health
         run: |
