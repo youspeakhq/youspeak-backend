@@ -49,13 +49,24 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(
-        op.f("ix_teacher_access_codes_invited_teacher_id"),
-        table_name="teacher_access_codes",
+    conn = op.get_bind()
+    has_col = (
+        conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'teacher_access_codes' AND column_name = 'invited_teacher_id'"
+            )
+        ).scalar()
+        is not None
     )
-    op.drop_constraint(
-        "fk_teacher_access_codes_invited_teacher_id",
-        "teacher_access_codes",
-        type_="foreignkey",
-    )
-    op.drop_column("teacher_access_codes", "invited_teacher_id")
+    if has_col:
+        op.drop_index(
+            op.f("ix_teacher_access_codes_invited_teacher_id"),
+            table_name="teacher_access_codes",
+        )
+        op.drop_constraint(
+            "fk_teacher_access_codes_invited_teacher_id",
+            "teacher_access_codes",
+            type_="foreignkey",
+        )
+        op.drop_column("teacher_access_codes", "invited_teacher_id")

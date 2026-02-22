@@ -97,15 +97,36 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_classes_classroom_id"), table_name="classes")
-    op.drop_constraint("fk_classes_classroom_id", "classes", type_="foreignkey")
-    op.drop_column("classes", "classroom_id")
+    conn = op.get_bind()
+    has_classroom_id = (
+        conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'classes' AND column_name = 'classroom_id'"
+            )
+        ).scalar()
+        is not None
+    )
+    if has_classroom_id:
+        op.drop_index(op.f("ix_classes_classroom_id"), table_name="classes")
+        op.drop_constraint("fk_classes_classroom_id", "classes", type_="foreignkey")
+        op.drop_column("classes", "classroom_id")
 
-    op.drop_table("classroom_students")
-    op.drop_table("classroom_teachers")
-    op.drop_index(op.f("ix_classrooms_school_id"), table_name="classrooms")
-    op.drop_index(op.f("ix_classrooms_level"), table_name="classrooms")
-    op.drop_index(op.f("ix_classrooms_language_id"), table_name="classrooms")
-    op.drop_index(op.f("ix_classrooms_id"), table_name="classrooms")
-    op.drop_table("classrooms")
-    op.execute("DROP TYPE proficiency_level")
+    has_classrooms = (
+        conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_name = 'classrooms'"
+            )
+        ).scalar()
+        is not None
+    )
+    if has_classrooms:
+        op.drop_table("classroom_students")
+        op.drop_table("classroom_teachers")
+        op.drop_index(op.f("ix_classrooms_school_id"), table_name="classrooms")
+        op.drop_index(op.f("ix_classrooms_level"), table_name="classrooms")
+        op.drop_index(op.f("ix_classrooms_language_id"), table_name="classrooms")
+        op.drop_index(op.f("ix_classrooms_id"), table_name="classrooms")
+        op.drop_table("classrooms")
+    op.execute("DROP TYPE IF EXISTS proficiency_level")

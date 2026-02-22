@@ -32,4 +32,15 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_column("classes", "timeline")
+    conn = op.get_bind()
+    has_timeline = (
+        conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'classes' AND column_name = 'timeline'"
+            )
+        ).scalar()
+        is not None
+    )
+    if has_timeline:
+        op.drop_column("classes", "timeline")

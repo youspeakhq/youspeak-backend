@@ -42,5 +42,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_users_school_student_number", table_name="users")
-    op.drop_column("users", "student_number")
+    conn = op.get_bind()
+    has_col = (
+        conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'student_number'"
+            )
+        ).scalar()
+        is not None
+    )
+    if has_col:
+        op.drop_index("ix_users_school_student_number", table_name="users")
+        op.drop_column("users", "student_number")
