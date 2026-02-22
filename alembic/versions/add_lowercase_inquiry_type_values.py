@@ -1,6 +1,6 @@
 """Add lowercase enum values for Python enum compatibility
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: a0b1c2d3e4f5
 Revises: df28139be687
 Create Date: 2026-02-08
 
@@ -10,7 +10,7 @@ Add lowercase values so inserts from the API work.
 from alembic import op
 
 
-revision = "a1b2c3d4e5f6"
+revision = "a0b1c2d3e4f5"
 down_revision = "df28139be687"
 branch_labels = None
 depends_on = None

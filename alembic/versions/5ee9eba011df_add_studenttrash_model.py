@@ -1,7 +1,7 @@
 """Add StudentTrash model
 
 Revision ID: 5ee9eba011df
-Revises: f6a7b8c9d0e1
+Revises: a0b1c2d3e4f5
 Create Date: 2026-02-21 16:57:52.092957
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '5ee9eba011df'
-down_revision = 'f6a7b8c9d0e1'
+down_revision = 'a0b1c2d3e4f5'
 branch_labels = None
 depends_on = None
 

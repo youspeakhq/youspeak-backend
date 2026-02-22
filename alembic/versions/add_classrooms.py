@@ -1,7 +1,7 @@
 """add classrooms table and classroom_id to classes
 
 Revision ID: c3d4e5f6a7b8
-Revises: b2c3d4e5f6a7
+Revises: d0e1f2a3b4c5
 Create Date: 2026-02-16
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 
 revision = "c3d4e5f6a7b8"
-down_revision = "b2c3d4e5f6a7"
+down_revision = "d0e1f2a3b4c5"
 branch_labels = None
 depends_on = None
 
