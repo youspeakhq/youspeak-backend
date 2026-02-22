@@ -67,6 +67,10 @@ To run **R2-dependent** integration tests (curriculum upload, merge proposal) an
 
 The **test** job and **Docker Compose** job both receive these env vars from secrets when set; the Compose job appends R2 vars to `.env` so the api and test containers see them.
 
+### Docker Compose job and schema (docker-compose.ci.yml)
+
+The **Docker Compose** job uses an override file `docker-compose.ci.yml` so the API service runs with `ENVIRONMENT=test`. That way the app does **not** run `create_all()` on startup; the test container then runs `alembic upgrade head` as the single source of schema. This avoids "relation X already exists" errors that occur when the API (with `ENVIRONMENT=development`) creates tables and Alembic later tries to create the same ones. To run the same flow locally: `./scripts/run-ci-local.sh` (it uses the same override).
+
 ---
 
 ## 3. Task definition in the repo

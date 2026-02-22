@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run CI locally using Docker Compose (same as GitHub Actions: compose + test job).
-# - Compose step: build, up, wait for API health, smoke test.
-# - Test step: run lint + migrations + pytest inside the test container.
+# Uses docker-compose.ci.yml so API runs with ENVIRONMENT=test (no create_all);
+# Alembic in the test container is the single source of schema, avoiding duplicate table/column errors.
 #
 # Usage: ./scripts/run-ci-local.sh [--no-compose]
 #   (default)    Full CI: compose up → smoke test → run test container → compose down
@@ -22,8 +22,8 @@ run_compose_and_test_container() {
   echo -e "${YELLOW}[1/4] Create .env for Docker Compose...${NC}"
   [ -f .env ] || cp .env.example .env
 
-  echo -e "${YELLOW}[2/4] Docker Compose: build and start (api, postgres, redis)...${NC}"
-  docker compose up -d --build
+  echo -e "${YELLOW}[2/4] Docker Compose: build and start (api, postgres, redis) with CI override...${NC}"
+  docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
 
   echo -e "${YELLOW}Waiting for API health...${NC}"
   for i in $(seq 1 60); do
@@ -32,8 +32,8 @@ run_compose_and_test_container() {
   done
   if ! curl -sf http://localhost:8000/health >/dev/null; then
     echo -e "${RED}API not healthy${NC}"
-    docker compose logs api
-    docker compose down -v
+    docker compose -f docker-compose.yml -f docker-compose.ci.yml logs api
+    docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
     exit 1
   fi
   echo -e "${GREEN}API healthy${NC}"
@@ -43,11 +43,11 @@ run_compose_and_test_container() {
   curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1 || curl -sf http://localhost:8000/health >/dev/null && echo "Health OK"
 
   echo -e "${YELLOW}[3/4] Run tests inside Compose (flake8, alembic, pytest)...${NC}"
-  docker compose run --rm test
+  docker compose -f docker-compose.yml -f docker-compose.ci.yml run --rm test
   echo -e "${GREEN}Test container passed${NC}"
 
   echo -e "${YELLOW}[4/4] Stopping Docker Compose...${NC}"
-  docker compose down -v
+  docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
   echo -e "${GREEN}Done.${NC}"
 }
 

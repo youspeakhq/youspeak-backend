@@ -149,13 +149,13 @@ jobs:
       - name: Start Docker Compose
         id: compose
         run: |
-          docker compose up -d --build
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
       
       - name: Dump API logs on failure
         if: failure() && steps.compose.outcome == 'failure'
         run: |
-          docker compose logs api || true
-          docker compose ps -a || true
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml logs api || true
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml ps -a || true
       
       - name: Wait for API health
         run: |
@@ -163,7 +163,7 @@ jobs:
             curl -sf http://localhost:8000/health >/dev/null && break
             sleep 2
           done
-          curl -sf http://localhost:8000/health || (echo "API not healthy"; docker compose logs api; exit 1)
+          curl -sf http://localhost:8000/health || (echo "API not healthy"; docker compose -f docker-compose.yml -f docker-compose.ci.yml logs api; exit 1)
       
       - name: Smoke test API
         run: |
@@ -172,12 +172,12 @@ jobs:
 
       - name: Run tests in Compose (lint, migrate, pytest)
         run: |
-          docker compose run --rm test
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml run --rm test
 
       - name: Stop Docker Compose
         if: always()
         run: |
-          docker compose down -v
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
 
   build-and-push:
     name: Build and Push Docker Image
