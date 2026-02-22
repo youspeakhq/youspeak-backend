@@ -18,8 +18,8 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir --user -r requirements.txt
 
-# Stage 2: Runtime stage
-FROM python:3.9-slim
+# Stage 2: Runtime stage (default for api service; test stage is last so we set target in compose)
+FROM python:3.9-slim as runtime
 
 # Set working directory
 WORKDIR /app

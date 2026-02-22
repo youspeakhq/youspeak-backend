@@ -1,7 +1,9 @@
 services:
   # FastAPI Application
   api:
-    build: .
+    build:
+      context: .
+      target: runtime
     container_name: youspeak_api
     ports:
       - "8000:8000"
