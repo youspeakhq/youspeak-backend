@@ -22,6 +22,5 @@ class Bill(BaseModel, SchoolScopedMixin):
     # Relationships
     school = relationship("School", back_populates="bills")
 
-
     def __repr__(self) -> str:
         return f"<Bill {self.amount} - {self.status}>"

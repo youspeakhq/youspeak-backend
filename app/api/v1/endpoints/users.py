@@ -21,7 +21,7 @@ async def list_users(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(require_admin) # Only admin should list all generic users
+    current_user: UserModel = Depends(require_admin)  # Only admin should list all generic users
 ) -> PaginatedResponse[UserSchema]:
     """
     Get paginated list of users.
@@ -33,7 +33,6 @@ async def list_users(
     # relationships are accessible without lazy loading.
     from app.schemas.academic import ClassroomBrief
     from app.schemas.user import UserResponse
-
 
     def _user_dict(u: UserModel) -> dict:
         # Combine classrooms from both relationships

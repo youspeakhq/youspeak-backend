@@ -34,6 +34,5 @@ class StudentTrash(BaseModel):
     # Relationship back to User
     user = relationship("User", backref="trash_record")
 
-
     def __repr__(self) -> str:
         return f"<StudentTrash user_id={self.user_id} expires_at={self.expires_at}>"

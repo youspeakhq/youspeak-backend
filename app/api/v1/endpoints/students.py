@@ -1,3 +1,4 @@
+import secrets
 from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,12 +7,15 @@ from uuid import UUID
 from app.api import deps
 from app.models.user import User
 from app.models.enums import UserRole
-from app.services.user_service import UserService
-from app.schemas.user import UserResponse
-from app.schemas.student import StudentCreate
+from app.schemas.academic import ClassroomBrief
 from app.schemas.responses import SuccessResponse, PaginatedResponse
+from app.schemas.student import StudentCreate
+from app.schemas.user import UserResponse
+from app.services.academic_service import AcademicService
+from app.services.user_service import UserService
 
 router = APIRouter()
+
 
 @router.get("", response_model=PaginatedResponse[UserResponse])
 async def list_students(
@@ -42,8 +46,6 @@ async def list_students(
 
     # Build response dicts while the DB session is still open so that
     # selectinload-populated enrolled_classrooms is accessible without lazy loading.
-    from app.schemas.academic import ClassroomBrief
-
 
     def _student_dict(u: User) -> dict:
         classrooms = [
@@ -77,10 +79,6 @@ async def list_students(
         }
     )
 
-from app.services.academic_service import AcademicService
-import secrets
-
-# ...
 
 @router.post("", response_model=SuccessResponse[UserResponse])
 async def create_student(
@@ -102,11 +100,11 @@ async def create_student(
     existing = await UserService.get_user_by_email(db, email)
     if existing:
         if student_in.email:
-             raise HTTPException(status_code=400, detail="Student email already exists")
+            raise HTTPException(status_code=400, detail="Student email already exists")
         else:
-             # If generated, regenerate (simple retry or fail)
-             suffix = secrets.token_hex(4)
-             email = f"{student_in.first_name.lower()}.{student_in.last_name.lower()}.{suffix}@youspeak-dummy.com"
+            # If generated, regenerate (simple retry or fail)
+            suffix = secrets.token_hex(4)
+            email = f"{student_in.first_name.lower()}.{student_in.last_name.lower()}.{suffix}@youspeak-dummy.com"
 
     student_number = (student_in.student_id or "").strip() or None
 
@@ -146,7 +144,10 @@ async def import_students_csv(
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(
             status_code=400,
-            detail="Only CSV files are supported. Use columns: first_name, last_name, email, student_id (optional), class_id (optional).",
+            detail=(
+                "Only CSV files are supported. Use columns: first_name, last_name, "
+                "email, student_id (optional), class_id (optional)."
+            ),
         )
     content = await file.read()
     result = await AcademicService.import_students_from_csv(
@@ -175,6 +176,7 @@ async def delete_student(
 
     return SuccessResponse(data=None, message="Student moved to trash")
 
+
 @router.post("/{student_id}/restore", response_model=SuccessResponse)
 async def restore_student(
     student_id: UUID,
@@ -189,6 +191,7 @@ async def restore_student(
         raise HTTPException(status_code=404, detail="Student not found or not deleted")
 
     return SuccessResponse(data=None, message="Student restored successfully")
+
 
 @router.post("/trash/cleanup", response_model=SuccessResponse)
 async def cleanup_trash(

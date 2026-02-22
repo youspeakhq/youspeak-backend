@@ -27,7 +27,6 @@ class LearningSession(BaseModel):
     class_ = relationship("Class", back_populates="learning_sessions")
     started_by_user = relationship("User", back_populates="started_sessions")
 
-
     def __repr__(self) -> str:
         return f"<LearningSession {self.session_type} - {self.status}>"
 
@@ -50,7 +49,6 @@ class Award(BaseModel):
     # Relationships
     student = relationship("User", back_populates="awards")
     class_ = relationship("Class", back_populates="awards")
-
 
     def __repr__(self) -> str:
         return f"<Award {self.title} to {self.student_id}>"

@@ -31,6 +31,7 @@ async def get_admin_stats(
     stats = await SchoolService.get_stats(db, current_user.school_id)
     return SuccessResponse(data=AdminStats(**stats), message="Stats retrieved successfully")
 
+
 @router.get("/activity", response_model=PaginatedResponse[ActivityLogOut])
 async def get_activity_log(
     current_user: User = Depends(deps.require_admin),
@@ -77,6 +78,7 @@ async def create_activity_log_entry(
         created_at=log.created_at,
     )
     return SuccessResponse(data=out, message="Activity logged successfully")
+
 
 @router.get("/leaderboard", response_model=SuccessResponse[LeaderboardResponse])
 async def get_leaderboard(

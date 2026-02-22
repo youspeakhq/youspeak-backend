@@ -10,7 +10,6 @@ from app.config import settings
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
     """Custom JSON formatter with additional fields"""
 
-
     def add_fields(self, log_record: dict, record: logging.LogRecord, message_dict: dict) -> None:
         """Add custom fields to log record"""
         super().add_fields(log_record, record, message_dict)

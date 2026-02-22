@@ -85,6 +85,7 @@ async def login(
         message="Login successful"
     )
 
+
 @router.post("/register/school", response_model=SuccessResponse)
 async def register_school(
     school_in: RegisterSchoolRequest,
@@ -137,6 +138,7 @@ async def register_school(
         message="School registered successfully"
     )
 
+
 @router.post("/register/teacher", response_model=SuccessResponse)
 async def register_teacher(
     teacher_in: RegisterTeacherRequest,
@@ -165,6 +167,7 @@ async def register_teacher(
         message="Teacher account created successfully"
     )
 
+
 @router.post("/verify-code", response_model=SuccessResponse)
 async def verify_code(
     code_in: VerifyCodeRequest,
@@ -190,6 +193,7 @@ async def verify_code(
         },
         message="Access code is valid"
     )
+
 
 @router.post("/password/reset", response_model=SuccessResponse)
 async def reset_password(

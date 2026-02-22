@@ -35,8 +35,6 @@ class SchoolScopedMixin:
     """
 
     @declared_attr
-
-
     def school_id(cls):
         return Column(
             UUID(as_uuid=True),
@@ -55,19 +53,15 @@ class SoftDeleteMixin:
     """
     deleted_at = Column(DateTime, nullable=True, index=True)
 
-
     def soft_delete(self):
         """Mark record as deleted without removing from database"""
         self.deleted_at = get_utc_now()
-
 
     def restore(self):
         """Restore a soft-deleted record"""
         self.deleted_at = None
 
     @property
-
-
     def is_deleted(self) -> bool:
         """Check if record is soft-deleted"""
         return self.deleted_at is not None

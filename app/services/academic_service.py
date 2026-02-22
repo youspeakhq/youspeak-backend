@@ -206,8 +206,6 @@ class AcademicService:
         return roster
 
     @staticmethod
-
-
     def _normalize_csv_headers(row: Dict[str, str]) -> Dict[str, str]:
         """Map flexible column names to canonical keys."""
         aliases = {

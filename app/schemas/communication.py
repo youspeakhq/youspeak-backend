@@ -10,9 +10,9 @@ from app.models.enums import ArenaStatus, AnnouncementType
 
 class ArenaCreate(BaseModel):
     title: str
-    mode: str = 'class' # not in enum yet, maybe add to model or use just description
+    mode: str = 'class'  # not in enum yet, maybe add to model or use just description
     rules: List[str] = []
-    criteria: Dict[str, int] # name: weight
+    criteria: Dict[str, int]  # name: weight
 
 
 class ArenaSchedule(BaseModel):
@@ -35,7 +35,7 @@ class AnnouncementCreate(BaseModel):
     title: str
     body: str
     class_ids: List[UUID] = []
-    attachments: List[str] = [] # URLs
+    attachments: List[str] = []  # URLs
     is_reminder: bool = False
     reminder_date: Optional[datetime] = None
 

@@ -15,8 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy requirements
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Install Python dependencies (cache mount speeds up rebuilds when deps change)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --user -r requirements.txt
 
 # Stage 2: Runtime stage (default for api service; test stage is last so we set target in compose)
 FROM python:3.9-slim as runtime
@@ -69,7 +70,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements-dev.txt .
-RUN pip install --no-cache-dir --user -r requirements-dev.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --user -r requirements-dev.txt
 
 COPY . .
 

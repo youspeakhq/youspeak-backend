@@ -42,6 +42,11 @@ def send_teacher_invite(to_email: str, first_name: str, access_code: str) -> boo
         return True
 
     signup_url = f"{settings.FRONTEND_SIGNUP_URL.rstrip('/')}?{urlencode({'code': access_code})}"
+    _btn_style = (
+        "background: #4f46e5; color: white; padding: 12px 24px; "
+        "text-decoration: none; border-radius: 6px; display: inline-block;"
+    )
+    _code_style = "background: #f1f5f9; padding: 4px 8px; border-radius: 4px;"
 
     html = f"""
 <!DOCTYPE html>
@@ -53,9 +58,9 @@ def send_teacher_invite(to_email: str, first_name: str, access_code: str) -> boo
   <p>Your school administrator has invited you to join YouSpeak as a teacher.</p>
   <p>Use the link below to create your account:</p>
   <p style="margin: 24px 0;">
-    <a href="{signup_url}" style="background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Sign up now</a>
+    <a href="{signup_url}" style="{_btn_style}">Sign up now</a>
   </p>
-  <p style="color: #666; font-size: 14px;">Or copy this code manually: <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px;">{access_code}</code></p>
+  <p style="color: #666; font-size: 14px;">Or copy this code manually: <code style="{_code_style}">{access_code}</code></p>
   <p style="color: #666; font-size: 14px;">This invite expires in 7 days.</p>
   <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
   <p style="color: #94a3b8; font-size: 12px;">YouSpeak — Language learning platform</p>

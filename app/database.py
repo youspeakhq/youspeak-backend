@@ -2,9 +2,11 @@
 
 import re
 import ssl
+import sys
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.pool import NullPool
 from typing import AsyncGenerator, Tuple
 
 from app.config import settings
@@ -27,9 +29,6 @@ def get_async_engine_url_and_connect_args() -> Tuple[str, dict]:
 
 
 database_url, connect_args = get_async_engine_url_and_connect_args()
-
-import sys
-from sqlalchemy.pool import NullPool
 
 # Detect if we're running tests to avoid async loop connection pool leaks
 is_testing = "pytest" in sys.modules

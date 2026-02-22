@@ -5,6 +5,9 @@ from typing import Optional, List
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
+from app.models.enums import UserRole
+from app.schemas.academic import ClassroomBrief
+
 
 # Base User Schema
 
@@ -33,11 +36,6 @@ class UserUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=8)
 
 
-from app.models.enums import UserRole
-from app.schemas.academic import ClassroomBrief
-
-# ...
-
 # User Response Schema
 
 
@@ -59,9 +57,8 @@ class User(UserBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 UserResponse = User
-
-
 
 
 # User Login Schema

@@ -23,7 +23,6 @@ class ContactInquiry(BaseModel):
     )
     message = Column(Text, nullable=False)
 
-
     def __repr__(self) -> str:
         return f"<ContactInquiry {self.school_name} - {self.inquiry_type}>"
 
@@ -72,7 +71,6 @@ class School(BaseModel, StatusMixin):
         back_populates="schools"
     )
 
-
     def __repr__(self) -> str:
         return f"<School {self.name}>"
 
@@ -97,7 +95,6 @@ class Language(BaseModel):
     classes = relationship("Class", back_populates="language")
     classrooms = relationship("Classroom", back_populates="language")
     curriculums = relationship("Curriculum", back_populates="language")
-
 
     def __repr__(self) -> str:
         return f"<Language {self.name} ({self.code})>"

@@ -1,15 +1,17 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 from app.api import deps
 from app.models.user import User
-from app.services.academic_service import AcademicService
 from app.schemas.academic import ClassResponse, ClassCreate, RosterUpdate
 from app.schemas.responses import SuccessResponse
+from app.services.academic_service import AcademicService
 
 router = APIRouter()
+
 
 @router.get("", response_model=SuccessResponse[List[ClassResponse]])
 async def get_my_classes(
@@ -22,7 +24,6 @@ async def get_my_classes(
     classes = await AcademicService.get_teacher_classes(db, current_user.id)
     return SuccessResponse(data=classes)
 
-from sqlalchemy.exc import IntegrityError
 
 @router.post("", response_model=SuccessResponse[ClassResponse])
 async def create_class(
@@ -44,6 +45,7 @@ async def create_class(
     except IntegrityError:
         raise HTTPException(status_code=400, detail="Invalid data provided, e.g., nonexistent semester_id or language_id.")
 
+
 @router.get("/{class_id}/roster", response_model=SuccessResponse)
 async def get_class_roster(
     class_id: UUID,
@@ -61,6 +63,7 @@ async def get_class_roster(
         raise HTTPException(status_code=404, detail="Class not found")
     roster = await AcademicService.get_class_roster(db, class_id)
     return SuccessResponse(data=roster)
+
 
 @router.post("/{class_id}/roster", response_model=SuccessResponse)
 async def add_student_to_roster(

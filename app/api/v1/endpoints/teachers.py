@@ -20,6 +20,7 @@ from app.schemas.responses import SuccessResponse, PaginatedResponse
 
 router = APIRouter()
 
+
 @router.get("", response_model=PaginatedResponse[UserResponse])
 async def list_teachers(
     status: str = "active",
@@ -40,7 +41,6 @@ async def list_teachers(
     # relationships are accessible without lazy loading.
     from app.schemas.academic import ClassroomBrief
 
-
     def _teacher_dict(u: User) -> dict:
         classrooms = [
             ClassroomBrief.model_validate(c)
@@ -55,7 +55,7 @@ async def list_teachers(
             school_id=u.school_id,
             profile_picture_url=u.profile_picture_url,
             student_number=None,
-            is_verified=True, # Teachers are usually verified if active
+            is_verified=True,  # Teachers are usually verified if active
             created_at=u.created_at,
             updated_at=u.updated_at,
             last_login=getattr(u, "last_login", None),
@@ -73,6 +73,7 @@ async def list_teachers(
             "total_pages": 1 if total > 0 else 0
         }
     )
+
 
 @router.post("", response_model=SuccessResponse)
 async def create_teacher_invite(

@@ -86,7 +86,7 @@ class CurriculumService:
             language_id=curriculum_in.language_id,
             source_type=curriculum_in.source_type,
             file_url=file_url,
-            status=CurriculumStatus.PUBLISHED # Default to published if file exists, or adjust per logic
+            status=CurriculumStatus.PUBLISHED  # Default to published if file exists, or adjust per logic
         )
         db.add(new_curriculum)
         await db.flush()
@@ -180,7 +180,11 @@ class CurriculumService:
                 model=settings.BEDROCK_MODEL_ID,
                 response_model=List[TopicCreate],
                 messages=[
-                    {"role": "system", "content": "You are a specialized curriculum analyst. Extract a structured list of topics from the syllabus text provided. Maintain the original order and include specific learning objectives."},
+                    {"role": "system", "content": (
+                        "You are a specialized curriculum analyst. Extract a structured list of topics "
+                        "from the syllabus text provided. Maintain the original order and include "
+                        "specific learning objectives."
+                    )},
                     {"role": "user", "content": f"Syllabus Content:\n\n{markdown_content}"}
                 ]
             )
@@ -221,8 +225,8 @@ class CurriculumService:
         lang = result.scalar_one_or_none()
         lang_name = lang.name if lang else "English"
 
-        if os.getenv("TEST_MODE") == "true": # Skip AI for quick tests if needed
-             return [TopicCreate(title="Test Topic", duration_hours=1.0)]
+        if os.getenv("TEST_MODE") == "true":  # Skip AI for quick tests if needed
+            return [TopicCreate(title="Test Topic", duration_hours=1.0)]
 
         ai_client = get_ai_client()
         topics = await ai_client.chat.completions.create(
@@ -230,13 +234,18 @@ class CurriculumService:
             response_model=List[TopicCreate],
             messages=[
                 {"role": "system", "content": f"You are an expert curriculum designer for {lang_name} language learning."},
-                {"role": "user", "content": f"Generate a detailed curriculum structure for: {prompt}. Each topic must include learning objectives and estimated duration."}
+                {"role": "user", "content": (
+                    f"Generate a detailed curriculum structure for: {prompt}. "
+                    "Each topic must include learning objectives and estimated duration."
+                )}
             ]
         )
         return topics
 
     @staticmethod
-    async def update_topic(db: AsyncSession, topic_id: UUID, update_data: TopicUpdate) -> Optional[Topic]:
+    async def update_topic(
+        db: AsyncSession, topic_id: UUID, update_data: TopicUpdate
+    ) -> Optional[Topic]:
         result = await db.execute(select(Topic).where(Topic.id == topic_id))
         topic = result.scalar_one_or_none()
         if not topic:

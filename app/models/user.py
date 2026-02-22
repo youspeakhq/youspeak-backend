@@ -70,33 +70,24 @@ class User(BaseModel, SchoolScopedMixin, SoftDeleteMixin):
     activity_logs = relationship("ActivityLog", back_populates="performed_by")
 
     @property
-
-
     def full_name(self) -> str:
         """Get user's full name"""
         return f"{self.first_name} {self.last_name}"
 
     @property
-
-
     def is_admin(self) -> bool:
         """Check if user is school admin"""
         return self.role == UserRole.SCHOOL_ADMIN
 
     @property
-
-
     def is_teacher(self) -> bool:
         """Check if user is teacher"""
         return self.role == UserRole.TEACHER
 
     @property
-
-
     def is_student(self) -> bool:
         """Check if user is student"""
         return self.role == UserRole.STUDENT
-
 
     def __repr__(self) -> str:
         return f"<User {self.email} ({self.role})>"

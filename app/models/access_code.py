@@ -28,6 +28,5 @@ class TeacherAccessCode(BaseModel, SchoolScopedMixin):
     created_by_admin = relationship("User", foreign_keys=[created_by_admin_id])
     used_by_teacher = relationship("User", foreign_keys=[used_by_teacher_id])
 
-
     def __repr__(self) -> str:
         return f"<TeacherAccessCode {self.code} - {'Used' if self.is_used else 'Available'}>"

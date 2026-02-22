@@ -73,30 +73,22 @@ class Settings(BaseSettings):
 
     @field_validator("ALLOWED_ORIGINS")
     @classmethod
-
-
     def parse_origins(cls, v: str) -> List[str]:
         """Parse comma-separated origins into a list"""
         return [origin.strip() for origin in v.split(",")]
 
     @field_validator("ALLOWED_METHODS")
     @classmethod
-
-
     def parse_methods(cls, v: str) -> List[str]:
         """Parse comma-separated methods into a list"""
         return [method.strip() for method in v.split(",")]
 
     @property
-
-
     def is_development(self) -> bool:
         """Check if running in development environment"""
         return self.ENVIRONMENT.lower() == "development"
 
     @property
-
-
     def is_production(self) -> bool:
         """Check if running in production environment"""
         return self.ENVIRONMENT.lower() == "production"

@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 APP = Path(__file__).resolve().parent.parent / "app"
-PAT = re.compile(r"^(\s*)(def |class )")
+PAT = re.compile(r"^(\s*)(def |class |@router\.)")
 
 
 def fix_file(path: Path) -> bool:
@@ -15,9 +15,9 @@ def fix_file(path: Path) -> bool:
     changed = False
     while i < len(lines):
         line = lines[i]
-        # Top-level def/class only: 2 blank lines before (PEP 8 E302)
+        # Top-level def/class/router: 2 blank lines before (PEP 8 E302)
         m = PAT.match(line)
-        if m and not m.group(1):
+        if m and not m.group(1).strip():
             blanks = 0
             j = len(out) - 1
             while j >= 0 and out[j].strip() == "":

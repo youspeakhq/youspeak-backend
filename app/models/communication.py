@@ -28,7 +28,6 @@ class Announcement(BaseModel, SchoolScopedMixin):
     class_ = relationship("Class", back_populates="announcements")
     reminders = relationship("AnnouncementReminder", back_populates="announcement", cascade="all, delete-orphan")
 
-
     def __repr__(self) -> str:
         return f"<Announcement {self.type}>"
 
@@ -40,7 +39,12 @@ class AnnouncementReminder(BaseModel):
     """
     __tablename__ = "announcement_reminders"
 
-    announcement_id = Column(UUID(as_uuid=True), ForeignKey("announcements.id", ondelete="CASCADE"), nullable=False, index=True)
+    announcement_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("announcements.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     scheduled_at = Column(DateTime, nullable=False)
     reminder_message = Column(Text, nullable=True)  # Override default message
@@ -50,7 +54,6 @@ class AnnouncementReminder(BaseModel):
 
     # Relationships
     announcement = relationship("Announcement", back_populates="reminders")
-
 
     def __repr__(self) -> str:
         return f"<AnnouncementReminder {self.channel} - {'Sent' if self.is_sent else 'Pending'}>"

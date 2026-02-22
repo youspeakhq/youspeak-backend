@@ -18,6 +18,7 @@ from app.models.enums import CurriculumStatus
 
 router = APIRouter()
 
+
 @router.get("", response_model=PaginatedResponse[CurriculumResponse])
 async def list_curriculums(
     page: int = Query(1, ge=1),
@@ -25,7 +26,7 @@ async def list_curriculums(
     status: Optional[CurriculumStatus] = Query(None),
     language_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
-    current_user: User = Depends(deps.require_admin), # Schools usually have curriculum managed by admins
+    current_user: User = Depends(deps.require_admin),  # Schools usually have curriculum managed by admins
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
@@ -81,12 +82,13 @@ async def list_curriculums(
         }
     )
 
+
 @router.post("", response_model=SuccessResponse[CurriculumResponse])
 async def upload_curriculum(
     title: str = Form(...),
     language_id: int = Form(...),
     description: Optional[str] = Form(None),
-    class_ids_json: Optional[str] = Form(None), # JSON string list of UUIDs
+    class_ids_json: Optional[str] = Form(None),  # JSON string list of UUIDs
     file: UploadFile = File(...),
     current_user: User = Depends(deps.require_admin),
     db: AsyncSession = Depends(deps.get_db)
@@ -137,6 +139,7 @@ async def upload_curriculum(
 
     return SuccessResponse(data=data, message="Curriculum uploaded successfully")
 
+
 @router.post("/generate", response_model=SuccessResponse[List[TopicResponse]])
 async def generate_curriculum(
     generate_in: CurriculumGenerateRequest,
@@ -153,7 +156,7 @@ async def generate_curriculum(
     import uuid
     data = [
         TopicResponse(
-            id=uuid.uuid4(), # Return temporary IDs for UI tracking before persistence
+            id=uuid.uuid4(),  # Return temporary IDs for UI tracking before persistence
             title=t.title,
             content=t.content,
             duration_hours=t.duration_hours,
@@ -162,6 +165,7 @@ async def generate_curriculum(
         ) for t in topics_create
     ]
     return SuccessResponse(data=data, message="Curriculum generated successfully")
+
 
 @router.post("/{curriculum_id}/extract", response_model=SuccessResponse[List[TopicResponse]])
 async def extract_topics(
@@ -195,6 +199,7 @@ async def extract_topics(
     ]
     return SuccessResponse(data=data, message="Topics extracted successfully")
 
+
 @router.patch("/topics/{topic_id}", response_model=SuccessResponse[TopicResponse])
 async def update_topic(
     topic_id: UUID,
@@ -219,6 +224,7 @@ async def update_topic(
         order_index=updated.order_index
     )
     return SuccessResponse(data=data, message="Topic updated successfully")
+
 
 @router.get("/{curriculum_id}", response_model=SuccessResponse[CurriculumResponse])
 async def get_curriculum(
@@ -253,6 +259,7 @@ async def get_curriculum(
         ] if getattr(curriculum, 'topics', None) else []
     )
     return SuccessResponse(data=data)
+
 
 @router.patch("/{curriculum_id}", response_model=SuccessResponse[CurriculumResponse])
 async def update_curriculum(
@@ -291,6 +298,7 @@ async def update_curriculum(
     )
     return SuccessResponse(data=data, message="Curriculum updated successfully")
 
+
 @router.post("/{curriculum_id}/merge/propose", response_model=SuccessResponse[MergeProposalResponse])
 async def propose_merge(
     curriculum_id: UUID,
@@ -299,8 +307,12 @@ async def propose_merge(
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """Trigger AI to propose a unified merge structure between two curriculums."""
-    teacher_curriculum = await CurriculumService.get_curriculum_by_id(db, curriculum_id, current_user.school_id)
-    library_curriculum = await CurriculumService.get_curriculum_by_id(db, merge_in.library_curriculum_id, current_user.school_id)
+    teacher_curriculum = await CurriculumService.get_curriculum_by_id(
+        db, curriculum_id, current_user.school_id
+    )
+    library_curriculum = await CurriculumService.get_curriculum_by_id(
+        db, merge_in.library_curriculum_id, current_user.school_id
+    )
 
     if not teacher_curriculum or not library_curriculum:
         raise HTTPException(status_code=404, detail="Curriculum not found")
@@ -313,6 +325,7 @@ async def propose_merge(
         proposed_topics=proposals
     )
     return SuccessResponse(data=data, message="Merge proposal generated")
+
 
 @router.post("/{curriculum_id}/merge/confirm", response_model=SuccessResponse[CurriculumResponse])
 async def confirm_merge(
@@ -348,6 +361,7 @@ async def confirm_merge(
         ] if getattr(merged, 'topics', None) else []
     )
     return SuccessResponse(data=data, message="Curriculum merged successfully")
+
 
 @router.delete("/{curriculum_id}", response_model=SuccessResponse)
 async def delete_curriculum(

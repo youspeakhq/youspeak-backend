@@ -16,6 +16,7 @@ from app.schemas.responses import SuccessResponse
 
 router = APIRouter()
 
+
 @router.get("/profile", response_model=SuccessResponse[SchoolResponse])
 async def get_school_profile(
     current_user: User = Depends(deps.require_admin),
@@ -29,6 +30,7 @@ async def get_school_profile(
         raise HTTPException(status_code=404, detail="School not found")
 
     return SuccessResponse(data=school)
+
 
 @router.put("/profile", response_model=SuccessResponse[SchoolResponse])
 async def update_school_profile(
@@ -48,6 +50,7 @@ async def update_school_profile(
         raise HTTPException(status_code=404, detail="School not found")
 
     return SuccessResponse(data=school, message="Profile updated successfully")
+
 
 @router.put("/program", response_model=SuccessResponse[SchoolProgramsResponse])
 async def update_school_programs(
@@ -70,6 +73,7 @@ async def update_school_programs(
         data=SchoolProgramsResponse(languages=program_in.languages),
         message="School programs updated successfully",
     )
+
 
 @router.post("/logo", response_model=SuccessResponse[SchoolResponse])
 async def upload_school_logo(
@@ -105,6 +109,7 @@ async def upload_school_logo(
         data=school,
         message="Logo uploaded successfully",
     )
+
 
 @router.get("/semesters", response_model=SuccessResponse)
 async def get_semesters(

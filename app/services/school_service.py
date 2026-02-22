@@ -54,7 +54,7 @@ class SchoolService:
             is_active=True
         )
         db.add(school)
-        await db.flush() # Flush to get school.id
+        await db.flush()  # Flush to get school.id
 
         # Create Admin User
         # Create Admin User
@@ -276,7 +276,10 @@ class SchoolService:
             [
                 {
                     "class_id": r.class_id,
-                    "class_name": (f"{r.class_name or ''} - {r.sub_class or ''}" if r.sub_class else (r.class_name or "")).strip(),
+                    "class_name": (
+                        f"{r.class_name or ''} - {r.sub_class or ''}".strip()
+                        if r.sub_class else (r.class_name or "").strip()
+                    ),
                     "score": float(r.score or 0),
                 }
                 for r in class_rows

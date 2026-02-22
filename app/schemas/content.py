@@ -66,13 +66,13 @@ class CurriculumMergeProposeRequest(BaseModel):
 
 
 class TopicProposal(BaseModel):
-    action: str # "keep", "blend", "replace", "add"
-    source: str # "teacher", "library", "both"
-    topic: TopicCreate # The proposed merged topic
+    action: str  # "keep", "blend", "replace", "add"
+    source: str  # "teacher", "library", "both"
+    topic: TopicCreate  # The proposed merged topic
 
 
 class MergeProposalResponse(BaseModel):
-    proposal_id: UUID # Could be a cache ID for the temporary proposal
+    proposal_id: UUID  # Could be a cache ID for the temporary proposal
     proposed_topics: List[TopicProposal]
 
 
@@ -81,11 +81,11 @@ class CurriculumMergeConfirmRequest(BaseModel):
     final_topics: List[TopicCreate]
 
 
-class CurriculumResponse(BaseModel): # Changed from CurriculumBase to BaseModel
+class CurriculumResponse(BaseModel):  # Changed from CurriculumBase to BaseModel
     id: UUID
-    title: str # Added from CurriculumBase
-    description: Optional[str] = None # Added from CurriculumBase
-    source_type: CurriculumSourceType # Added from CurriculumBase
+    title: str  # Added from CurriculumBase
+    description: Optional[str] = None  # Added from CurriculumBase
+    source_type: CurriculumSourceType  # Added from CurriculumBase
     file_url: Optional[str] = None
     status: CurriculumStatus
     created_at: datetime
@@ -111,8 +111,8 @@ class AIGenerateRequest(BaseModel):
 class QuestionBase(BaseModel):
     question_text: str
     type: QuestionType
-    correct_answer: Optional[str] = None # JSON string or text
-    options: Optional[List[str]] = None # For MC type, helper field
+    correct_answer: Optional[str] = None  # JSON string or text
+    options: Optional[List[str]] = None  # For MC type, helper field
 
 
 class AssessmentCreate(BaseModel):
@@ -123,7 +123,7 @@ class AssessmentCreate(BaseModel):
 
 
 class AssessmentContentUpdate(BaseModel):
-    questions: List[dict] # {text, options, answer}
+    questions: List[dict]  # {text, options, answer}
 
 
 class AssessmentResponse(BaseModel):

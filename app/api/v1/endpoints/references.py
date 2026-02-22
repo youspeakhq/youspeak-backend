@@ -10,6 +10,7 @@ from app.schemas.responses import SuccessResponse
 
 router = APIRouter()
 
+
 @router.get("/languages", response_model=SuccessResponse[List[LanguageResponse]])
 async def get_global_languages(
     db: AsyncSession = Depends(deps.get_db)

@@ -60,7 +60,6 @@ async def upload(
     bucket = settings.R2_BUCKET_NAME
     extra = {"ContentType": content_type} if content_type else {}
 
-
     def _put():
         try:
             client.upload_fileobj(

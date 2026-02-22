@@ -6,7 +6,6 @@ from app.models.base import BaseModel, SchoolScopedMixin
 from app.models.enums import DayOfWeek, ClassStatus, ProficiencyLevel, StudentRole
 
 
-
 class Classroom(BaseModel, SchoolScopedMixin):
     """
     Admin-created organizational unit. Defines a learning track (language + level).
@@ -36,7 +35,6 @@ class Classroom(BaseModel, SchoolScopedMixin):
     )
     classes = relationship("Class", back_populates="classroom", cascade="save-update, merge")
 
-
     def __repr__(self) -> str:
         return f"<Classroom {self.name}>"
 
@@ -56,7 +54,6 @@ class Semester(BaseModel, SchoolScopedMixin):
     # Relationships
     school = relationship("School", back_populates="semesters")
     classes = relationship("Class", back_populates="semester", cascade="all, delete-orphan")
-
 
     def __repr__(self) -> str:
         return f"<Semester {self.name}>"
@@ -115,7 +112,6 @@ class Class(BaseModel, SchoolScopedMixin):
         back_populates="classes"
     )
 
-
     def __repr__(self) -> str:
         return f"<Class {self.name}>"
 
@@ -137,7 +133,6 @@ class ClassSchedule(BaseModel):
 
     # Relationships
     class_ = relationship("Class", back_populates="schedules")
-
 
     def __repr__(self) -> str:
         return f"<ClassSchedule {self.day_of_week} {self.start_time}-{self.end_time}>"

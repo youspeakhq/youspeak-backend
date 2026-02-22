@@ -28,7 +28,6 @@ class Question(BaseModel):
         back_populates="questions"
     )
 
-
     def __repr__(self) -> str:
         return f"<Question {self.type}>"
 
@@ -45,7 +44,12 @@ class Assignment(BaseModel):
     instructions = Column(Text, nullable=True)
     type = Column(ENUM(AssignmentType, name="assignment_type"), nullable=False)
     due_date = Column(DateTime, nullable=True)
-    status = Column(ENUM(AssignmentStatus, name="assignment_status"), default=AssignmentStatus.DRAFT, nullable=False, index=True)
+    status = Column(
+        ENUM(AssignmentStatus, name="assignment_status"),
+        default=AssignmentStatus.DRAFT,
+        nullable=False,
+        index=True,
+    )
 
     # Relationships
     teacher = relationship("User", back_populates="created_assignments")
@@ -60,7 +64,6 @@ class Assignment(BaseModel):
         back_populates="assignments"
     )
     submissions = relationship("StudentSubmission", back_populates="assignment", cascade="all, delete-orphan")
-
 
     def __repr__(self) -> str:
         return f"<Assignment {self.title}>"
@@ -107,7 +110,6 @@ class StudentSubmission(BaseModel):
     # Relationships
     assignment = relationship("Assignment", back_populates="submissions")
     student = relationship("User", back_populates="submissions")
-
 
     def __repr__(self) -> str:
         return f"<StudentSubmission {self.student_id} for {self.assignment_id}>"

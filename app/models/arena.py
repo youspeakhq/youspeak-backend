@@ -34,7 +34,6 @@ class Arena(BaseModel):
         backref="moderated_arenas"
     )
 
-
     def __repr__(self) -> str:
         return f"<Arena {self.title}>"
 
@@ -53,7 +52,6 @@ class ArenaCriteria(BaseModel):
     # Relationships
     arena = relationship("Arena", back_populates="criteria")
 
-
     def __repr__(self) -> str:
         return f"<ArenaCriteria {self.name} ({self.weight_percentage}%)>"
 
@@ -69,7 +67,6 @@ class ArenaRule(BaseModel):
 
     # Relationships
     arena = relationship("Arena", back_populates="rules")
-
 
     def __repr__(self) -> str:
         return f"<ArenaRule for Arena {self.arena_id}>"
@@ -89,7 +86,6 @@ class ArenaPerformer(BaseModel):
     # Relationships
     arena = relationship("Arena", back_populates="performers")
     user = relationship("User", back_populates="arena_performances")
-
 
     def __repr__(self) -> str:
         return f"<ArenaPerformer {self.user_id} - {self.total_points} pts>"
