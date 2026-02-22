@@ -41,12 +41,20 @@ def upgrade() -> None:
         op.create_index(op.f('ix_student_trash_expires_at'), 'student_trash', ['expires_at'], unique=False)
         op.create_index(op.f('ix_student_trash_id'), 'student_trash', ['id'], unique=False)
         op.create_index(op.f('ix_student_trash_user_id'), 'student_trash', ['user_id'], unique=True)
-    op.add_column('curriculums', sa.Column('school_id', sa.UUID(), nullable=False))
-    op.drop_index('ix_curriculums_class_id', table_name='curriculums')
-    op.create_index(op.f('ix_curriculums_school_id'), 'curriculums', ['school_id'], unique=False)
-    op.drop_constraint('curriculums_class_id_fkey', 'curriculums', type_='foreignkey')
-    op.create_foreign_key(None, 'curriculums', 'schools', ['school_id'], ['id'], ondelete='CASCADE')
-    op.drop_column('curriculums', 'class_id')
+    # Idempotent: skip curriculums changes if already applied (e.g. by init_db/create_all in dev/CI)
+    has_school_id = conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = 'curriculums' AND column_name = 'school_id'"
+        )
+    ).scalar() is not None
+    if not has_school_id:
+        op.add_column('curriculums', sa.Column('school_id', sa.UUID(), nullable=False))
+        op.drop_index('ix_curriculums_class_id', table_name='curriculums')
+        op.create_index(op.f('ix_curriculums_school_id'), 'curriculums', ['school_id'], unique=False)
+        op.drop_constraint('curriculums_class_id_fkey', 'curriculums', type_='foreignkey')
+        op.create_foreign_key(None, 'curriculums', 'schools', ['school_id'], ['id'], ondelete='CASCADE')
+        op.drop_column('curriculums', 'class_id')
     # Drop index only if it exists (created later in add_student_number migration on some branches)
     conn.execute(text("DROP INDEX IF EXISTS ix_users_school_student_number"))
     # ### end Alembic commands ###
