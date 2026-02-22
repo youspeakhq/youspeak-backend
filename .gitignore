@@ -138,6 +138,10 @@ cython_debug/
 # IDEs
 .vscode/
 .idea/
+
+# Global Cursor config (rules/workflows live in ~/.cursor)
+.cursor/
+_agents/
 *.swp
 *.swo
 *~
