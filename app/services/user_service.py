@@ -428,6 +428,104 @@ class UserService:
         return teacher
 
     @staticmethod
+    def _parse_teacher_row(
+        mapped: Dict[str, str], row_index: int
+    ) -> tuple:
+        """Validate and parse one teacher CSV row. Returns (first_name, last_name, email, classroom_id, error)."""
+        first_name = (mapped.get("first_name") or "").strip()
+        last_name = (mapped.get("last_name") or "").strip()
+        email = (mapped.get("email") or "").strip()
+        if not first_name or not last_name:
+            return "", "", "", None, f"Row {row_index + 2}: first_name and last_name required"
+        if not email:
+            return "", "", "", None, f"Row {row_index + 2}: email required"
+        classroom_id_str = (mapped.get("classroom_id") or "").strip()
+        classroom_id: Optional[UUID] = None
+        if classroom_id_str:
+            try:
+                classroom_id = UUID(classroom_id_str)
+            except ValueError:
+                return "", "", "", None, f"Row {row_index + 2}: invalid classroom_id"
+        return first_name, last_name, email, classroom_id, None
+
+    @staticmethod
+    async def _create_invited_teacher_with_code(
+        db: AsyncSession,
+        email: str,
+        first_name: str,
+        last_name: str,
+        school_id: UUID,
+        admin_id: UUID,
+        classroom_id: Optional[UUID],
+        classroom_cache: Dict[UUID, Any],
+    ) -> tuple:
+        """Create invited teacher and access code; optionally add to classroom. Returns (code, None) or (None, error)."""
+        from app.core import security
+        from app.services.classroom_service import ClassroomService
+
+        placeholder = secrets.token_hex(32)
+        teacher = await UserService.create_invited_teacher(
+            db=db,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            school_id=school_id,
+            placeholder_password=placeholder,
+        )
+        code = security.generate_access_code()
+        access_code = TeacherAccessCode(
+            code=code,
+            school_id=school_id,
+            created_by_admin_id=admin_id,
+            invited_teacher_id=teacher.id,
+            expires_at=get_utc_now() + timedelta(days=7),
+            is_used=False,
+        )
+        db.add(access_code)
+        if classroom_id:
+            await ClassroomService.add_teacher_to_classroom(
+                db, classroom_id, teacher.id, school_id,
+                auto_commit=False,
+                classroom_cache=classroom_cache,
+                skip_user_validation=True,
+            )
+        return (code, None)
+
+    @staticmethod
+    async def _process_one_teacher_row(
+        db: AsyncSession,
+        row_index: int,
+        mapped: Dict[str, str],
+        school_id: UUID,
+        admin_id: UUID,
+        seen_emails: set,
+        existing_emails: set,
+        classroom_cache: Dict[UUID, Any],
+        errors: List[str],
+    ) -> Optional[Any]:
+        """
+        Process one teacher CSV row. Returns 'skipped', invitation dict, or None (error appended to errors).
+        """
+        first_name, last_name, email, classroom_id, parse_err = UserService._parse_teacher_row(mapped, row_index)
+        if parse_err:
+            errors.append(parse_err)
+            return None
+        if email in seen_emails:
+            return "skipped"
+        seen_emails.add(email)
+        if email in existing_emails:
+            errors.append(f"Row {row_index + 2}: {email} already exists")
+            return None
+        code, create_err = await UserService._create_invited_teacher_with_code(
+            db, email, first_name, last_name, school_id, admin_id, classroom_id, classroom_cache
+        )
+        if create_err:
+            errors.append(create_err)
+            return None
+        existing_emails.add(email)
+        return {"email": email, "first_name": first_name, "code": code}
+
+    @staticmethod
     async def import_teachers_from_csv(
         db: AsyncSession,
         file_content: bytes,
@@ -440,16 +538,7 @@ class UserService:
         Creates invited teachers (is_active=False) with access codes.
         Returns created count, skipped count, errors, and invitations (email, first_name, code) for sending.
         """
-        from app.core import security
         from app.services.academic_service import AcademicService
-        from app.services.classroom_service import ClassroomService
-
-        created = 0
-        skipped = 0
-        errors: List[str] = []
-        invitations: List[Dict[str, str]] = []
-        seen_emails: set = set()
-        classroom_cache: Dict[UUID, Any] = {}
 
         try:
             content = file_content.decode("utf-8-sig")
@@ -472,69 +561,26 @@ class UserService:
 
         existing_emails = await UserService.get_existing_emails(db, list(set(emails_to_check)))
 
+        created = 0
+        skipped = 0
+        errors: List[str] = []
+        invitations: List[Dict[str, str]] = []
+        seen_emails: set = set()
+        classroom_cache: Dict[UUID, Any] = {}
+
         for i, row in enumerate(rows):
             mapped = AcademicService._normalize_csv_headers(row)
-            first_name = (mapped.get("first_name") or "").strip()
-            last_name = (mapped.get("last_name") or "").strip()
-            email = (mapped.get("email") or "").strip()
-
-            if not first_name or not last_name:
-                errors.append(f"Row {i + 2}: first_name and last_name required")
+            result = await UserService._process_one_teacher_row(
+                db, i, mapped, school_id, admin_id,
+                seen_emails, existing_emails, classroom_cache, errors,
+            )
+            if result is None:
                 continue
-            if not email:
-                errors.append(f"Row {i + 2}: email required")
-                continue
-
-            if email in seen_emails:
+            if result == "skipped":
                 skipped += 1
-                continue
-            seen_emails.add(email)
-
-            if email in existing_emails:
-                errors.append(f"Row {i + 2}: {email} already exists")
-                continue
-
-            classroom_id_str = (mapped.get("classroom_id") or "").strip()
-            classroom_id: Optional[UUID] = None
-            if classroom_id_str:
-                try:
-                    classroom_id = UUID(classroom_id_str)
-                except ValueError:
-                    errors.append(f"Row {i + 2}: invalid classroom_id")
-                    continue
-
-            placeholder = secrets.token_hex(32)
-            teacher = await UserService.create_invited_teacher(
-                db=db,
-                email=email,
-                first_name=first_name,
-                last_name=last_name,
-                school_id=school_id,
-                placeholder_password=placeholder,
-            )
-            existing_emails.add(email)
-
-            code = security.generate_access_code()
-            access_code = TeacherAccessCode(
-                code=code,
-                school_id=school_id,
-                created_by_admin_id=admin_id,
-                invited_teacher_id=teacher.id,
-                expires_at=get_utc_now() + timedelta(days=7),
-                is_used=False,
-            )
-            db.add(access_code)
-
-            if classroom_id:
-                await ClassroomService.add_teacher_to_classroom(
-                    db, classroom_id, teacher.id, school_id,
-                    auto_commit=False,
-                    classroom_cache=classroom_cache,
-                    skip_user_validation=True,
-                )
-
-            created += 1
-            invitations.append({"email": email, "first_name": first_name, "code": code})
+            else:
+                created += 1
+                invitations.append(result)
 
         await db.commit()
         return {"created": created, "skipped": skipped, "errors": errors, "invitations": invitations}

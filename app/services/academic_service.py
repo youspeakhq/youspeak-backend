@@ -1,7 +1,7 @@
 import csv
 import io
 import secrets
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
 from app.utils.time import get_utc_now
 from sqlalchemy import select, and_, delete, insert
@@ -227,6 +227,77 @@ class AcademicService:
         return result
 
     @staticmethod
+    def _parse_csv_rows(file_content: bytes) -> Tuple[Optional[List[Dict[str, str]]], Optional[Dict[str, Any]]]:
+        """Decode UTF-8 CSV and return (list of row dicts, None) or (None, error_result)."""
+        try:
+            content = file_content.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            return None, {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["Invalid file encoding. Use UTF-8."]}
+        reader = csv.DictReader(io.StringIO(content))
+        rows = list(reader)
+        if not rows:
+            return None, {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["CSV file is empty"]}
+        return rows, None
+
+    @staticmethod
+    async def _resolve_or_create_student(
+        db: AsyncSession,
+        row_index: int,
+        mapped: Dict[str, str],
+        school_id: UUID,
+        existing_users: Dict[str, Any],
+        seen_emails: set,
+    ) -> Tuple[Optional[UUID], int, int, Optional[str]]:
+        """
+        Validate row, ensure unique email, get or create student.
+        Returns (student_id, created_delta, skipped_delta, error_message).
+        """
+        from app.services.user_service import UserService
+
+        first_name = (mapped.get("first_name") or "").strip()
+        last_name = (mapped.get("last_name") or "").strip()
+        email = (mapped.get("email") or "").strip()
+        student_number = (mapped.get("student_number") or "").strip() or None
+
+        if not first_name or not last_name:
+            return None, 0, 0, f"Row {row_index + 2}: first_name and last_name required"
+
+        if not email:
+            email = f"{first_name.lower()}.{last_name.lower()}.{secrets.token_hex(4)}@youspeak-dummy.com"
+
+        if email in seen_emails:
+            return None, 0, 1, None  # skipped duplicate
+
+        seen_emails.add(email)
+        existing = existing_users.get(email)
+        if existing:
+            if existing.school_id != school_id:
+                return None, 0, 0, f"Row {row_index + 2}: {email} belongs to another school"
+            if existing.role != UserRole.STUDENT:
+                return None, 0, 0, f"Row {row_index + 2}: {email} is not a student"
+            return existing.id, 0, 0, None
+
+        try:
+            new_user = await UserService.create_user(
+                db=db,
+                email=email,
+                password="Student123!",
+                first_name=first_name,
+                last_name=last_name,
+                school_id=school_id,
+                role=UserRole.STUDENT,
+                is_active=True,
+                student_number=student_number,
+                auto_commit=False,
+            )
+            existing_users[email] = new_user
+            return new_user.id, 1, 0, None
+        except ValueError as e:
+            return None, 0, 0, f"Row {row_index + 2}: {e}"
+        except Exception as e:
+            return None, 0, 0, f"Row {row_index + 2}: failed to create student - {str(e)}"
+
+    @staticmethod
     async def import_roster_from_csv(
         db: AsyncSession,
         class_id: UUID,
@@ -245,21 +316,9 @@ class AcademicService:
         if not cls or cls.school_id != school_id:
             return {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["Class not found or access denied"]}
 
-        created = 0
-        enrolled = 0
-        skipped = 0
-        errors: List[str] = []
-        seen_emails: set = set()
-
-        try:
-            content = file_content.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            return {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["Invalid file encoding. Use UTF-8."]}
-
-        reader = csv.DictReader(io.StringIO(content))
-        rows = list(reader)
-        if not rows:
-            return {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["CSV file is empty"]}
+        rows, err_result = AcademicService._parse_csv_rows(file_content)
+        if err_result is not None:
+            return err_result
 
         provided_emails = []
         for row in rows:
@@ -271,58 +330,24 @@ class AcademicService:
                 provided_emails.append(email)
         existing_users = await UserService.get_users_by_emails(db, list(set(provided_emails)))
 
+        created = 0
+        enrolled = 0
+        skipped = 0
+        errors: List[str] = []
+        seen_emails: set = set()
+
         for i, row in enumerate(rows):
             mapped = AcademicService._normalize_csv_headers(row)
-            first_name = (mapped.get("first_name") or "").strip()
-            last_name = (mapped.get("last_name") or "").strip()
-            email = (mapped.get("email") or "").strip()
-            student_number = (mapped.get("student_number") or "").strip() or None
-
-            if not first_name or not last_name:
-                errors.append(f"Row {i + 2}: first_name and last_name required")
+            student_id, created_d, skipped_d, err = await AcademicService._resolve_or_create_student(
+                db, i, mapped, school_id, existing_users, seen_emails
+            )
+            if err:
+                errors.append(err)
                 continue
-
-            if not email:
-                email = f"{first_name.lower()}.{last_name.lower()}.{secrets.token_hex(4)}@youspeak-dummy.com"
-
-            if email in seen_emails:
-                skipped += 1
-                continue
-            seen_emails.add(email)
-
-            existing = existing_users.get(email)
-            if existing:
-                if existing.school_id != school_id:
-                    errors.append(f"Row {i + 2}: {email} belongs to another school")
-                    continue
-                if existing.role != UserRole.STUDENT:
-                    errors.append(f"Row {i + 2}: {email} is not a student")
-                    continue
-                student_id = existing.id
-            else:
-                try:
-                    new_user = await UserService.create_user(
-                        db=db,
-                        email=email,
-                        password="Student123!",
-                        first_name=first_name,
-                        last_name=last_name,
-                        school_id=school_id,
-                        role=UserRole.STUDENT,
-                        is_active=True,
-                        student_number=student_number,
-                        auto_commit=False,
-                    )
-                    student_id = new_user.id
-                    created += 1
-                    existing_users[email] = new_user
-                except ValueError as e:
-                    errors.append(f"Row {i + 2}: {e}")
-                    continue
-                except Exception as e:
-                    errors.append(f"Row {i + 2}: failed to create student - {str(e)}")
-                    continue
-
+            created += created_d
+            skipped += skipped_d
+            if student_id is None:
+                continue  # was skipped duplicate
             added = await AcademicService.add_student_to_class(
                 db, class_id, student_id, auto_commit=False
             )
@@ -333,6 +358,29 @@ class AcademicService:
 
         await db.commit()
         return {"created": created, "enrolled": enrolled, "skipped": skipped, "errors": errors}
+
+    @staticmethod
+    async def _enroll_student_in_class_from_row(
+        db: AsyncSession,
+        row_index: int,
+        mapped: Dict[str, str],
+        student_id: UUID,
+        school_id: UUID,
+        class_cache: Dict[UUID, Optional[Class]],
+    ) -> Tuple[Optional[bool], Optional[str]]:
+        """If class_id in row, validate and enroll. Returns (added_or_none, error_message)."""
+        class_id_str = (mapped.get("class_id") or "").strip()
+        if not class_id_str:
+            return None, None
+        try:
+            cid = UUID(class_id_str)
+        except ValueError:
+            return None, f"Row {row_index + 2}: invalid class_id format"
+        cls = await AcademicService.get_class_by_id(db, cid, cache=class_cache)
+        if not cls or cls.school_id != school_id:
+            return None, f"Row {row_index + 2}: invalid or inaccessible class_id"
+        added = await AcademicService.add_student_to_class(db, cid, student_id, auto_commit=False)
+        return added, None
 
     @staticmethod
     async def import_students_from_csv(
@@ -348,22 +396,9 @@ class AcademicService:
         """
         from app.services.user_service import UserService
 
-        created = 0
-        enrolled = 0
-        skipped = 0
-        errors: List[str] = []
-        seen_emails: set = set()
-        class_cache: Dict[UUID, Optional[Class]] = {}
-
-        try:
-            content = file_content.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            return {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["Invalid file encoding. Use UTF-8."]}
-
-        reader = csv.DictReader(io.StringIO(content))
-        rows = list(reader)
-        if not rows:
-            return {"created": 0, "enrolled": 0, "skipped": 0, "errors": ["CSV file is empty"]}
+        rows, err_result = AcademicService._parse_csv_rows(file_content)
+        if err_result is not None:
+            return err_result
 
         provided_emails = []
         for row in rows:
@@ -375,75 +410,34 @@ class AcademicService:
                 provided_emails.append(email)
         existing_users = await UserService.get_users_by_emails(db, list(set(provided_emails)))
 
+        created = 0
+        enrolled = 0
+        skipped = 0
+        errors: List[str] = []
+        seen_emails: set = set()
+        class_cache: Dict[UUID, Optional[Class]] = {}
+
         for i, row in enumerate(rows):
             mapped = AcademicService._normalize_csv_headers(row)
-            first_name = (mapped.get("first_name") or "").strip()
-            last_name = (mapped.get("last_name") or "").strip()
-            email = (mapped.get("email") or "").strip()
-            student_number = (mapped.get("student_number") or "").strip() or None
-
-            if not first_name or not last_name:
-                errors.append(f"Row {i + 2}: first_name and last_name required")
+            student_id, created_d, skipped_d, err = await AcademicService._resolve_or_create_student(
+                db, i, mapped, school_id, existing_users, seen_emails
+            )
+            if err:
+                errors.append(err)
                 continue
-
-            if not email:
-                email = f"{first_name.lower()}.{last_name.lower()}.{secrets.token_hex(4)}@youspeak-dummy.com"
-
-            if email in seen_emails:
+            created += created_d
+            skipped += skipped_d
+            if student_id is None:
+                continue
+            added, enroll_err = await AcademicService._enroll_student_in_class_from_row(
+                db, i, mapped, student_id, school_id, class_cache
+            )
+            if enroll_err:
+                errors.append(enroll_err)
+            elif added is True:
+                enrolled += 1
+            elif added is False:
                 skipped += 1
-                continue
-            seen_emails.add(email)
-
-            existing = existing_users.get(email)
-            if existing:
-                if existing.school_id != school_id:
-                    errors.append(f"Row {i + 2}: {email} belongs to another school")
-                    continue
-                if existing.role != UserRole.STUDENT:
-                    errors.append(f"Row {i + 2}: {email} is not a student")
-                    continue
-                student_id = existing.id
-            else:
-                try:
-                    new_user = await UserService.create_user(
-                        db=db,
-                        email=email,
-                        password="Student123!",
-                        first_name=first_name,
-                        last_name=last_name,
-                        school_id=school_id,
-                        role=UserRole.STUDENT,
-                        is_active=True,
-                        student_number=student_number,
-                        auto_commit=False,
-                    )
-                    student_id = new_user.id
-                    created += 1
-                    existing_users[email] = new_user
-                except ValueError as e:
-                    errors.append(f"Row {i + 2}: {e}")
-                    continue
-                except Exception as e:
-                    errors.append(f"Row {i + 2}: failed to create student - {str(e)}")
-                    continue
-
-            class_id_str = (mapped.get("class_id") or "").strip()
-            if class_id_str:
-                try:
-                    cid = UUID(class_id_str)
-                    cls = await AcademicService.get_class_by_id(db, cid, cache=class_cache)
-                    if cls and cls.school_id == school_id:
-                        added = await AcademicService.add_student_to_class(
-                            db, cid, student_id, auto_commit=False
-                        )
-                        if added:
-                            enrolled += 1
-                        else:
-                            skipped += 1
-                    else:
-                        errors.append(f"Row {i + 2}: invalid or inaccessible class_id")
-                except ValueError:
-                    errors.append(f"Row {i + 2}: invalid class_id format")
 
         await db.commit()
         return {"created": created, "enrolled": enrolled, "skipped": skipped, "errors": errors}
