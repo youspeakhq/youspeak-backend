@@ -1,7 +1,6 @@
 import os
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
 from sqlalchemy import select, func, delete, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,21 +11,21 @@ import httpx
 import tempfile
 
 from app.models.curriculum import Curriculum, Topic
-from app.models.academic import Class, curriculum_classes
+from app.models.academic import curriculum_classes
 from app.models.onboarding import Language
 from app.models.enums import CurriculumStatus, CurriculumSourceType
 from app.schemas.content import (
-    CurriculumCreate, CurriculumUpdate, TopicCreate, TopicUpdate, 
-    TopicProposal, AIGenerateRequest
+    CurriculumCreate, CurriculumUpdate, TopicCreate, TopicUpdate,
+    TopicProposal
 )
 
 
 class CurriculumService:
     @staticmethod
     async def get_curriculums(
-        db: AsyncSession, 
-        school_id: UUID, 
-        skip: int = 0, 
+        db: AsyncSession,
+        school_id: UUID,
+        skip: int = 0,
         limit: int = 100,
         status: Optional[CurriculumStatus] = None,
         language_id: Optional[int] = None,
@@ -42,18 +41,18 @@ class CurriculumService:
                 selectinload(Curriculum.topics)
             )
         )
-        
+
         if status:
             query = query.where(Curriculum.status == status)
         if language_id:
             query = query.where(Curriculum.language_id == language_id)
         if search:
             query = query.where(Curriculum.title.ilike(f"%{search}%"))
-            
+
         # Count
         count_stmt = select(func.count()).select_from(query.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
-        
+
         # Paginate
         result = await db.execute(query.offset(skip).limit(limit).order_by(Curriculum.created_at.desc()))
         return list(result.scalars().all()), total
@@ -74,8 +73,8 @@ class CurriculumService:
 
     @staticmethod
     async def create_curriculum(
-        db: AsyncSession, 
-        school_id: UUID, 
+        db: AsyncSession,
+        school_id: UUID,
         curriculum_in: CurriculumCreate,
         file_url: Optional[str] = None
     ) -> Curriculum:
@@ -103,7 +102,7 @@ class CurriculumService:
 
         await db.commit()
         await db.refresh(new_curriculum)
-        
+
         # Re-fetch with relationships
         return await CurriculumService.get_curriculum_by_id(db, new_curriculum.id, school_id)
 
@@ -145,7 +144,7 @@ class CurriculumService:
         curriculum = await CurriculumService.get_curriculum_by_id(db, curriculum_id, school_id)
         if not curriculum:
             return False
-        
+
         await db.delete(curriculum)
         await db.commit()
         return True
@@ -159,7 +158,7 @@ class CurriculumService:
         from docling.document_converter import DocumentConverter
 
         converter = DocumentConverter()
-        
+
         # Handle remote URL vs local path
         if file_url_or_path.startswith("http"):
             async with httpx.AsyncClient() as client:
@@ -185,7 +184,7 @@ class CurriculumService:
                     {"role": "user", "content": f"Syllabus Content:\n\n{markdown_content}"}
                 ]
             )
-            
+
             topics_to_insert = []
             for index, item in enumerate(topics_data, 1):
                 db_topic = Topic(
@@ -198,20 +197,20 @@ class CurriculumService:
                 )
                 db.add(db_topic)
                 topics_to_insert.append(db_topic)
-                
+
             await db.commit()
             for t in topics_to_insert:
                 await db.refresh(t)
             return topics_to_insert
-            
+
         finally:
             if file_url_or_path.startswith("http") and os.path.exists(temp_path):
                 os.remove(temp_path)
 
     @staticmethod
     async def generate_curriculum_topics(
-        db: AsyncSession, 
-        prompt: str, 
+        db: AsyncSession,
+        prompt: str,
         language_id: int
     ) -> List[TopicCreate]:
         """
@@ -242,11 +241,11 @@ class CurriculumService:
         topic = result.scalar_one_or_none()
         if not topic:
             return None
-        
+
         update_dict = update_data.model_dump(exclude_unset=True)
         for key, value in update_dict.items():
             setattr(topic, key, value)
-            
+
         await db.commit()
         await db.refresh(topic)
         return topic
@@ -282,7 +281,7 @@ class CurriculumService:
             response_model=List[TopicProposal],
             messages=[
                 {
-                    "role": "system", 
+                    "role": "system",
                     "content": (
                         "You are a curriculum synchronization expert. Your goal is to merge a Teacher's "
                         "curriculum with a Master Library curriculum. Identify overlaps and redundant topics. "
@@ -292,7 +291,7 @@ class CurriculumService:
                     )
                 },
                 {
-                    "role": "user", 
+                    "role": "user",
                     "content": f"Teacher topics: {teacher_context}\n\nLibrary sessions: {library_context}"
                 }
             ]
@@ -313,7 +312,7 @@ class CurriculumService:
         if not base_curr:
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Base curriculum not found")
-            
+
         merged_curriculum = Curriculum(
             school_id=school_id,
             title=f"{base_curr.title} (Integrated Edition)",
@@ -323,7 +322,7 @@ class CurriculumService:
         )
         db.add(merged_curriculum)
         await db.flush()
-        
+
         for index, item in enumerate(final_topics, 1):
             db_topic = Topic(
                 curriculum_id=merged_curriculum.id,
@@ -334,7 +333,7 @@ class CurriculumService:
                 order_index=item.order_index or index
             )
             db.add(db_topic)
-            
+
         await db.commit()
         await db.refresh(merged_curriculum)
         return await CurriculumService.get_curriculum_by_id(db, merged_curriculum.id, school_id)

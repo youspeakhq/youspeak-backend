@@ -4,6 +4,8 @@ import enum
 
 
 # Domain 1: Onboarding
+
+
 class InquiryType(str, enum.Enum):
     """Contact inquiry types - matches frontend dropdown options"""
     PROGRAM_SELECTION_GUIDANCE = "program_selection_guidance"
@@ -26,6 +28,8 @@ class ProgramType(str, enum.Enum):
 
 
 # Domain 2: User & Authentication
+
+
 class UserRole(str, enum.Enum):
     """User roles for RBAC"""
     SCHOOL_ADMIN = "school_admin"
@@ -34,6 +38,8 @@ class UserRole(str, enum.Enum):
 
 
 # Domain 3: Academic & Classroom
+
+
 class ProficiencyLevel(str, enum.Enum):
     """CEFR-style proficiency levels for classrooms"""
     BEGINNER = "beginner"
@@ -70,6 +76,8 @@ class StudentRole(str, enum.Enum):
 
 
 # Domain 4: Curriculum
+
+
 class CurriculumSourceType(str, enum.Enum):
     """Curriculum source types"""
     LIBRARY_MASTER = "library_master"
@@ -85,6 +93,8 @@ class CurriculumStatus(str, enum.Enum):
 
 
 # Domain 5: Assessment
+
+
 class QuestionType(str, enum.Enum):
     """Question types"""
     MULTIPLE_CHOICE = "multiple_choice"
@@ -111,6 +121,8 @@ class SubmissionStatus(str, enum.Enum):
 
 
 # Domain 6: Arena
+
+
 class ArenaStatus(str, enum.Enum):
     """Arena challenge status"""
     DRAFT = "draft"
@@ -120,6 +132,8 @@ class ArenaStatus(str, enum.Enum):
 
 
 # Domain 7: Communication
+
+
 class AnnouncementType(str, enum.Enum):
     """Announcement types"""
     ENROLLMENT = "enrollment"
@@ -137,6 +151,8 @@ class NotificationChannel(str, enum.Enum):
 
 
 # Domain 8: Analytics
+
+
 class SessionType(str, enum.Enum):
     """Learning session types"""
     LEARNING = "learning"
@@ -150,6 +166,8 @@ class SessionStatus(str, enum.Enum):
 
 
 # Domain 9: Billing
+
+
 class BillStatus(str, enum.Enum):
     """Bill payment status"""
     PENDING = "pending"
@@ -158,6 +176,8 @@ class BillStatus(str, enum.Enum):
 
 
 # Domain 10: Admin activity log
+
+
 class ActivityActionType(str, enum.Enum):
     """Types of actions recorded in the school activity log (Figma: Activity Summary row + icon)."""
     STUDENT_REGISTERED = "student_registered"

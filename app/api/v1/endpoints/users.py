@@ -1,6 +1,5 @@
 """User Management Endpoints"""
 
-from typing import List
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,11 +28,12 @@ async def list_users(
     """
     skip = (page - 1) * page_size
     users, total = await UserService.get_users(db, skip=skip, limit=page_size)
-    
+
     # Build response dicts while the DB session is still open so that
     # relationships are accessible without lazy loading.
     from app.schemas.academic import ClassroomBrief
     from app.schemas.user import UserResponse
+
 
     def _user_dict(u: UserModel) -> dict:
         # Combine classrooms from both relationships
@@ -48,7 +48,7 @@ async def list_users(
                 ClassroomBrief.model_validate(c)
                 for c in (u.enrolled_classrooms or [])
             ]
-            
+
         return UserResponse(
             id=u.id,
             email=u.email,
@@ -67,7 +67,7 @@ async def list_users(
 
     serialized = [_user_dict(u) for u in users]
     total_pages = math.ceil(total / page_size)
-    
+
     return PaginatedResponse(
         data=serialized,
         meta={
@@ -113,14 +113,14 @@ async def update_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
         )
-    
+
     user = await UserService.update_user(db, user_id, user_update)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
+
     return user
 
 
@@ -156,11 +156,11 @@ async def change_password(
         password_change.current_password,
         password_change.new_password
     )
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Incorrect current password"
         )
-    
+
     return user

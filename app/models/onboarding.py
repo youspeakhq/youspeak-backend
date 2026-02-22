@@ -14,7 +14,7 @@ class ContactInquiry(BaseModel):
     Used for demo requests, billing questions, etc.
     """
     __tablename__ = "contact_inquiries"
-    
+
     school_name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
     inquiry_type = Column(
@@ -22,7 +22,8 @@ class ContactInquiry(BaseModel):
         nullable=False,
     )
     message = Column(Text, nullable=False)
-    
+
+
     def __repr__(self) -> str:
         return f"<ContactInquiry {self.school_name} - {self.inquiry_type}>"
 
@@ -33,7 +34,7 @@ class School(BaseModel, StatusMixin):
     Each school is a separate organization using the platform.
     """
     __tablename__ = "schools"
-    
+
     # Basic Information
     name = Column(String(255), nullable=False)
     school_type = Column(
@@ -44,16 +45,16 @@ class School(BaseModel, StatusMixin):
         ENUM(ProgramType, name="program_type", values_callable=lambda x: [e.value for e in x]),
         nullable=False,
     )
-    
+
     # Address
     address_country = Column(String(100), nullable=True)
     address_state = Column(String(100), nullable=True)
     address_city = Column(String(100), nullable=True)
     address_zip = Column(String(20), nullable=True)
-    
+
     # Branding
     logo_url = Column(Text, nullable=True)
-    
+
     # Relationships
     users = relationship("User", back_populates="school", cascade="all, delete-orphan")
     semesters = relationship("Semester", back_populates="school", cascade="all, delete-orphan")
@@ -70,7 +71,8 @@ class School(BaseModel, StatusMixin):
         secondary="school_languages",
         back_populates="schools"
     )
-    
+
+
     def __repr__(self) -> str:
         return f"<School {self.name}>"
 
@@ -81,11 +83,11 @@ class Language(BaseModel):
     Contains all languages available on the platform.
     """
     __tablename__ = "languages"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True)  # e.g., "French", "Spanish"
     code = Column(String(10), nullable=False, unique=True)   # e.g., "fr", "es"
-    
+
     # Relationships
     schools = relationship(
         "School",
@@ -95,7 +97,8 @@ class Language(BaseModel):
     classes = relationship("Class", back_populates="language")
     classrooms = relationship("Classroom", back_populates="language")
     curriculums = relationship("Curriculum", back_populates="language")
-    
+
+
     def __repr__(self) -> str:
         return f"<Language {self.name} ({self.code})>"
 

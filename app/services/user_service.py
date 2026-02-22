@@ -3,9 +3,9 @@
 import csv
 import io
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from app.utils.time import get_utc_now
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Optional, List, Dict, Any
 from uuid import UUID
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
@@ -16,10 +16,11 @@ from app.models.user import User
 from app.models.enums import UserRole
 from app.models.access_code import TeacherAccessCode
 from app.models.student_trash import StudentTrash
-from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.user import UserUpdate
 from app.core.security import get_password_hash, verify_password
 
 logger = logging.getLogger(__name__)
+
 
 class UserService:
     """Service layer for user-related operations"""
@@ -94,31 +95,31 @@ class UserService:
             await db.flush()
             await db.refresh(db_user)
         return db_user
-    
+
     @staticmethod
     async def get_user_by_id(db: AsyncSession, user_id: UUID) -> Optional[User]:
         """
         Get user by ID.
-        
+
         Args:
             db: Database session
             user_id: User ID
-            
+
         Returns:
             User or None if not found
         """
         result = await db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
-    
+
     @staticmethod
     async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
         """
         Get user by email.
-        
+
         Args:
             db: Database session
             email: User email
-            
+
         Returns:
             User or None if not found
         """
@@ -153,7 +154,7 @@ class UserService:
             )
         )
         return result.scalar_one_or_none()
-    
+
     @staticmethod
     async def get_users(
         db: AsyncSession,
@@ -162,19 +163,19 @@ class UserService:
     ) -> tuple[List[User], int]:
         """
         Get paginated list of users.
-        
+
         Args:
             db: Database session
             skip: Number of records to skip
             limit: Maximum number of records to return
-            
+
         Returns:
             Tuple of (users list, total count)
         """
         # Get total count
         count_result = await db.execute(select(func.count(User.id)))
         total = count_result.scalar_one()
-        
+
         # Get users
         result = await db.execute(
             select(User)
@@ -187,9 +188,9 @@ class UserService:
             .order_by(User.created_at.desc())
         )
         users = result.scalars().all()
-        
+
         return list(users), total
-    
+
     @staticmethod
     async def update_user(
         db: AsyncSession,
@@ -198,54 +199,54 @@ class UserService:
     ) -> Optional[User]:
         """
         Update user information.
-        
+
         Args:
             db: Database session
             user_id: User ID
             user_update: Updated user data
-            
+
         Returns:
             Updated user or None if not found
         """
         db_user = await UserService.get_user_by_id(db, user_id)
         if not db_user:
             return None
-        
+
         # Update fields
         update_data = user_update.model_dump(exclude_unset=True)
-        
+
         if "password" in update_data:
             update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
-        
+
         for field, value in update_data.items():
             setattr(db_user, field, value)
-        
+
         await db.commit()
         await db.refresh(db_user)
-        
+
         return db_user
-    
+
     @staticmethod
     async def delete_user(db: AsyncSession, user_id: UUID) -> bool:
         """
         Delete user.
-        
+
         Args:
             db: Database session
             user_id: User ID
-            
+
         Returns:
             True if deleted, False if not found
         """
         db_user = await UserService.get_user_by_id(db, user_id)
         if not db_user:
             return False
-        
+
         await db.delete(db_user)
         await db.commit()
-        
+
         return True
-    
+
     @staticmethod
     async def authenticate_user(
         db: AsyncSession,
@@ -254,32 +255,32 @@ class UserService:
     ) -> Optional[User]:
         """
         Authenticate user with email and password.
-        
+
         Args:
             db: Database session
             email: User email
             password: Plain text password
-            
+
         Returns:
             User if authenticated, None otherwise
         """
         user = await UserService.get_user_by_email(db, email)
-        
+
         if not user:
             return None
-        
+
         if not verify_password(password, user.hashed_password):
             return None
-        
+
         if not user.is_active:
             return None
-        
+
         # Update last login
         user.last_login = get_utc_now()
         await db.commit()
-        
+
         return user
-    
+
     @staticmethod
     async def change_password(
         db: AsyncSession,
@@ -289,32 +290,32 @@ class UserService:
     ) -> Optional[User]:
         """
         Change user password.
-        
+
         Args:
             db: Database session
             user_id: User ID
             current_password: Current password
             new_password: New password
-            
+
         Returns:
             Updated user or None if authentication failed
         """
         user = await UserService.get_user_by_id(db, user_id)
-        
+
         if not user:
             return None
-        
+
         if not verify_password(current_password, user.hashed_password):
             return None
-        
+
         user.hashed_password = get_password_hash(new_password)
         await db.commit()
         await db.refresh(user)
-        
+
         return user
-    
+
     # YouSpeak-specific methods
-    
+
     @staticmethod
     async def verify_access_code(db: AsyncSession, code: str) -> Optional[UUID]:
         """
@@ -323,7 +324,7 @@ class UserService:
         result = await db.execute(
             select(TeacherAccessCode).where(
                 TeacherAccessCode.code == code,
-                TeacherAccessCode.is_used == False,
+                TeacherAccessCode.is_used.is_(False),
                 or_(
                     TeacherAccessCode.expires_at.is_(None),
                     TeacherAccessCode.expires_at > get_utc_now()
@@ -332,7 +333,7 @@ class UserService:
         )
         access_code = result.scalar_one_or_none()
         return access_code.school_id if access_code else None
-    
+
     @staticmethod
     async def create_invited_teacher(
         db: AsyncSession,
@@ -363,7 +364,7 @@ class UserService:
         result = await db.execute(
             select(TeacherAccessCode).where(
                 TeacherAccessCode.code == code,
-                TeacherAccessCode.is_used == False,
+                TeacherAccessCode.is_used.is_(False),
                 or_(
                     TeacherAccessCode.expires_at.is_(None),
                     TeacherAccessCode.expires_at > get_utc_now()
@@ -569,7 +570,7 @@ class UserService:
 
         result = await db.execute(query)
         return list(result.scalars().all())
-    
+
     @staticmethod
     async def soft_delete_user(db: AsyncSession, user_id: UUID) -> bool:
         """Soft delete user and move to trash if student"""
@@ -577,17 +578,17 @@ class UserService:
         user = result.scalar_one_or_none()
         if not user:
             return False
-        
+
         user.soft_delete()
-        
+
         # If user is a student, create a trash record
         if user.role == UserRole.STUDENT:
             trash = StudentTrash(user_id=user_id)
             db.add(trash)
-            
+
         await db.commit()
         return True
-    
+
     @staticmethod
     async def restore_user(db: AsyncSession, user_id: UUID) -> bool:
         """Restore soft-deleted user and remove from trash"""
@@ -595,15 +596,15 @@ class UserService:
         user = result.scalar_one_or_none()
         if not user or not user.is_deleted:
             return False
-        
+
         user.restore()
-        
+
         # Remove trash record if it exists
         trash_result = await db.execute(select(StudentTrash).where(StudentTrash.user_id == user_id))
         trash = trash_result.scalar_one_or_none()
         if trash:
             await db.delete(trash)
-            
+
         await db.commit()
         return True
 
@@ -615,7 +616,7 @@ class UserService:
             select(StudentTrash).where(StudentTrash.expires_at <= now)
         )
         expired_records = expired_result.scalars().all()
-        
+
         count = 0
         for record in expired_records:
             # Permanently delete the user (CASCADE will handle the trash record)
@@ -623,8 +624,8 @@ class UserService:
             if user:
                 await db.delete(user)
                 count += 1
-        
+
         if count > 0:
             await db.commit()
-            
+
         return count

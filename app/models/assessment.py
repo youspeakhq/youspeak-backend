@@ -14,12 +14,12 @@ class Question(BaseModel):
     Teachers create and reuse questions across multiple assignments.
     """
     __tablename__ = "questions"
-    
+
     teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     question_text = Column(Text, nullable=False)
     correct_answer = Column(Text, nullable=True)  # TEXT or JSON for multiple choice
     type = Column(ENUM(QuestionType, name="question_type"), nullable=False)
-    
+
     # Relationships
     teacher = relationship("User", back_populates="created_questions")
     assignments = relationship(
@@ -27,7 +27,8 @@ class Question(BaseModel):
         secondary="assignment_questions",
         back_populates="questions"
     )
-    
+
+
     def __repr__(self) -> str:
         return f"<Question {self.type}>"
 
@@ -38,14 +39,14 @@ class Assignment(BaseModel):
     Can be distributed to multiple classes.
     """
     __tablename__ = "assignments"
-    
+
     teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String(255), nullable=False)
     instructions = Column(Text, nullable=True)
     type = Column(ENUM(AssignmentType, name="assignment_type"), nullable=False)
     due_date = Column(DateTime, nullable=True)
     status = Column(ENUM(AssignmentStatus, name="assignment_status"), default=AssignmentStatus.DRAFT, nullable=False, index=True)
-    
+
     # Relationships
     teacher = relationship("User", back_populates="created_assignments")
     classes = relationship(
@@ -59,7 +60,8 @@ class Assignment(BaseModel):
         back_populates="assignments"
     )
     submissions = relationship("StudentSubmission", back_populates="assignment", cascade="all, delete-orphan")
-    
+
+
     def __repr__(self) -> str:
         return f"<Assignment {self.title}>"
 
@@ -89,22 +91,23 @@ class StudentSubmission(BaseModel):
     Supports both AI and teacher grading.
     """
     __tablename__ = "student_submissions"
-    
+
     assignment_id = Column(UUID(as_uuid=True), ForeignKey("assignments.id", ondelete="CASCADE"), nullable=False, index=True)
     student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    
+
     submitted_at = Column(DateTime, nullable=False)
     content_url = Column(Text, nullable=True)  # Audio file or PDF
     status = Column(ENUM(SubmissionStatus, name="submission_status"), nullable=False, default=SubmissionStatus.SUBMITTED)
-    
+
     # Grading (supports both AI and teacher scoring)
     ai_score = Column(Numeric(5, 2), nullable=True)  # AI-generated score
     teacher_score = Column(Numeric(5, 2), nullable=True)  # Teacher override/manual score
     grade_score = Column(Numeric(5, 2), nullable=True)  # Final grade
-    
+
     # Relationships
     assignment = relationship("Assignment", back_populates="submissions")
     student = relationship("User", back_populates="submissions")
-    
+
+
     def __repr__(self) -> str:
         return f"<StudentSubmission {self.student_id} for {self.assignment_id}>"

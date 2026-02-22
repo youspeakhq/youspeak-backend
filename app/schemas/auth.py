@@ -1,12 +1,13 @@
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field
-from datetime import datetime
 
 from app.models.enums import SchoolType, ProgramType
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
 
 class Token(BaseModel):
     access_token: str
@@ -16,9 +17,11 @@ class Token(BaseModel):
     user_id: str
     school_id: Optional[str] = None
 
+
 class TokenData(BaseModel):
     user_id: Optional[str] = None
     role: Optional[str] = None
+
 
 class RegisterSchoolRequest(BaseModel):
     """School onboarding - aligns with frontend screens (login, profile, enrollment)."""
@@ -34,6 +37,7 @@ class RegisterSchoolRequest(BaseModel):
     address_zip: Optional[str] = None
     languages: Optional[List[str]] = None
 
+
 class RegisterTeacherRequest(BaseModel):
     access_code: str
     first_name: str
@@ -41,12 +45,15 @@ class RegisterTeacherRequest(BaseModel):
     email: EmailStr
     password: str
 
+
 class VerifyCodeRequest(BaseModel):
     access_code: str
+
 
 class PasswordResetRequest(BaseModel):
     token: str
     new_password: str
+
 
 class PasswordResetEmailRequest(BaseModel):
     email: EmailStr

@@ -2,7 +2,7 @@
 
 import secrets
 import string
-from datetime import datetime, timedelta , timezone
+from datetime import timedelta
 from app.utils.time import get_utc_now
 from typing import Optional
 
@@ -34,10 +34,10 @@ def get_password_hash(password: str) -> str:
     """
     Hash a password using bcrypt.
     Bcrypt has a 72-byte limit; longer passwords are truncated to avoid ValueError.
-    
+
     Args:
         password: Plain text password
-        
+
     Returns:
         Hashed password (ASCII string for DB storage)
     """
@@ -49,11 +49,11 @@ def get_password_hash(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verify a password against its hash.
-    
+
     Args:
         plain_password: Plain text password to verify
         hashed_password: Hashed password to compare against
-        
+
     Returns:
         True if password matches, False otherwise
     """
@@ -65,53 +65,53 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
     Create a JWT access token.
-    
+
     Args:
         data: Data to encode in the token (usually {"sub": user_id})
         expires_delta: Optional custom expiration time
-        
+
     Returns:
         Encoded JWT token
     """
     to_encode = data.copy()
-    
+
     if expires_delta:
         expire = get_utc_now() + expires_delta
     else:
         expire = get_utc_now() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    
+
     to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    
+
     return encoded_jwt
 
 
 def create_refresh_token(data: dict) -> str:
     """
     Create a JWT refresh token.
-    
+
     Args:
         data: Data to encode in the token (usually {"sub": user_id})
-        
+
     Returns:
         Encoded JWT refresh token
     """
     to_encode = data.copy()
     expire = get_utc_now() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    
+
     to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    
+
     return encoded_jwt
 
 
 def decode_token(token: str) -> Optional[dict]:
     """
     Decode and validate a JWT token.
-    
+
     Args:
         token: JWT token to decode
-        
+
     Returns:
         Decoded token payload or None if invalid
     """
@@ -125,17 +125,17 @@ def decode_token(token: str) -> Optional[dict]:
 def generate_access_code(length: int = 8) -> str:
     """
     Generate a random access code for teacher invitations.
-    
+
     Args:
         length: Length of the code (default: 8)
-        
+
     Returns:
         Random alphanumeric code (uppercase)
     """
     # Use uppercase letters and digits, excluding similar-looking characters
     alphabet = string.ascii_uppercase + string.digits
     alphabet = alphabet.replace('O', '').replace('0', '').replace('I', '').replace('1', '')
-    
+
     code = ''.join(secrets.choice(alphabet) for _ in range(length))
     return code
 
@@ -143,19 +143,19 @@ def generate_access_code(length: int = 8) -> str:
 def generate_password_reset_token(user_id: str) -> str:
     """
     Generate a password reset token.
-    
+
     Args:
         user_id: User ID
-        
+
     Returns:
         JWT token for password reset (expires in 1 hour)
     """
     data = {"sub": user_id, "purpose": "password_reset"}
     expire = get_utc_now() + timedelta(hours=1)
-    
+
     to_encode = data.copy()
     to_encode.update({"exp": expire})
-    
+
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
@@ -163,10 +163,10 @@ def generate_password_reset_token(user_id: str) -> str:
 def verify_password_reset_token(token: str) -> Optional[str]:
     """
     Verify a password reset token and extract user_id.
-    
+
     Args:
         token: Password reset token
-        
+
     Returns:
         user_id if valid, None otherwise
     """

@@ -67,6 +67,8 @@ class LeaderboardResponse(BaseModel):
 
 
 # Activity log
+
+
 class ActivityLogCreate(BaseModel):
     """Payload for POST /admin/activity."""
 

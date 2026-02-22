@@ -1,5 +1,5 @@
-from typing import Any, List
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from typing import Any
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
@@ -8,7 +8,7 @@ from app.models.user import User
 from app.models.enums import UserRole
 from app.services.user_service import UserService
 from app.schemas.user import UserResponse
-from app.schemas.student import StudentCreate, StudentUpdate
+from app.schemas.student import StudentCreate
 from app.schemas.responses import SuccessResponse, PaginatedResponse
 
 router = APIRouter()
@@ -26,23 +26,24 @@ async def list_students(
     """
     # Simplified pagination - robust implementation would use offset/limit query
     all_students = await UserService.get_users_by_school_and_role(
-        db, 
-        current_user.school_id, 
+        db,
+        current_user.school_id,
         UserRole.STUDENT,
         status=status,
     )
-    
+
     # Manual pagination for now
     start = (page - 1) * limit
     end = start + limit
     paginated = all_students[start:end]
-    
+
     total = len(all_students)
     total_pages = (total + limit - 1) // limit if limit > 0 else 0
 
     # Build response dicts while the DB session is still open so that
     # selectinload-populated enrolled_classrooms is accessible without lazy loading.
     from app.schemas.academic import ClassroomBrief
+
 
     def _student_dict(u: User) -> dict:
         classrooms = [
@@ -94,7 +95,7 @@ async def create_student(
     if not email:
         suffix = secrets.token_hex(4)
         email = f"{student_in.first_name.lower()}.{student_in.last_name.lower()}.{suffix}@youspeak-dummy.com"
-        
+
     password = student_in.password or "Student123!"
 
     # Check email uniqueness (UserService might handle, but good to check)
@@ -123,11 +124,11 @@ async def create_student(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
+
     # Enroll in class
     if student_in.class_id:
         await AcademicService.add_student_to_class(db, student_in.class_id, user.id)
-    
+
     return SuccessResponse(data=UserResponse.model_validate(user), message="Student created successfully")
 
 
@@ -171,7 +172,7 @@ async def delete_student(
     success = await UserService.soft_delete_user(db, student_id)
     if not success:
         raise HTTPException(status_code=404, detail="Student not found")
-        
+
     return SuccessResponse(data=None, message="Student moved to trash")
 
 @router.post("/{student_id}/restore", response_model=SuccessResponse)
@@ -186,7 +187,7 @@ async def restore_student(
     success = await UserService.restore_user(db, student_id)
     if not success:
         raise HTTPException(status_code=404, detail="Student not found or not deleted")
-        
+
     return SuccessResponse(data=None, message="Student restored successfully")
 
 @router.post("/trash/cleanup", response_model=SuccessResponse)

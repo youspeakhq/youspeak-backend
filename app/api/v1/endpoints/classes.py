@@ -77,7 +77,7 @@ async def add_student_to_roster(
     )
     if not success:
         raise HTTPException(status_code=400, detail="Could not add student")
-        
+
     return SuccessResponse(message="Student added to class")
 
 

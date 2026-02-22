@@ -1,9 +1,8 @@
 """Base Models and Mixins for DRY principles"""
 
 import uuid
-from datetime import datetime, timezone
 from app.utils.time import get_utc_now
-from sqlalchemy import Column, DateTime, String, Boolean, ForeignKey
+from sqlalchemy import Column, DateTime, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declared_attr
 
@@ -13,14 +12,14 @@ from app.database import Base
 class BaseModel(Base):
     """
     Base model class with common fields for all models.
-    
+
     Provides:
     - UUID primary key
     - created_at timestamp
     - updated_at timestamp
     """
     __abstract__ = True
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     created_at = Column(DateTime, default=get_utc_now, nullable=False)
     updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
@@ -29,13 +28,15 @@ class BaseModel(Base):
 class SchoolScopedMixin:
     """
     Mixin for multi-tenant models scoped to a school.
-    
+
     Provides:
     - school_id foreign key
     - Relationship to school (configured in concrete models)
     """
-    
+
     @declared_attr
+
+
     def school_id(cls):
         return Column(
             UUID(as_uuid=True),
@@ -48,21 +49,25 @@ class SchoolScopedMixin:
 class SoftDeleteMixin:
     """
     Mixin for soft delete functionality.
-    
+
     Provides:
     - deleted_at timestamp (NULL = active, NOT NULL = deleted)
     """
     deleted_at = Column(DateTime, nullable=True, index=True)
-    
+
+
     def soft_delete(self):
         """Mark record as deleted without removing from database"""
         self.deleted_at = get_utc_now()
-    
+
+
     def restore(self):
         """Restore a soft-deleted record"""
         self.deleted_at = None
-    
+
     @property
+
+
     def is_deleted(self) -> bool:
         """Check if record is soft-deleted"""
         return self.deleted_at is not None
@@ -71,7 +76,7 @@ class SoftDeleteMixin:
 class StatusMixin:
     """
     Mixin for models with active/inactive status.
-    
+
     Provides:
     - is_active boolean flag
     """

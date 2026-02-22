@@ -1,7 +1,7 @@
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict
 from uuid import UUID
-from datetime import datetime, time, date
+from datetime import time
 
 from app.models.enums import DayOfWeek, ClassStatus, ProficiencyLevel, StudentRole
 
@@ -47,10 +47,12 @@ class ClassroomAddTeacher(BaseModel):
 class ClassroomAddStudent(BaseModel):
     student_id: UUID
 
+
 class ScheduleBase(BaseModel):
     day_of_week: DayOfWeek
     start_time: time
     end_time: time
+
 
 class ClassBase(BaseModel):
     name: str
@@ -59,6 +61,7 @@ class ClassBase(BaseModel):
     timeline: Optional[str] = None
     status: ClassStatus = ClassStatus.ACTIVE
 
+
 class ClassCreate(ClassBase):
     level: Optional[str] = None
     schedule: List[ScheduleBase]
@@ -66,14 +69,17 @@ class ClassCreate(ClassBase):
     semester_id: UUID
     classroom_id: Optional[UUID] = None
 
+
 class ClassUpdate(BaseModel):
     name: Optional[str] = None
     timeline: Optional[str] = None
     status: Optional[ClassStatus] = None
 
+
 class RosterUpdate(BaseModel):
     student_id: UUID
     role: StudentRole
+
 
 class ClassResponse(ClassBase):
     id: UUID
@@ -84,6 +90,7 @@ class ClassResponse(ClassBase):
     schedules: List[ScheduleBase] = []
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class ClassWithStats(ClassResponse):
     student_count: int = 0

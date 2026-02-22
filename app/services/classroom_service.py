@@ -2,9 +2,8 @@
 
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from sqlalchemy import select, and_, delete, insert, func
+from sqlalchemy import select, and_, insert, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models.academic import Classroom, classroom_teachers, classroom_students
 from app.models.enums import UserRole

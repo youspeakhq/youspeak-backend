@@ -1,7 +1,6 @@
-from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from typing import Any
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import UUID
 
 from app.api import deps
 from app.models.user import User
@@ -28,7 +27,7 @@ async def get_school_profile(
     school = await SchoolService.get_school_by_id(db, current_user.school_id)
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
-        
+
     return SuccessResponse(data=school)
 
 @router.put("/profile", response_model=SuccessResponse[SchoolResponse])
@@ -41,13 +40,13 @@ async def update_school_profile(
     Update bio-data. Admin only.
     """
     school = await SchoolService.update_school(
-        db, 
-        current_user.school_id, 
+        db,
+        current_user.school_id,
         school_in
     )
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
-        
+
     return SuccessResponse(data=school, message="Profile updated successfully")
 
 @router.put("/program", response_model=SuccessResponse[SchoolProgramsResponse])
@@ -123,7 +122,7 @@ async def get_semesters(
             "start_date": s.start_date,
             "end_date": s.end_date,
             "is_active": s.is_active
-        } 
+        }
         for s in semesters
     ]
     return SuccessResponse(data=data)

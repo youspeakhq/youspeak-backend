@@ -5,11 +5,13 @@ from uuid import UUID
 
 from app.models.enums import SchoolType, ProgramType, InquiryType
 
+
 class ContactInquiryCreate(BaseModel):
     school_name: str = Field(..., min_length=1, description="School name cannot be empty")
     email: EmailStr
     inquiry_type: InquiryType
     message: str
+
 
 class SchoolBase(BaseModel):
     name: str
@@ -21,8 +23,10 @@ class SchoolBase(BaseModel):
     address_zip: Optional[str] = None
     logo_url: Optional[str] = None
 
+
 class SchoolCreate(SchoolBase):
     pass
+
 
 class SchoolUpdate(BaseModel):
     name: Optional[str] = None
@@ -34,6 +38,7 @@ class SchoolUpdate(BaseModel):
     email: Optional[EmailStr] = None
     logo_url: Optional[str] = None
 
+
 class SchoolProgramsUpdate(BaseModel):
     languages: List[str]
 
@@ -43,16 +48,18 @@ class SchoolProgramsResponse(BaseModel):
 
     languages: List[str]
 
+
 class SchoolResponse(SchoolBase):
     id: UUID
     is_active: bool
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
+
 
 class LanguageResponse(BaseModel):
     id: int
     name: str
     code: str
-    
+
     model_config = ConfigDict(from_attributes=True)

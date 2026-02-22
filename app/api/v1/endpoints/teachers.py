@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime, timedelta , timezone
+from datetime import timedelta
 from app.utils.time import get_utc_now
 from typing import Any
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
@@ -30,15 +30,16 @@ async def list_teachers(
     List all teachers.
     """
     teachers = await UserService.get_users_by_school_and_role(
-        db, 
-        current_user.school_id, 
+        db,
+        current_user.school_id,
         UserRole.TEACHER,
         status=status,
     )
-    
+
     # Build response dicts while the DB session is still open so that
     # relationships are accessible without lazy loading.
     from app.schemas.academic import ClassroomBrief
+
 
     def _teacher_dict(u: User) -> dict:
         classrooms = [
@@ -179,5 +180,5 @@ async def delete_teacher(
     success = await UserService.soft_delete_user(db, teacher_id)
     if not success:
         raise HTTPException(status_code=404, detail="Teacher not found")
-        
+
     return SuccessResponse(message="Teacher moved to trash")

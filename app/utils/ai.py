@@ -8,8 +8,10 @@ from openai import AsyncOpenAI
 
 _ai_client = None
 
+
 class AsyncBedrockWrapper:
     """Wrapper to make synchronous Bedrock/Instructor calls awaitable."""
+
     def __init__(self, client):
         self.client = client
 
@@ -25,6 +27,7 @@ class AsyncBedrockWrapper:
         return await anyio.to_thread.run_sync(
             lambda: self.client.chat.completions.create(**kwargs)
         )
+
 
 def get_ai_client(provider: str = "bedrock"):
     """

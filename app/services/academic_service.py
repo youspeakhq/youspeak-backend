@@ -3,15 +3,15 @@ import io
 import secrets
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from datetime import datetime, timezone
 from app.utils.time import get_utc_now
 from sqlalchemy import select, and_, delete, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.academic import Class, ClassSchedule, Semester, class_enrollments, teacher_assignments
+from app.models.academic import Class, ClassSchedule, class_enrollments, teacher_assignments
 from app.models.enums import StudentRole, ClassStatus, UserRole
-from app.schemas.academic import ClassCreate, ClassUpdate, ScheduleBase
+from app.schemas.academic import ClassCreate
+
 
 class AcademicService:
     @staticmethod
@@ -31,7 +31,7 @@ class AcademicService:
         if cache is not None:
             cache[class_id] = cls
         return cls
-    
+
     @staticmethod
     async def create_class(
         db: AsyncSession,
@@ -179,16 +179,16 @@ class AcademicService:
         """Get students in a class with their roles"""
         # This requires a join to get user details
         from app.models.user import User
-        
+
         stmt = (
             select(User, class_enrollments.c.role, class_enrollments.c.joined_at)
             .join(class_enrollments, class_enrollments.c.student_id == User.id)
             .where(class_enrollments.c.class_id == class_id)
         )
-        
+
         result = await db.execute(stmt)
         rows = result.all()
-        
+
         # Format as list of dicts or custom objects
         roster = []
         for user, role, joined in rows:
@@ -202,10 +202,12 @@ class AcademicService:
                 "profile_picture_url": user.profile_picture_url
             }
             roster.append(user_dict)
-            
+
         return roster
 
     @staticmethod
+
+
     def _normalize_csv_headers(row: Dict[str, str]) -> Dict[str, str]:
         """Map flexible column names to canonical keys."""
         aliases = {
@@ -239,7 +241,6 @@ class AcademicService:
         CSV columns: first_name, last_name, email (optional), student_id (optional).
         Returns created count, enrolled count, skipped, and errors.
         """
-        from app.models.user import User
         from app.services.user_service import UserService
 
         cls = await AcademicService.get_class_by_id(db, class_id)
@@ -347,7 +348,6 @@ class AcademicService:
         Creates students at school. If class_id provided and valid, enrolls in that class.
         Returns created count, enrolled count, skipped count, and errors.
         """
-        from app.models.user import User
         from app.services.user_service import UserService
 
         created = 0

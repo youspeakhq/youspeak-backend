@@ -1,7 +1,7 @@
 """Standardized API Response Schemas"""
 
-from typing import Generic, TypeVar, Optional, Any
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Generic, TypeVar
+from pydantic import BaseModel, Field
 
 
 T = TypeVar('T')
@@ -10,7 +10,7 @@ T = TypeVar('T')
 class SuccessResponse(BaseModel, Generic[T]):
     """
     Standard success response envelope.
-    
+
     Example:
         {
             "success": true,
@@ -32,7 +32,7 @@ class ErrorDetail(BaseModel):
 class ErrorResponse(BaseModel):
     """
     Standard error response envelope.
-    
+
     Example:
         {
             "success": false,
@@ -57,7 +57,7 @@ class PaginationMeta(BaseModel):
 class PaginatedResponse(BaseModel, Generic[T]):
     """
     Paginated response with metadata.
-    
+
     Example:
         {
             "success": true,

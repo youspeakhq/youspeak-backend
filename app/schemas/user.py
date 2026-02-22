@@ -7,6 +7,8 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 
 # Base User Schema
+
+
 class UserBase(BaseModel):
     """Base user schema with common fields"""
     email: EmailStr
@@ -14,12 +16,16 @@ class UserBase(BaseModel):
 
 
 # User Registration Schema
+
+
 class UserCreate(UserBase):
     """Schema for user registration"""
     password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
 
 
 # User Update Schema
+
+
 class UserUpdate(BaseModel):
     """Schema for updating user information"""
     email: Optional[EmailStr] = None
@@ -33,6 +39,8 @@ from app.schemas.academic import ClassroomBrief
 # ...
 
 # User Response Schema
+
+
 class User(UserBase):
     """Schema for user responses"""
     id: UUID
@@ -57,6 +65,8 @@ UserResponse = User
 
 
 # User Login Schema
+
+
 class UserLogin(BaseModel):
     """Schema for user login"""
     email: EmailStr
@@ -64,6 +74,8 @@ class UserLogin(BaseModel):
 
 
 # Token Schemas
+
+
 class Token(BaseModel):
     """Schema for authentication tokens"""
     access_token: str
@@ -77,6 +89,8 @@ class TokenData(BaseModel):
 
 
 # Password Change Schema
+
+
 class PasswordChange(BaseModel):
     """Schema for changing password"""
     current_password: str

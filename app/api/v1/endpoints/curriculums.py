@@ -9,7 +9,7 @@ from app.models.user import User
 from app.services.curriculum_service import CurriculumService
 from app.services import storage_service as storage
 from app.schemas.content import (
-    CurriculumResponse, CurriculumCreate, CurriculumUpdate, 
+    CurriculumResponse, CurriculumCreate, CurriculumUpdate,
     CurriculumMergeProposeRequest, CurriculumMergeConfirmRequest, MergeProposalResponse,
     TopicUpdate, TopicResponse, CurriculumGenerateRequest
 )
@@ -33,15 +33,15 @@ async def list_curriculums(
     """
     skip = (page - 1) * page_size
     curriculums, total = await CurriculumService.get_curriculums(
-        db, 
-        current_user.school_id, 
-        skip=skip, 
+        db,
+        current_user.school_id,
+        skip=skip,
         limit=page_size,
         status=status,
         language_id=language_id,
         search=search
     )
-    
+
     # Format response
     serialized = []
     for c in curriculums:
@@ -68,9 +68,9 @@ async def list_curriculums(
                 ] if getattr(c, 'topics', None) else []
             )
         )
-        
+
     total_pages = (total + page_size - 1) // page_size
-    
+
     return PaginatedResponse(
         data=serialized,
         meta={
@@ -117,7 +117,7 @@ async def upload_curriculum(
         description=description,
         class_ids=class_ids
     )
-    
+
     new_curriculum = await CurriculumService.create_curriculum(
         db, current_user.school_id, curriculum_in, file_url=file_url
     )
@@ -134,7 +134,7 @@ async def upload_curriculum(
         classes=[{"id": cls.id, "name": cls.name} for cls in new_curriculum.classes],
         topics=[]
     )
-    
+
     return SuccessResponse(data=data, message="Curriculum uploaded successfully")
 
 @router.post("/generate", response_model=SuccessResponse[List[TopicResponse]])
@@ -149,7 +149,7 @@ async def generate_curriculum(
     topics_create = await CurriculumService.generate_curriculum_topics(
         db, generate_in.prompt, generate_in.language_id
     )
-    
+
     import uuid
     data = [
         TopicResponse(
@@ -176,13 +176,13 @@ async def extract_topics(
     curriculum = await CurriculumService.get_curriculum_by_id(db, curriculum_id, current_user.school_id)
     if not curriculum:
         raise HTTPException(status_code=404, detail="Curriculum not found")
-        
+
     if not curriculum.file_url:
         raise HTTPException(status_code=400, detail="Curriculum has no document to extract from")
-    
+
     # Use the real document URL for extraction
     topics = await CurriculumService.extract_topics(db, curriculum_id, curriculum.file_url)
-    
+
     data = [
         TopicResponse(
             id=t.id,
@@ -209,7 +209,7 @@ async def update_topic(
     updated = await CurriculumService.update_topic(db, topic_id, topic_in)
     if not updated:
         raise HTTPException(status_code=404, detail="Topic not found")
-        
+
     data = TopicResponse(
         id=updated.id,
         title=updated.title,
@@ -230,7 +230,7 @@ async def get_curriculum(
     curriculum = await CurriculumService.get_curriculum_by_id(db, curriculum_id, current_user.school_id)
     if not curriculum:
         raise HTTPException(status_code=404, detail="Curriculum not found")
-        
+
     data = CurriculumResponse(
         id=curriculum.id,
         title=curriculum.title,
@@ -267,7 +267,7 @@ async def update_curriculum(
     )
     if not updated:
         raise HTTPException(status_code=404, detail="Curriculum not found")
-        
+
     data = CurriculumResponse(
         id=updated.id,
         title=updated.title,
@@ -301,12 +301,12 @@ async def propose_merge(
     """Trigger AI to propose a unified merge structure between two curriculums."""
     teacher_curriculum = await CurriculumService.get_curriculum_by_id(db, curriculum_id, current_user.school_id)
     library_curriculum = await CurriculumService.get_curriculum_by_id(db, merge_in.library_curriculum_id, current_user.school_id)
-    
+
     if not teacher_curriculum or not library_curriculum:
         raise HTTPException(status_code=404, detail="Curriculum not found")
-        
+
     proposals = await CurriculumService.propose_merge_strategy(db, teacher_curriculum, library_curriculum)
-    
+
     import uuid
     data = MergeProposalResponse(
         proposal_id=uuid.uuid4(),
@@ -325,7 +325,7 @@ async def confirm_merge(
     merged = await CurriculumService.confirm_merge(
         db, current_user.school_id, curriculum_id, merge_in.final_topics
     )
-    
+
     data = CurriculumResponse(
         id=merged.id,
         title=merged.title,

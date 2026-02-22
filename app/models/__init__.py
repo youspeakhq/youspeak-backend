@@ -1,7 +1,6 @@
 """Models Package - Export all models for easy imports"""
 
 from app.models.base import BaseModel, SchoolScopedMixin, SoftDeleteMixin, StatusMixin
-from app.models.enums import *
 from app.models.onboarding import ContactInquiry, School, Language, school_languages
 from app.models.user import User
 from app.models.academic import (
@@ -33,16 +32,16 @@ __all__ = [
     "SchoolScopedMixin",
     "SoftDeleteMixin",
     "StatusMixin",
-    
+
     # Onboarding
     "ContactInquiry",
     "School",
     "Language",
     "school_languages",
-    
+
     # User
     "User",
-    
+
     # Academic
     "Classroom",
     "Semester",
@@ -52,40 +51,40 @@ __all__ = [
     "teacher_assignments",
     "classroom_teachers",
     "classroom_students",
-    
+
     # Curriculum
     "Curriculum",
     "curriculum_classes",
     "Topic",
-    
+
     # Assessment
     "Question",
     "Assignment",
     "assignment_questions",
     "StudentSubmission",
     "assignment_classes",
-    
+
     # Arena
     "Arena",
     "ArenaCriteria",
     "ArenaRule",
     "ArenaPerformer",
     "arena_moderators",
-    
+
     # Communication
     "Announcement",
     "AnnouncementReminder",
-    
+
     # Analytics
     "LearningSession",
     "Award",
-    
+
     # Billing
     "Bill",
-    
+
     # Access Codes
     "TeacherAccessCode",
-    
+
     # Trash
     "StudentTrash",
 

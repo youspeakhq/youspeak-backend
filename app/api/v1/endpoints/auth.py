@@ -1,8 +1,7 @@
 from datetime import timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status, Body
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -15,9 +14,9 @@ from app.schemas.auth import (
     VerifyCodeRequest, PasswordResetRequest
 )
 from app.schemas.school import SchoolCreate, ContactInquiryCreate
-from app.models.enums import SchoolType, ProgramType, UserRole
+from app.models.enums import SchoolType, ProgramType
 from app.models.onboarding import ContactInquiry
-from app.schemas.responses import SuccessResponse, ErrorResponse
+from app.schemas.responses import SuccessResponse
 
 router = APIRouter()
 
@@ -60,12 +59,12 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
-    
+
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     token_data = {"sub": str(user.id), "role": user.role}
     if user.school_id:
         token_data["school_id"] = str(user.school_id)
-        
+
     access_token = security.create_access_token(
         data=token_data,
         expires_delta=access_token_expires
@@ -73,7 +72,7 @@ async def login(
     refresh_token = security.create_refresh_token(
         data={"sub": str(user.id), "role": user.role}
     )
-    
+
     return SuccessResponse(
         data=Token(
             access_token=access_token,
@@ -101,14 +100,14 @@ async def register_school(
             status_code=400,
             detail="A user with this email already exists",
         )
-    
+
     admin_data = {
         "email": school_in.email,
         "password": school_in.password,
         "first_name": "Admin",
         "last_name": "School",
     }
-    
+
     school_data = SchoolCreate(
         name=school_in.school_name,
         school_type=school_in.school_type or SchoolType.SECONDARY,
@@ -118,13 +117,13 @@ async def register_school(
         address_city=school_in.address_city,
         address_zip=school_in.address_zip,
     )
-    
+
     school = await SchoolService.create_school_with_admin(
         db=db,
         school_data=school_data,
         admin_data=admin_data
     )
-    
+
     if school_in.languages:
         await SchoolService.update_programs(db, school.id, school_in.languages)
 
@@ -154,13 +153,13 @@ async def register_teacher(
         first_name=teacher_in.first_name,
         last_name=teacher_in.last_name
     )
-    
+
     if not teacher:
         # Check email for better error
         if await UserService.get_user_by_email(db, teacher_in.email):
             raise HTTPException(status_code=400, detail="Email already registered")
         raise HTTPException(status_code=400, detail="Invalid or expired access code")
-        
+
     return SuccessResponse(
         data={"user_id": str(teacher.id), "school_id": str(teacher.school_id)},
         message="Teacher account created successfully"
@@ -180,13 +179,13 @@ async def verify_code(
             status_code=400,
             detail="Invalid or expired access code"
         )
-    
+
     # Return school info
     school = await SchoolService.get_school_by_id(db, school_id)
-    
+
     return SuccessResponse(
         data={
-            "valid": True, 
+            "valid": True,
             "school_name": school.name if school else "Unknown School"
         },
         message="Access code is valid"
@@ -203,12 +202,12 @@ async def reset_password(
     user_id_str = security.verify_password_reset_token(reset_in.token)
     if not user_id_str:
         raise HTTPException(status_code=400, detail="Invalid or expired token")
-        
+
     from uuid import UUID
     user_id = UUID(user_id_str)
-    
+
     success = await UserService.update_password(db, user_id, reset_in.new_password)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
-        
+
     return SuccessResponse(message="Password updated successfully")

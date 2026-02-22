@@ -38,5 +38,6 @@ class ActivityLog(BaseModel, SchoolScopedMixin):
     school = relationship("School", back_populates="activity_logs")
     performed_by = relationship("User", back_populates="activity_logs")
 
+
     def __repr__(self) -> str:
         return f"<ActivityLog {self.action_type.value} @ {self.created_at}>"

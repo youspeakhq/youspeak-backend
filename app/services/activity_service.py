@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.activity_log import ActivityLog
-from app.models.user import User
 from app.models.enums import ActivityActionType
 from app.schemas.admin import ActivityLogCreate
 

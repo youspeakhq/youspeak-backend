@@ -35,14 +35,14 @@ async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
     logger.info("Starting application", extra={"environment": settings.ENVIRONMENT})
-    
+
     # Initialize database (for development only - use Alembic in production)
     if settings.is_development:
         await init_db()
         logger.info("Database initialized")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down application")
     await close_db()
@@ -165,7 +165,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         host=settings.HOST,

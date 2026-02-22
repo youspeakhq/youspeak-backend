@@ -1,9 +1,7 @@
-from datetime import datetime
 from sqlalchemy import Column, String, Text, Date, Time, Boolean, Table, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.orm import relationship
 
-from app.database import Base
 from app.models.base import BaseModel, SchoolScopedMixin
 from app.models.enums import DayOfWeek, ClassStatus, ProficiencyLevel, StudentRole
 
@@ -38,6 +36,7 @@ class Classroom(BaseModel, SchoolScopedMixin):
     )
     classes = relationship("Class", back_populates="classroom", cascade="save-update, merge")
 
+
     def __repr__(self) -> str:
         return f"<Classroom {self.name}>"
 
@@ -48,16 +47,17 @@ class Semester(BaseModel, SchoolScopedMixin):
     Defines the time period for classes.
     """
     __tablename__ = "semesters"
-    
+
     name = Column(String(100), nullable=False)  # e.g., "Fall 2026"
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
-    
+
     # Relationships
     school = relationship("School", back_populates="semesters")
     classes = relationship("Class", back_populates="semester", cascade="all, delete-orphan")
-    
+
+
     def __repr__(self) -> str:
         return f"<Semester {self.name}>"
 
@@ -73,31 +73,31 @@ class Class(BaseModel, SchoolScopedMixin):
     semester_id = Column(UUID(as_uuid=True), ForeignKey("semesters.id", ondelete="CASCADE"), nullable=False, index=True)
     language_id = Column(ForeignKey("languages.id", ondelete="RESTRICT"), nullable=False, index=True)
     classroom_id = Column(UUID(as_uuid=True), ForeignKey("classrooms.id", ondelete="SET NULL"), nullable=True, index=True)
-    
+
     # Class Details
     name = Column(String(255), nullable=False)  # e.g., "French 101"
     sub_class = Column(String(100), nullable=True)  # Section: "Class A", "Morning Session"
     description = Column(Text, nullable=True)
     timeline = Column(String(100), nullable=True)  # e.g., "Jan 2026 - May 2026"
     status = Column(ENUM(ClassStatus, name="class_status"), default=ClassStatus.ACTIVE, nullable=False, index=True)
-    
+
     # Relationships
     school = relationship("School", back_populates="classes")
     semester = relationship("Semester", back_populates="classes")
     language = relationship("Language", back_populates="classes")
     classroom = relationship("Classroom", back_populates="classes")
-    
+
     schedules = relationship("ClassSchedule", back_populates="class_", cascade="all, delete-orphan")
     curriculums = relationship(
-        "Curriculum", 
-        secondary="curriculum_classes", 
+        "Curriculum",
+        secondary="curriculum_classes",
         back_populates="classes"
     )
     learning_sessions = relationship("LearningSession", back_populates="class_", cascade="all, delete-orphan")
     arenas = relationship("Arena", back_populates="class_", cascade="all, delete-orphan")
     awards = relationship("Award", back_populates="class_", cascade="all, delete-orphan")
     announcements = relationship("Announcement", back_populates="class_")
-    
+
     # Many-to-Many relationships
     teachers = relationship(
         "User",
@@ -114,7 +114,8 @@ class Class(BaseModel, SchoolScopedMixin):
         secondary="assignment_classes",
         back_populates="classes"
     )
-    
+
+
     def __repr__(self) -> str:
         return f"<Class {self.name}>"
 
@@ -125,7 +126,7 @@ class ClassSchedule(BaseModel):
     Defines when a class meets during the week.
     """
     __tablename__ = "class_schedules"
-    
+
     class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, index=True)
     day_of_week = Column(
         ENUM(DayOfWeek, name="day_of_week", values_callable=lambda x: [e.name for e in x]),
@@ -133,10 +134,11 @@ class ClassSchedule(BaseModel):
     )
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
-    
+
     # Relationships
     class_ = relationship("Class", back_populates="schedules")
-    
+
+
     def __repr__(self) -> str:
         return f"<ClassSchedule {self.day_of_week} {self.start_time}-{self.end_time}>"
 

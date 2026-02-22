@@ -22,19 +22,19 @@ async def get_current_user(
 ) -> User:
     """
     Get current authenticated user from JWT token.
-    
+
     Args:
         db: Database session
         credentials: HTTP authorization credentials
-        
+
     Returns:
         Current user
-        
+
     Raises:
         HTTPException: If token is invalid or user not found
     """
     token = credentials.credentials
-    
+
     # Decode token
     payload = decode_token(token)
     if not payload:
@@ -43,7 +43,7 @@ async def get_current_user(
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Check token type
     if payload.get("type") != "access":
         raise HTTPException(
@@ -51,7 +51,7 @@ async def get_current_user(
             detail="Invalid token type",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Get user ID from token
     user_id_str: Optional[str] = payload.get("sub")
     if not user_id_str:
@@ -60,7 +60,7 @@ async def get_current_user(
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     try:
         user_id = UUID(user_id_str)
     except ValueError:
@@ -69,7 +69,7 @@ async def get_current_user(
             detail="Invalid user ID",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Get user from database
     user = await UserService.get_user_by_id(db, user_id)
     if not user:
@@ -77,20 +77,20 @@ async def get_current_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user"
         )
-    
+
     # Check for soft delete
     if user.is_deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User account has been deleted"
         )
-    
+
     return user
 
 
@@ -99,13 +99,13 @@ async def require_admin(
 ) -> User:
     """
     Require user to be a school admin.
-    
+
     Args:
         current_user: Current authenticated user
-        
+
     Returns:
         Current user (if admin)
-        
+
     Raises:
         HTTPException: If user is not an admin
     """
@@ -122,13 +122,13 @@ async def require_teacher(
 ) -> User:
     """
     Require user to be a teacher.
-    
+
     Args:
         current_user: Current authenticated user
-        
+
     Returns:
         Current user (if teacher)
-        
+
     Raises:
         HTTPException: If user is not a teacher
     """
@@ -145,13 +145,13 @@ async def require_teacher_or_admin(
 ) -> User:
     """
     Require user to be a teacher or admin.
-    
+
     Args:
         current_user: Current authenticated user
-        
+
     Returns:
         Current user (if teacher or admin)
-        
+
     Raises:
         HTTPException: If user is neither teacher nor admin
     """
@@ -168,13 +168,13 @@ async def require_student(
 ) -> User:
     """
     Require user to be a student.
-    
+
     Args:
         current_user: Current authenticated user
-        
+
     Returns:
         Current user (if student)
-        
+
     Raises:
         HTTPException: If user is not a student
     """
