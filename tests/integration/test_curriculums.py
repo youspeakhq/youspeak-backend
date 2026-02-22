@@ -295,9 +295,9 @@ def mock_ai_engines():
 
     mock_llm.side_effect = side_effect
     
-    # Surgical patches: patch the CLASSES as they are imported in the service
+    # Surgical patches: patch get_ai_client and DocumentConverter (imported inside extract_topics from docling)
     with patch("app.services.curriculum_service.get_ai_client", return_value=mock_client), \
-         patch("app.services.curriculum_service.DocumentConverter", autospec=True) as mock_doc:
+         patch("docling.document_converter.DocumentConverter", autospec=True) as mock_doc:
         
         # Mock Docling conversion
         mock_res = MagicMock()
