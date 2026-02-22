@@ -20,7 +20,6 @@ class ActivityLog(BaseModel, SchoolScopedMixin):
             ActivityActionType,
             name="activity_action_type",
             values_callable=lambda x: [e.value for e in x],
-            create_type=False,
         ),
         nullable=False,
         index=True,
