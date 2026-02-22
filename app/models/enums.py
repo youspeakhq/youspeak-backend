@@ -155,3 +155,21 @@ class BillStatus(str, enum.Enum):
     PENDING = "pending"
     PAID = "paid"
     FAILED = "failed"
+
+
+# Domain 10: Admin activity log
+class ActivityActionType(str, enum.Enum):
+    """Types of actions recorded in the school activity log (Figma: Activity Summary row + icon)."""
+    STUDENT_REGISTERED = "student_registered"
+    STUDENT_REMOVED = "student_removed"
+    CLASS_CREATED = "class_created"
+    CLASS_ARCHIVED = "class_archived"
+    TEACHER_INVITED = "teacher_invited"
+    TEACHER_JOINED = "teacher_joined"
+    CURRICULUM_PUBLISHED = "curriculum_published"
+    ARENA_SCHEDULED = "arena_scheduled"
+    ARENA_COMPLETED = "arena_completed"
+    SUBMISSION = "submission"  # e.g. "John Doe submitted \"unit 3 essay\""
+    RESOURCE_UPLOAD = "resource_upload"  # e.g. "You uploaded a new resource"
+    CLASS_SESSION_COMPLETED = "class_session_completed"  # e.g. "Class 5B just finished ... with avg score"
+    OTHER = "other"

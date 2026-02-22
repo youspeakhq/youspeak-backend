@@ -62,7 +62,8 @@ class School(BaseModel, StatusMixin):
     announcements = relationship("Announcement", back_populates="school", cascade="all, delete-orphan")
     bills = relationship("Bill", back_populates="school", cascade="all, delete-orphan")
     curriculums = relationship("Curriculum", back_populates="school", cascade="all, delete-orphan")
-    
+    activity_logs = relationship("ActivityLog", back_populates="school", cascade="all, delete-orphan")
+
     # Many-to-Many: Languages offered by school
     languages = relationship(
         "Language",

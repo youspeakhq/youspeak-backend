@@ -24,6 +24,7 @@ from app.models.analytics import LearningSession, Award
 from app.models.billing import Bill
 from app.models.access_code import TeacherAccessCode
 from app.models.student_trash import StudentTrash
+from app.models.activity_log import ActivityLog
 
 
 __all__ = [
@@ -87,4 +88,7 @@ __all__ = [
     
     # Trash
     "StudentTrash",
+
+    # Activity log
+    "ActivityLog",
 ]
