@@ -1,9 +1,10 @@
-import boto3
-import instructor
-from openai import AsyncOpenAI
-from app.config import settings
-from typing import Any
 import anyio
+from typing import Any
+
+from app.config import settings
+from openai import AsyncOpenAI
+
+# boto3 and instructor imported lazily in get_ai_client() to keep app startup fast
 
 _ai_client = None
 
@@ -29,12 +30,16 @@ def get_ai_client(provider: str = "bedrock"):
     """
     Modular AI Client Factory.
     Returns an async-compatible client.
+    boto3 and instructor are imported here so app startup (e.g. /health) stays fast.
     """
     global _ai_client
     if _ai_client is not None:
         return _ai_client
 
     if provider == "bedrock":
+        import boto3
+        import instructor
+
         sync_client = boto3.client(
             service_name="bedrock-runtime",
             region_name=settings.AWS_REGION
@@ -42,10 +47,11 @@ def get_ai_client(provider: str = "bedrock"):
         instructor_client = instructor.from_bedrock(sync_client)
         _ai_client = AsyncBedrockWrapper(instructor_client)
     elif provider == "openai":
+        import instructor
+
         _ai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        # Note: instructor.from_openai(AsyncOpenAI) already returns an async client
         _ai_client = instructor.from_openai(_ai_client)
     else:
         raise ValueError(f"Unsupported AI provider: {provider}")
-    
+
     return _ai_client

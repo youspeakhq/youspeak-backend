@@ -9,7 +9,6 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.utils.ai import get_ai_client
 import httpx
-from docling.document_converter import DocumentConverter
 import tempfile
 
 from app.models.curriculum import Curriculum, Topic
@@ -155,7 +154,10 @@ class CurriculumService:
     async def extract_topics(db: AsyncSession, curriculum_id: UUID, file_url_or_path: str) -> List[Topic]:
         """
         Real AI Extraction: Parses uploaded PDF using Docling and generates Topic structure.
+        Docling (and torch) are imported here so /health and other routes start fast.
         """
+        from docling.document_converter import DocumentConverter
+
         converter = DocumentConverter()
         
         # Handle remote URL vs local path

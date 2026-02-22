@@ -58,20 +58,22 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # Stage 3: Test (CI lint + migrate + pytest inside compose)
-FROM python:3.9-slim as test
+# Reuse builder so we only add dev deps; avoids re-downloading torch/docling (~5+ min saved).
+FROM builder as test
 
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
     postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt requirements-dev.txt ./
-RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+COPY requirements-dev.txt .
+RUN pip install --no-cache-dir --user -r requirements-dev.txt
 
 COPY . .
+
+ENV PATH=/root/.local/bin:$PATH
 
 # Default: run lint, migrations, then pytest (overridable for quick pytest-only)
 ENV PYTHONUNBUFFERED=1
