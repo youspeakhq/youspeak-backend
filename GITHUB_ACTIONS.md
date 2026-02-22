@@ -165,6 +165,11 @@ To require approval before live deploys:
   - The migration task must run with the **ECS security group** so it can reach RDS. Re-run `./.aws/set-github-secrets.sh` (or `./.aws/print-github-secrets.sh` and set `PRIVATE_SUBNET_IDS` and `ECS_SECURITY_GROUP` in GitHub).  
   - Confirm Terraform state: run `./.aws/terraform-status.sh` from repo root to print `private_subnet_ids`, `ecs_security_group_id`, and other outputs; ensure GitHub secret `ECS_SECURITY_GROUP` matches `terraform output -raw ecs_security_group_id`.
 
+- **Migration task exited with code null**  
+  - The workflow now prints **Task stoppedReason** and **Container reason** and waits 20s then fetches **CloudWatch logs** for the failed task. Check that output for the root cause (e.g. "Essential container in task exited", OutOfMemoryError, or a Python traceback).  
+  - If the container was **out of memory**, increase task memory: in `.aws/generate-task-definition.sh` set `memory` to `2048`, run the script, commit the updated `.aws/task-definition.json`, and redeploy.  
+  - If logs show **missing env / Secrets Manager**, ensure the ECS execution role in Terraform has `secretsmanager:GetSecretValue` on the task definition’s secret ARNs (see Terraform `ecs_execution_secrets` policy).
+
 ---
 
 ## Confirm Terraform status

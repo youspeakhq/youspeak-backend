@@ -328,12 +328,18 @@ jobs:
             --query 'tasks[0].taskArn' --output text)
           aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
           EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
+          [ -z "$EXIT_CODE" ] || [ "$EXIT_CODE" = "None" ] && EXIT_CODE="null"
           if [ "$EXIT_CODE" != "0" ]; then
             echo "::error::Migration task exited with code $EXIT_CODE"
+            STOPPED_REASON=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].stoppedReason' --output text 2>/dev/null || true)
+            CONTAINER_REASON=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].reason' --output text 2>/dev/null || true)
+            echo "Task stoppedReason: $STOPPED_REASON"
+            echo "Container reason: $CONTAINER_REASON"
             aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0]' --output json
             TASK_ID=$(echo "$TASK_ARN" | awk -F/ '{print $NF}')
-            echo "--- Migration task logs (if available) ---"
-            aws logs get-log-events --log-group-name "/ecs/youspeak-api" --log-stream-name "ecs/youspeak-api/$TASK_ID" --limit 50 --query 'events[*].message' --output text 2>/dev/null || true
+            echo "--- Waiting 20s for CloudWatch logs, then fetching (stream: ecs/youspeak-api/$TASK_ID) ---"
+            sleep 20
+            aws logs get-log-events --log-group-name "/ecs/youspeak-api" --log-stream-name "ecs/youspeak-api/$TASK_ID" --limit 100 --query 'events[*].message' --output text 2>&1 || true
             exit 1
           fi
           echo "Migrations completed successfully"
@@ -424,12 +430,18 @@ jobs:
             --query 'tasks[0].taskArn' --output text)
           aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
           EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
+          [ -z "$EXIT_CODE" ] || [ "$EXIT_CODE" = "None" ] && EXIT_CODE="null"
           if [ "$EXIT_CODE" != "0" ]; then
             echo "::error::Migration task exited with code $EXIT_CODE"
+            STOPPED_REASON=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].stoppedReason' --output text 2>/dev/null || true)
+            CONTAINER_REASON=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].reason' --output text 2>/dev/null || true)
+            echo "Task stoppedReason: $STOPPED_REASON"
+            echo "Container reason: $CONTAINER_REASON"
             aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0]' --output json
             TASK_ID=$(echo "$TASK_ARN" | awk -F/ '{print $NF}')
-            echo "--- Migration task logs (if available) ---"
-            aws logs get-log-events --log-group-name "/ecs/youspeak-api" --log-stream-name "ecs/youspeak-api/$TASK_ID" --limit 50 --query 'events[*].message' --output text 2>/dev/null || true
+            echo "--- Waiting 20s for CloudWatch logs, then fetching ---"
+            sleep 20
+            aws logs get-log-events --log-group-name "/ecs/youspeak-api" --log-stream-name "ecs/youspeak-api/$TASK_ID" --limit 100 --query 'events[*].message' --output text 2>&1 || true
             exit 1
           fi
           echo "Migrations completed successfully"
