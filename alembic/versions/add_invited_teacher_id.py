@@ -7,6 +7,7 @@ Create Date: 2026-02-16
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 revision = "d4e5f6a7b8c9"
@@ -16,24 +17,35 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "teacher_access_codes",
-        sa.Column("invited_teacher_id", sa.UUID(), nullable=True),
+    conn = op.get_bind()
+    has_col = (
+        conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'teacher_access_codes' AND column_name = 'invited_teacher_id'"
+            )
+        ).scalar()
+        is not None
     )
-    op.create_foreign_key(
-        "fk_teacher_access_codes_invited_teacher_id",
-        "teacher_access_codes",
-        "users",
-        ["invited_teacher_id"],
-        ["id"],
-        ondelete="CASCADE",
-    )
-    op.create_index(
-        op.f("ix_teacher_access_codes_invited_teacher_id"),
-        "teacher_access_codes",
-        ["invited_teacher_id"],
-        unique=False,
-    )
+    if not has_col:
+        op.add_column(
+            "teacher_access_codes",
+            sa.Column("invited_teacher_id", sa.UUID(), nullable=True),
+        )
+        op.create_foreign_key(
+            "fk_teacher_access_codes_invited_teacher_id",
+            "teacher_access_codes",
+            "users",
+            ["invited_teacher_id"],
+            ["id"],
+            ondelete="CASCADE",
+        )
+        op.create_index(
+            op.f("ix_teacher_access_codes_invited_teacher_id"),
+            "teacher_access_codes",
+            ["invited_teacher_id"],
+            unique=False,
+        )
 
 
 def downgrade() -> None:

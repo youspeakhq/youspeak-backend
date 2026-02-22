@@ -7,6 +7,7 @@ Create Date: 2026-02-16
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 revision = "b2c3d4e5f6a7"
@@ -16,7 +17,18 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("classes", sa.Column("timeline", sa.String(100), nullable=True))
+    conn = op.get_bind()
+    has_timeline = (
+        conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'classes' AND column_name = 'timeline'"
+            )
+        ).scalar()
+        is not None
+    )
+    if not has_timeline:
+        op.add_column("classes", sa.Column("timeline", sa.String(100), nullable=True))
 
 
 def downgrade() -> None:
