@@ -7,6 +7,7 @@ Create Date: 2026-02-21 16:57:52.092957
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
@@ -37,7 +38,9 @@ def upgrade() -> None:
     op.drop_constraint('curriculums_class_id_fkey', 'curriculums', type_='foreignkey')
     op.create_foreign_key(None, 'curriculums', 'schools', ['school_id'], ['id'], ondelete='CASCADE')
     op.drop_column('curriculums', 'class_id')
-    op.drop_index('ix_users_school_student_number', table_name='users', postgresql_where='(student_number IS NOT NULL)')
+    # Drop index only if it exists (created later in add_student_number migration on some branches)
+    conn = op.get_bind()
+    conn.execute(text("DROP INDEX IF EXISTS ix_users_school_student_number"))
     # ### end Alembic commands ###
 
 
