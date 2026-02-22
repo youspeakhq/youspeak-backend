@@ -1,8 +1,11 @@
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
+from collections import defaultdict
+from decimal import Decimal
+
 from app.utils.time import get_utc_now
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -10,7 +13,13 @@ from app.models.onboarding import School, Language, school_languages
 from app.models.user import User
 from app.models.enums import UserRole, SchoolType, ProgramType, ClassStatus
 from app.models.academic import Class, Semester
+from app.models.arena import Arena, ArenaPerformer
 from app.schemas.school import SchoolCreate, SchoolUpdate
+from app.schemas.admin import (
+    LeaderboardResponse,
+    LeaderboardStudentEntry,
+    LeaderboardClassEntry,
+)
 from app.services.user_service import UserService
 
 class SchoolService:
@@ -166,3 +175,121 @@ class SchoolService:
         stmt = select(Semester).where(Semester.school_id == school_id).order_by(desc(Semester.start_date))
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
+    @staticmethod
+    async def get_leaderboard(
+        db: AsyncSession, school_id: UUID, timeframe: str = "week"
+    ) -> LeaderboardResponse:
+        """
+        Top students and top classes by arena points (Figma: Students leaderboard + top classes).
+        Timeframe filters Arena.start_time: week (7d), month (30d), all (no filter).
+        """
+        since: Optional[datetime] = None
+        if timeframe == "week":
+            since = get_utc_now() - timedelta(days=7)
+        elif timeframe == "month":
+            since = get_utc_now() - timedelta(days=30)
+
+        arena_filter = Arena.class_id == Class.id
+        if since is not None:
+            arena_filter = and_(arena_filter, Arena.start_time >= since)
+
+        # Student-class-points: (user_id, first_name, last_name, class_id, class_name, sub_class, points)
+        student_pts = (
+            select(
+                User.id.label("user_id"),
+                User.first_name,
+                User.last_name,
+                Class.id.label("class_id"),
+                Class.name.label("class_name"),
+                Class.sub_class,
+                func.coalesce(func.sum(ArenaPerformer.total_points), 0).label("points"),
+            )
+            .select_from(User)
+            .join(ArenaPerformer, ArenaPerformer.user_id == User.id)
+            .join(Arena, Arena.id == ArenaPerformer.arena_id)
+            .join(Class, Class.id == Arena.class_id)
+            .where(
+                Class.school_id == school_id,
+                User.school_id == school_id,
+                User.role == UserRole.STUDENT,
+                User.deleted_at.is_(None),
+                arena_filter,
+            )
+            .group_by(User.id, User.first_name, User.last_name, Class.id, Class.name, Class.sub_class)
+        )
+        result = await db.execute(student_pts)
+        rows = result.all()
+
+        # Aggregate by user: total points and class with max points for display
+        by_user: Dict[UUID, Dict[str, Any]] = defaultdict(
+            lambda: {"total": Decimal("0"), "class_id": None, "class_name": "", "name": ""}
+        )
+        for r in rows:
+            uid = r.user_id
+            pts = r.points or Decimal("0")
+            by_user[uid]["total"] += pts
+            by_user[uid]["name"] = f"{r.first_name or ''} {r.last_name or ''}".strip()
+            if by_user[uid]["class_id"] is None or pts > (by_user[uid].get("class_pts") or 0):
+                by_user[uid]["class_id"] = r.class_id
+                cn = (r.class_name or "").strip()
+                sc = (r.sub_class or "").strip()
+                by_user[uid]["class_name"] = f"{cn} - {sc}" if sc else (cn or "")
+                by_user[uid]["class_pts"] = pts
+
+        sorted_students = sorted(
+            ({"user_id": uid, **v} for uid, v in by_user.items() if v["total"] > 0),
+            key=lambda x: x["total"],
+            reverse=True,
+        )[:10]
+        top_students = [
+            LeaderboardStudentEntry(
+                rank=i + 1,
+                student_id=s["user_id"],
+                student_name=(s.get("name") or "").strip(),
+                class_id=s["class_id"],
+                class_name=(s.get("class_name") or "").strip(),
+                points=float(s["total"]),
+            )
+            for i, s in enumerate(sorted_students)
+        ]
+
+        # Top classes: sum of arena performer points per class
+        class_pts = (
+            select(
+                Class.id.label("class_id"),
+                Class.name.label("class_name"),
+                Class.sub_class,
+                func.coalesce(func.sum(ArenaPerformer.total_points), 0).label("score"),
+            )
+            .select_from(Class)
+            .join(Arena, Arena.class_id == Class.id)
+            .join(ArenaPerformer, ArenaPerformer.arena_id == Arena.id)
+            .where(Class.school_id == school_id, arena_filter)
+            .group_by(Class.id, Class.name, Class.sub_class)
+        )
+        result_classes = await db.execute(class_pts)
+        class_rows = result_classes.all()
+        sorted_classes = sorted(
+            [
+                {
+                    "class_id": r.class_id,
+                    "class_name": (f"{r.class_name or ''} - {r.sub_class or ''}" if r.sub_class else (r.class_name or "")).strip(),
+                    "score": float(r.score or 0),
+                }
+                for r in class_rows
+                if (r.score or 0) > 0
+            ],
+            key=lambda x: x["score"],
+            reverse=True,
+        )[:10]
+        top_classes = [
+            LeaderboardClassEntry(rank=i + 1, class_id=c["class_id"], class_name=c["class_name"], score=c["score"])
+            for i, c in enumerate(sorted_classes)
+        ]
+
+        return LeaderboardResponse(
+            top_students=top_students,
+            top_classes=top_classes,
+            timeframe=timeframe,
+        )

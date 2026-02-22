@@ -1,7 +1,11 @@
+import os
 import pytest
 from httpx import AsyncClient
-from app.config import settings
-import os
+
+from tests.conftest import requires_db
+
+pytestmark = [requires_db, pytest.mark.skipif(not os.getenv("RUN_LIVE_E2E"), reason="Live E2E requires RUN_LIVE_E2E=1")]
+
 
 @pytest.mark.asyncio
 async def test_live_bedrock_generation(async_client: AsyncClient, api_base: str, registered_school: dict):
@@ -43,7 +47,9 @@ async def test_live_bedrock_generation(async_client: AsyncClient, api_base: str,
             print(f"    Objectives: {topic['learning_objectives']}")
 
 @pytest.mark.asyncio
-async def test_live_bedrock_extraction(async_client: AsyncClient, api_base: str, registered_school: dict):
+async def test_live_bedrock_extraction(
+    async_client: AsyncClient, api_base: str, registered_school: dict
+):
     """
     E2E test that hits the real AWS Bedrock to extract topics from a PDF.
     Uses a local file path to avoid SSL/DNS issues in the test environment.

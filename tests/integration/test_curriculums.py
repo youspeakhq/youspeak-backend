@@ -1,3 +1,4 @@
+import os
 import pytest
 from httpx import AsyncClient
 from uuid import UUID
@@ -15,6 +16,15 @@ from app.models.academic import curriculum_classes
 
 pytestmark = requires_db
 
+# Skip curriculum upload tests when R2 is not configured (CI, local without R2)
+requires_r2 = pytest.mark.skipif(
+    not all(
+        os.getenv(k)
+        for k in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY")
+    ),
+    reason="R2 storage not configured (set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY)",
+)
+
 @pytest.fixture(scope="session", autouse=True)
 async def setup_curriculum_tables():
     """Ensure curriculum tables are created in the test database."""
@@ -26,12 +36,13 @@ async def setup_curriculum_tables():
     if os.getenv("TEST_USE_LIVE_SERVER", "").lower() != "true":
         await init_db()
 
+@requires_r2
 @pytest.mark.asyncio
 async def test_curriculum_lifecycle(
-    async_client: AsyncClient, 
-    api_base: str, 
+    async_client: AsyncClient,
+    api_base: str,
     registered_school: dict,
-    unique_suffix: str
+    unique_suffix: str,
 ):
     """Test full lifecycle of a curriculum: upload, list, update, merge, delete."""
     headers = registered_school["headers"]
@@ -182,12 +193,13 @@ async def test_curriculum_not_found_scenarios(
     resp = await async_client.patch(f"{api_base}/curriculums/topics/{fake_uuid}", headers=headers, json={"title": "New"})
     assert resp.status_code == 404
 
+@requires_r2
 @pytest.mark.asyncio
 async def test_curriculum_merge_proposal(
-    async_client: AsyncClient, 
-    api_base: str, 
+    async_client: AsyncClient,
+    api_base: str,
     registered_school: dict,
-    unique_suffix: str
+    unique_suffix: str,
 ):
     """Test generating a merge proposal between a teacher upload and a library item."""
     headers = registered_school["headers"]
@@ -223,11 +235,12 @@ async def test_curriculum_merge_proposal(
     assert len(data["proposed_topics"]) == 1
     assert data["proposed_topics"][0]["action"] == "blend"
 
+@pytest.mark.skipif(not os.getenv("RUN_LIVE_E2E"), reason="Curriculum generation uses Bedrock; set RUN_LIVE_E2E=1 to run")
 @pytest.mark.asyncio
 async def test_curriculum_generation(
-    async_client: AsyncClient, 
-    api_base: str, 
-    registered_school: dict
+    async_client: AsyncClient,
+    api_base: str,
+    registered_school: dict,
 ):
     """Test generating curriculum topics from a prompt."""
     headers = registered_school["headers"]

@@ -54,6 +54,19 @@ Add the printed values in the repo: **Settings → Secrets and variables → Act
 | `PRIVATE_SUBNET_IDS`    | Output of `./.aws/print-github-secrets.sh` (comma-separated subnet IDs). Required for the one-off migration task. |
 | `ECS_SECURITY_GROUP`   | Output of `./.aws/print-github-secrets.sh` (single security group ID). Required for the one-off migration task. |
 
+### Optional: R2 and live E2E tests
+
+To run **R2-dependent** integration tests (curriculum upload, merge proposal) and **live E2E** tests (Bedrock generation/extraction) in CI, add these secrets. If omitted, those tests are skipped and the pipeline still passes.
+
+| Secret name             | Purpose |
+|-------------------------|--------|
+| `R2_ACCOUNT_ID`         | Cloudflare R2 account ID (Dashboard → R2 → Overview). Enables curriculum upload tests. |
+| `R2_ACCESS_KEY_ID`      | R2 API token access key. |
+| `R2_SECRET_ACCESS_KEY`  | R2 API token secret. |
+| `RUN_LIVE_E2E`          | Set to `1` to run live Bedrock E2E tests. Requires `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` with Bedrock access (same as deploy). |
+
+The **test** job and **Docker Compose** job both receive these env vars from secrets when set; the Compose job appends R2 vars to `.env` so the api and test containers see them.
+
 ---
 
 ## 3. Task definition in the repo
@@ -138,4 +151,6 @@ To require approval before live deploys:
 - [ ] Terraform applied (staging + production resources)
 - [ ] GitHub secrets set: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `PRIVATE_SUBNET_IDS`, `ECS_SECURITY_GROUP`
 - [ ] `.aws/task-definition.json` generated and committed (no placeholders)
+- [ ] (Optional) R2 secrets `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` to run curriculum upload tests in CI
+- [ ] (Optional) `RUN_LIVE_E2E=1` to run live Bedrock E2E tests in CI
 - [ ] Push to `main` deploys to staging; push to `live` deploys to live

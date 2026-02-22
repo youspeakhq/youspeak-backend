@@ -86,6 +86,8 @@ services:
       context: .
       target: test
     container_name: youspeak_test
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=postgresql://youspeak_user:youspeak_password@postgres:5432/youspeak_db
       - REDIS_URL=redis://redis:6379/0
