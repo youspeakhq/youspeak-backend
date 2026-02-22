@@ -31,6 +31,11 @@ SECRET_DB_ARN=$(terraform -chdir=terraform output -raw secret_database_url_arn 2
 SECRET_REDIS_ARN=$(terraform -chdir=terraform output -raw secret_redis_url_arn 2>/dev/null)
 SECRET_KEY_ARN=$(terraform -chdir=terraform output -raw secret_secret_key_arn 2>/dev/null)
 SECRET_RESEND_ARN=$(terraform -chdir=terraform output -raw secret_resend_api_key_arn 2>/dev/null || true)
+SECRET_R2_ACCOUNT_ARN=$(terraform -chdir=terraform output -raw secret_r2_account_id_arn 2>/dev/null || true)
+SECRET_R2_ACCESS_KEY_ARN=$(terraform -chdir=terraform output -raw secret_r2_access_key_id_arn 2>/dev/null || true)
+SECRET_R2_SECRET_ARN=$(terraform -chdir=terraform output -raw secret_r2_secret_access_key_arn 2>/dev/null || true)
+SECRET_R2_BUCKET_ARN=$(terraform -chdir=terraform output -raw secret_r2_bucket_name_arn 2>/dev/null || true)
+STORAGE_PUBLIC_BASE_URL=$(terraform -chdir=terraform output -raw storage_public_base_url 2>/dev/null || echo "")
 
 if [ -z "$EXEC_ROLE_ARN" ] || [ -z "$SECRET_DB_ARN" ]; then
     echo -e "${RED}Error: Terraform outputs not found. Run from repo root after: cd terraform && terraform init && terraform apply${NC}"
@@ -49,6 +54,20 @@ if [ -n "$SECRET_RESEND_ARN" ]; then
           \"name\": \"RESEND_API_KEY\",
           \"valueFrom\": \"${SECRET_RESEND_ARN}\"
         }"
+fi
+
+R2_SECRET_JSON=""
+R2_ENV_JSON=""
+if [ -n "$SECRET_R2_ACCESS_KEY_ARN" ]; then
+  R2_SECRET_JSON=",
+        { \"name\": \"R2_ACCOUNT_ID\", \"valueFrom\": \"${SECRET_R2_ACCOUNT_ARN}\" },
+        { \"name\": \"R2_ACCESS_KEY_ID\", \"valueFrom\": \"${SECRET_R2_ACCESS_KEY_ARN}\" },
+        { \"name\": \"R2_SECRET_ACCESS_KEY\", \"valueFrom\": \"${SECRET_R2_SECRET_ARN}\" },
+        { \"name\": \"R2_BUCKET_NAME\", \"valueFrom\": \"${SECRET_R2_BUCKET_ARN}\" }"
+  # Escape double quotes in URL for JSON
+  STORAGE_URL_ESC=$(echo "$STORAGE_PUBLIC_BASE_URL" | sed 's/"/\\"/g')
+  R2_ENV_JSON=",
+        { \"name\": \"STORAGE_PUBLIC_BASE_URL\", \"value\": \"${STORAGE_URL_ESC}\" }"
 fi
 
 # Generate task definition from template (use execution role for task role as well)
@@ -88,7 +107,7 @@ cat > .aws/task-definition.json <<EOF
         {
           "name": "LOG_FORMAT",
           "value": "json"
-        }
+        }${R2_ENV_JSON}
       ],
       "secrets": [
         {
@@ -102,7 +121,7 @@ cat > .aws/task-definition.json <<EOF
         {
           "name": "SECRET_KEY",
           "valueFrom": "${SECRET_KEY_ARN}"
-        }${RESEND_SECRET_JSON}
+        }${RESEND_SECRET_JSON}${R2_SECRET_JSON}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

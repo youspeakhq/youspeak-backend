@@ -76,6 +76,39 @@ variable "resend_api_key" {
   default     = ""
 }
 
+# Cloudflare R2 (S3-compatible) storage – optional. Create API token in Cloudflare dashboard (R2 > Manage R2 API Tokens).
+variable "r2_account_id" {
+  description = "Cloudflare R2 account ID (e.g. from bucket S3 API URL)"
+  type        = string
+  default     = ""
+}
+
+variable "r2_access_key_id" {
+  description = "Cloudflare R2 API token access key ID"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "r2_secret_access_key" {
+  description = "Cloudflare R2 API token secret access key"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "r2_bucket_name" {
+  description = "Cloudflare R2 bucket name"
+  type        = string
+  default     = "youspeakweb"
+}
+
+variable "storage_public_base_url" {
+  description = "Public URL for stored objects (R2 dev URL or custom domain)"
+  type        = string
+  default     = "https://pub-2dc65d0e715b43b5ab0985e9c0eb514c.r2.dev"
+}
+
 # Optional: enable HTTPS with a custom domain (e.g. youspeak.com).
 # Requires a Route53 hosted zone for the domain in this AWS account.
 variable "domain_name" {
@@ -569,7 +602,13 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
           aws_secretsmanager_secret.redis_url.arn,
           aws_secretsmanager_secret.secret_key.arn
         ],
-        var.resend_api_key != "" ? [aws_secretsmanager_secret.resend_api_key[0].arn] : []
+        var.resend_api_key != "" ? [aws_secretsmanager_secret.resend_api_key[0].arn] : [],
+        var.r2_access_key_id != "" ? [
+          aws_secretsmanager_secret.r2_account_id[0].arn,
+          aws_secretsmanager_secret.r2_access_key_id[0].arn,
+          aws_secretsmanager_secret.r2_secret_access_key[0].arn,
+          aws_secretsmanager_secret.r2_bucket_name[0].arn
+        ] : []
       )
     }]
   })
@@ -674,6 +713,51 @@ resource "aws_secretsmanager_secret_version" "resend_api_key" {
   count         = var.resend_api_key != "" ? 1 : 0
   secret_id     = aws_secretsmanager_secret.resend_api_key[0].id
   secret_string = var.resend_api_key
+}
+
+# R2 storage secrets (optional – set r2_access_key_id to enable)
+resource "aws_secretsmanager_secret" "r2_account_id" {
+  count  = var.r2_access_key_id != "" ? 1 : 0
+  name   = "${var.app_name}/r2-account-id-${var.environment}"
+}
+
+resource "aws_secretsmanager_secret_version" "r2_account_id" {
+  count         = var.r2_access_key_id != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.r2_account_id[0].id
+  secret_string = var.r2_account_id
+}
+
+resource "aws_secretsmanager_secret" "r2_access_key_id" {
+  count  = var.r2_access_key_id != "" ? 1 : 0
+  name   = "${var.app_name}/r2-access-key-id-${var.environment}"
+}
+
+resource "aws_secretsmanager_secret_version" "r2_access_key_id" {
+  count         = var.r2_access_key_id != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.r2_access_key_id[0].id
+  secret_string = var.r2_access_key_id
+}
+
+resource "aws_secretsmanager_secret" "r2_secret_access_key" {
+  count  = var.r2_access_key_id != "" ? 1 : 0
+  name   = "${var.app_name}/r2-secret-access-key-${var.environment}"
+}
+
+resource "aws_secretsmanager_secret_version" "r2_secret_access_key" {
+  count         = var.r2_access_key_id != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.r2_secret_access_key[0].id
+  secret_string = var.r2_secret_access_key
+}
+
+resource "aws_secretsmanager_secret" "r2_bucket_name" {
+  count  = var.r2_access_key_id != "" ? 1 : 0
+  name   = "${var.app_name}/r2-bucket-name-${var.environment}"
+}
+
+resource "aws_secretsmanager_secret_version" "r2_bucket_name" {
+  count         = var.r2_access_key_id != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.r2_bucket_name[0].id
+  secret_string = var.r2_bucket_name
 }
 
 # Data Sources
@@ -796,6 +880,31 @@ output "secret_secret_key_arn" {
 output "secret_resend_api_key_arn" {
   description = "ARN of the Resend API key secret (empty if not configured)"
   value       = var.resend_api_key != "" ? aws_secretsmanager_secret.resend_api_key[0].arn : ""
+}
+
+output "secret_r2_account_id_arn" {
+  description = "ARN of the R2 account ID secret (empty if R2 not configured)"
+  value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_account_id[0].arn : ""
+}
+
+output "secret_r2_access_key_id_arn" {
+  description = "ARN of the R2 access key ID secret (empty if R2 not configured)"
+  value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_access_key_id[0].arn : ""
+}
+
+output "secret_r2_secret_access_key_arn" {
+  description = "ARN of the R2 secret access key secret (empty if R2 not configured)"
+  value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_secret_access_key[0].arn : ""
+}
+
+output "secret_r2_bucket_name_arn" {
+  description = "ARN of the R2 bucket name secret (empty if R2 not configured)"
+  value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_bucket_name[0].arn : ""
+}
+
+output "storage_public_base_url" {
+  description = "Public base URL for R2 objects (for ECS task environment)"
+  value       = var.storage_public_base_url
 }
 
 output "private_subnet_ids" {
