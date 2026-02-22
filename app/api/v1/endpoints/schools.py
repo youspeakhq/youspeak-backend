@@ -72,7 +72,7 @@ async def update_school_programs(
         message="School programs updated successfully",
     )
 
-@router.post("/logo", response_model=SuccessResponse)
+@router.post("/logo", response_model=SuccessResponse[SchoolResponse])
 async def upload_school_logo(
     file: UploadFile = File(...),
     current_user: User = Depends(deps.require_admin),
@@ -93,16 +93,18 @@ async def upload_school_logo(
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
-    # Update school record
-    await SchoolService.update_school(
-        db, 
-        current_user.school_id, 
-        SchoolUpdate(logo_url=logo_url)
+    # Update school record and ensure it persists
+    school = await SchoolService.update_school(
+        db,
+        current_user.school_id,
+        SchoolUpdate(logo_url=logo_url),
     )
-    
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+
     return SuccessResponse(
-        data={"url": logo_url},
-        message="Logo uploaded successfully"
+        data=school,
+        message="Logo uploaded successfully",
     )
 
 @router.get("/semesters", response_model=SuccessResponse)

@@ -105,7 +105,8 @@ class SchoolService:
         update_data = school_update.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(school, field, value)
-            
+
+        await db.flush()
         await db.commit()
         await db.refresh(school)
         return school
