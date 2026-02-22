@@ -123,7 +123,7 @@ Do **not** commit `.env.production.local` or `terraform.tfvars`; only the task d
   - ECS service: `youspeak-api-service-production`  
   - Live URL: `http://<alb_dns_name>` from `terraform output alb_dns_name`
 
-Migrations run **once per deploy** as a short-lived ECS task (`alembic upgrade head`) before the service is updated. The workflow uses the **same network configuration as the target ECS service** (from `describe-services`), so the migration task can reach RDS/Redis. If the service cannot be described (e.g. first run), it falls back to `PRIVATE_SUBNET_IDS` and `ECS_SECURITY_GROUP` secrets. If those are not set, the migration step is skipped (with a warning). On migration failure, the last 50 CloudWatch log lines for the task are printed to help debug connection errors.
+Migrations run **once per deploy** as a short-lived ECS task (`alembic upgrade head`) before the service is updated. The workflow uses the **same network configuration as the target ECS service** (from `describe-services`), so the migration task can reach RDS/Redis. If the service cannot be described (e.g. first run), it falls back to `PRIVATE_SUBNET_IDS` and `ECS_SECURITY_GROUP` secrets. If those are not set, the migration step is skipped (with a warning). On migration failure, the last 50 CloudWatch log lines for the task are printed to help debug connection errors. The migration task **must** have a non-empty security group (RDS allows ingress only from the ECS security group). If the ECS service returns empty `securityGroups`, the workflow falls back to the `ECS_SECURITY_GROUP` secret; if that is unset, migrations are skipped or the step fails with instructions to set it from Terraform.
 
 ---
 
@@ -161,8 +161,21 @@ To require approval before live deploys:
   - For staging: run `terraform apply` so the staging ECS service and ALB exist.  
   - For live: ensure the production ECS service was created (e.g. via GET_LIVE steps or Terraform).
 
-- **Deploy fails: “subnets/security group”**  
-  - Re-run `./.aws/print-github-secrets.sh` and update `PRIVATE_SUBNET_IDS` and `ECS_SECURITY_GROUP` in GitHub secrets.
+- **Deploy fails: “subnets/security group” or migration task exits (e.g. code None / connection failed)**  
+  - The migration task must run with the **ECS security group** so it can reach RDS. Re-run `./.aws/set-github-secrets.sh` (or `./.aws/print-github-secrets.sh` and set `PRIVATE_SUBNET_IDS` and `ECS_SECURITY_GROUP` in GitHub).  
+  - Confirm Terraform state: run `./.aws/terraform-status.sh` from repo root to print `private_subnet_ids`, `ecs_security_group_id`, and other outputs; ensure GitHub secret `ECS_SECURITY_GROUP` matches `terraform output -raw ecs_security_group_id`.
+
+---
+
+## Confirm Terraform status
+
+From the repo root, run:
+
+```bash
+./.aws/terraform-status.sh
+```
+
+This validates Terraform, prints key outputs (private subnets, ECS security group, cluster name, staging ALB DNS, ECR URL), and runs a plan (no apply). Use it to confirm infrastructure before deploying and to verify the values that must be set as GitHub secrets (`PRIVATE_SUBNET_IDS`, `ECS_SECURITY_GROUP`) so the migration one-off task can reach RDS.
 
 ---
 

@@ -299,11 +299,12 @@ jobs:
           CLUSTER="${{ env.ECS_CLUSTER }}"
           SERVICE="${{ env.ECS_SERVICE }}-staging"
           TASK_DEF="${{ steps.register-task.outputs.task-definition-arn }}"
-          # Prefer network config from the staging service (same VPC/subnets/SG as running tasks)
+          # Prefer network config from the staging service; require non-empty securityGroups (RDS allows only ECS SG)
           NET_JSON=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" --query 'services[0].networkConfiguration.awsvpcConfiguration' --output json 2>/dev/null || true)
-          if [ -z "$NET_JSON" ] || [ "$NET_JSON" = "null" ] || ! echo "$NET_JSON" | grep -q subnets; then
+          SG_COUNT=$(echo "$NET_JSON" | jq '.securityGroups | length' 2>/dev/null || echo "0")
+          if [ -z "$NET_JSON" ] || [ "$NET_JSON" = "null" ] || ! echo "$NET_JSON" | grep -q subnets || [ "$SG_COUNT" = "0" ] || [ "$SG_COUNT" = "null" ]; then
             if [ -z "$PRIVATE_SUBNET_IDS" ] || [ -z "$ECS_SECURITY_GROUP" ]; then
-              echo "::warning::PRIVATE_SUBNET_IDS or ECS_SECURITY_GROUP not set and could not get config from service. Skipping migrations (run .aws/set-github-secrets.sh)."
+              echo "::warning::PRIVATE_SUBNET_IDS or ECS_SECURITY_GROUP not set and could not get valid config from service (securityGroups must be non-empty). Skipping migrations (run .aws/set-github-secrets.sh)."
               exit 0
             fi
             # Build JSON from secrets (trim spaces; subnets comma-separated)
@@ -311,6 +312,11 @@ jobs:
             NET_JSON=$(jq -n --argjson subnets "$SUBNETS_JSON" --arg sg "$ECS_SECURITY_GROUP" '{subnets: $subnets, securityGroups: [$sg], assignPublicIp: "DISABLED"}')
           else
             NET_JSON=$(echo "$NET_JSON" | jq '. + {assignPublicIp: "DISABLED"}')
+          fi
+          # Final check: migration task must have at least one security group to reach RDS
+          if [ "$(echo "$NET_JSON" | jq '.securityGroups | length')" = "0" ]; then
+            echo "::error::Migration task requires a security group (RDS allows only ECS SG). Set GitHub secret ECS_SECURITY_GROUP from: cd terraform && terraform output -raw ecs_security_group_id"
+            exit 1
           fi
           echo "Using network config: $NET_JSON"
           TASK_ARN=$(aws ecs run-task \
@@ -393,15 +399,20 @@ jobs:
           SERVICE="${{ env.ECS_SERVICE }}-production"
           TASK_DEF="${{ steps.register-task.outputs.task-definition-arn }}"
           NET_JSON=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" --query 'services[0].networkConfiguration.awsvpcConfiguration' --output json 2>/dev/null || true)
-          if [ -z "$NET_JSON" ] || [ "$NET_JSON" = "null" ] || ! echo "$NET_JSON" | grep -q subnets; then
+          SG_COUNT=$(echo "$NET_JSON" | jq '.securityGroups | length' 2>/dev/null || echo "0")
+          if [ -z "$NET_JSON" ] || [ "$NET_JSON" = "null" ] || ! echo "$NET_JSON" | grep -q subnets || [ "$SG_COUNT" = "0" ] || [ "$SG_COUNT" = "null" ]; then
             if [ -z "$PRIVATE_SUBNET_IDS" ] || [ -z "$ECS_SECURITY_GROUP" ]; then
-              echo "::warning::PRIVATE_SUBNET_IDS or ECS_SECURITY_GROUP not set and could not get config from service. Skipping migrations (run .aws/set-github-secrets.sh)."
+              echo "::warning::PRIVATE_SUBNET_IDS or ECS_SECURITY_GROUP not set and could not get valid config from service (securityGroups must be non-empty). Skipping migrations (run .aws/set-github-secrets.sh)."
               exit 0
             fi
             SUBNETS_JSON=$(echo "$PRIVATE_SUBNET_IDS" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | jq -R -s -c 'split("\n") | map(select(length > 0))')
             NET_JSON=$(jq -n --argjson subnets "$SUBNETS_JSON" --arg sg "$ECS_SECURITY_GROUP" '{subnets: $subnets, securityGroups: [$sg], assignPublicIp: "DISABLED"}')
           else
             NET_JSON=$(echo "$NET_JSON" | jq '. + {assignPublicIp: "DISABLED"}')
+          fi
+          if [ "$(echo "$NET_JSON" | jq '.securityGroups | length')" = "0" ]; then
+            echo "::error::Migration task requires a security group. Set GitHub secret ECS_SECURITY_GROUP from: cd terraform && terraform output -raw ecs_security_group_id"
+            exit 1
           fi
           echo "Using network config: $NET_JSON"
           TASK_ARN=$(aws ecs run-task \
