@@ -78,6 +78,7 @@ cat > .aws/task-definition.json <<EOF
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
   "memory": "1024",
+  "ephemeralStorage": { "sizeInGiB": 50 },
   "executionRoleArn": "${EXEC_ROLE_ARN}",
   "taskRoleArn": "${TASK_ROLE_ARN}",
   "containerDefinitions": [
@@ -144,8 +145,44 @@ cat > .aws/task-definition.json <<EOF
 }
 EOF
 
+# Migration-only task (slim image without docling/opencv); used by CI one-off migration step
+cat > .aws/task-definition-migration.json <<EOF
+{
+  "family": "youspeak-migration-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "ephemeralStorage": { "sizeInGiB": 21 },
+  "executionRoleArn": "${EXEC_ROLE_ARN}",
+  "taskRoleArn": "${TASK_ROLE_ARN}",
+  "containerDefinitions": [
+    {
+      "name": "youspeak-migration",
+      "image": "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/youspeak-backend:migration",
+      "essential": true,
+      "secrets": [
+        { "name": "DATABASE_URL", "valueFrom": "${SECRET_DB_ARN}" },
+        { "name": "SECRET_KEY", "valueFrom": "${SECRET_KEY_ARN}" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/youspeak-api",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}
+EOF
+
 echo -e "${GREEN}✓ Task definition generated at .aws/task-definition.json${NC}"
+echo -e "${GREEN}✓ Migration task definition at .aws/task-definition-migration.json${NC}"
 echo ""
 echo "Next steps:"
-echo "1. Review the generated file"
-echo "2. Register it with: aws ecs register-task-definition --cli-input-json file://.aws/task-definition.json"
+echo "1. Review the generated files"
+echo "2. Register API: aws ecs register-task-definition --cli-input-json file://.aws/task-definition.json"
+echo "3. Migration task def is used by CI; image :migration is built and pushed by workflow"

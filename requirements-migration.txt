@@ -1,0 +1,8 @@
+# Minimal deps for Alembic migrations only (no docling/opencv/torch).
+# Used by the migration Docker stage and ECS migration one-off task.
+sqlalchemy==2.0.25
+alembic==1.13.1
+asyncpg==0.29.0
+pydantic==2.7.0
+pydantic-settings>=2.3.0,<3.0.0
+email-validator==2.1.0.post1

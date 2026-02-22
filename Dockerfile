@@ -61,6 +61,33 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Migrations run once per deploy via CI/CD (one-off ECS task), not at container startup
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
+# Stage 2b: Migration-only image (no docling/opencv/torch); for ECS one-off migration tasks
+FROM python:3.9-slim as migration
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1000 appuser
+
+COPY requirements-migration.txt .
+ENV PATH=/root/.local/bin:$PATH
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --user -r requirements-migration.txt
+
+RUN cp -r /root/.local /home/appuser/.local && chown -R appuser:appuser /home/appuser/.local
+
+COPY . .
+RUN chown -R appuser:appuser /app
+
+USER appuser
+ENV PATH=/home/appuser/.local/bin:$PATH
+
+# Default command; ECS run-task overrides to: python -m alembic upgrade head
+CMD ["python", "-m", "alembic", "upgrade", "head"]
+
 # Stage 3: Test (CI lint + migrate + pytest inside compose)
 # Reuse builder so we only add dev deps; avoids re-downloading torch/docling (~5+ min saved).
 FROM builder as test

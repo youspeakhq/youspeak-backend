@@ -189,6 +189,7 @@ jobs:
       security-events: write  # required for Trivy SARIF upload to Code Scanning
     outputs:
       image: ${{ steps.image-output.outputs.image }}
+      migration_image: ${{ steps.image-output.outputs.migration_image }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -231,11 +232,24 @@ jobs:
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:cache
           cache-to: type=registry,mode=max,image-manifest=true,oci-mediatypes=true,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:cache
+
+      - name: Build and push migration image to Amazon ECR
+        id: build-migration-image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: migration
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:migration
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:migration-${{ github.sha }}
       
       - name: Set image output
         id: image-output
         run: |
           echo "image=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "migration_image=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:migration" >> $GITHUB_OUTPUT
       
       - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@master
@@ -289,6 +303,22 @@ jobs:
           [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
           TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
+
+      - name: Fill in migration image in migration task definition
+        id: task-def-migration
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: .aws/task-definition-migration.json
+          container-name: youspeak-migration
+          image: ${{ needs.build-and-push.outputs.migration_image }}
+
+      - name: Register migration task definition
+        id: register-migration-task
+        run: |
+          TASK_DEF_FILE="${{ steps.task-def-migration.outputs.task-definition }}"
+          [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
       
       - name: Run database migrations (one-off task)
         env:
@@ -298,7 +328,7 @@ jobs:
           set -e
           CLUSTER="${{ env.ECS_CLUSTER }}"
           SERVICE="${{ env.ECS_SERVICE }}-staging"
-          TASK_DEF="${{ steps.register-task.outputs.task-definition-arn }}"
+          TASK_DEF="${{ steps.register-migration-task.outputs.task-definition-arn }}"
           # Prefer network config from the staging service; require non-empty securityGroups (RDS allows only ECS SG)
           NET_JSON=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" --query 'services[0].networkConfiguration.awsvpcConfiguration' --output json 2>/dev/null || true)
           SG_COUNT=$(echo "$NET_JSON" | jq '.securityGroups | length' 2>/dev/null || echo "0")
@@ -324,7 +354,7 @@ jobs:
             --task-definition "$TASK_DEF" \
             --launch-type FARGATE \
             --network-configuration "{\"awsvpcConfiguration\": $NET_JSON}" \
-            --overrides '{"containerOverrides":[{"name":"youspeak-api","command":["python","-m","alembic","upgrade","head"]}]}' \
+            --overrides '{"containerOverrides":[{"name":"youspeak-migration","command":["python","-m","alembic","upgrade","head"]}]}' \
             --query 'tasks[0].taskArn' --output text)
           aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
           EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
@@ -337,9 +367,9 @@ jobs:
             echo "Container reason: $CONTAINER_REASON"
             aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0]' --output json
             TASK_ID=$(echo "$TASK_ARN" | awk -F/ '{print $NF}')
-            echo "--- Waiting 20s for CloudWatch logs, then fetching (stream: ecs/youspeak-api/$TASK_ID) ---"
+            echo "--- Waiting 20s for CloudWatch logs, then fetching (stream: ecs/youspeak-migration/$TASK_ID) ---"
             sleep 20
-            aws logs get-log-events --log-group-name "/ecs/youspeak-api" --log-stream-name "ecs/youspeak-api/$TASK_ID" --limit 100 --query 'events[*].message' --output text 2>&1 || true
+            aws logs get-log-events --log-group-name "/ecs/youspeak-api" --log-stream-name "ecs/youspeak-migration/$TASK_ID" --limit 100 --query 'events[*].message' --output text 2>&1 || true
             exit 1
           fi
           echo "Migrations completed successfully"
@@ -394,6 +424,22 @@ jobs:
           [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
           TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
+
+      - name: Fill in migration image in migration task definition
+        id: task-def-migration
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: .aws/task-definition-migration.json
+          container-name: youspeak-migration
+          image: ${{ needs.build-and-push.outputs.migration_image }}
+
+      - name: Register migration task definition
+        id: register-migration-task
+        run: |
+          TASK_DEF_FILE="${{ steps.task-def-migration.outputs.task-definition }}"
+          [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
       
       - name: Run database migrations (one-off task)
         env:
@@ -403,7 +449,7 @@ jobs:
           set -e
           CLUSTER="${{ env.ECS_CLUSTER }}"
           SERVICE="${{ env.ECS_SERVICE }}-production"
-          TASK_DEF="${{ steps.register-task.outputs.task-definition-arn }}"
+          TASK_DEF="${{ steps.register-migration-task.outputs.task-definition-arn }}"
           NET_JSON=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" --query 'services[0].networkConfiguration.awsvpcConfiguration' --output json 2>/dev/null || true)
           SG_COUNT=$(echo "$NET_JSON" | jq '.securityGroups | length' 2>/dev/null || echo "0")
           if [ -z "$NET_JSON" ] || [ "$NET_JSON" = "null" ] || ! echo "$NET_JSON" | grep -q subnets || [ "$SG_COUNT" = "0" ] || [ "$SG_COUNT" = "null" ]; then
@@ -426,7 +472,7 @@ jobs:
             --task-definition "$TASK_DEF" \
             --launch-type FARGATE \
             --network-configuration "{\"awsvpcConfiguration\": $NET_JSON}" \
-            --overrides '{"containerOverrides":[{"name":"youspeak-api","command":["python","-m","alembic","upgrade","head"]}]}' \
+            --overrides '{"containerOverrides":[{"name":"youspeak-migration","command":["python","-m","alembic","upgrade","head"]}]}' \
             --query 'tasks[0].taskArn' --output text)
           aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
           EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
@@ -439,9 +485,9 @@ jobs:
             echo "Container reason: $CONTAINER_REASON"
             aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0]' --output json
             TASK_ID=$(echo "$TASK_ARN" | awk -F/ '{print $NF}')
-            echo "--- Waiting 20s for CloudWatch logs, then fetching ---"
+            echo "--- Waiting 20s for CloudWatch logs, then fetching (stream: ecs/youspeak-migration/$TASK_ID) ---"
             sleep 20
-            aws logs get-log-events --log-group-name "/ecs/youspeak-api" --log-stream-name "ecs/youspeak-api/$TASK_ID" --limit 100 --query 'events[*].message' --output text 2>&1 || true
+            aws logs get-log-events --log-group-name "/ecs/youspeak-api" --log-stream-name "ecs/youspeak-migration/$TASK_ID" --limit 100 --query 'events[*].message' --output text 2>&1 || true
             exit 1
           fi
           echo "Migrations completed successfully"

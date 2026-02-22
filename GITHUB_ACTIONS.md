@@ -84,11 +84,20 @@ The **Build and Push Docker Image** job uses ECR as a registry cache (`ref=.../y
 - **Push that only adds or changes a line in `requirements.txt`**  
   Only the changed layer and everything after it re-run. The Dockerfile uses `RUN --mount=type=cache,target=/root/.cache/pip`, and with `mode=max` that cache can be restored from the registry, so pip may only download the new or changed package(s). If the mount cache is not restored (e.g. first time after a change), pip will re-download all packages for that run; the next run with the same `requirements.txt` will then hit the layer cache again.
 
+### Build and Push: two images (API + migration)
+
+The job builds and pushes **two** images:
+
+- **API image** (`target: runtime`): full app with docling/opencv/torch, tagged `:latest` and `:<sha>`. Used by the ECS service.
+- **Migration image** (`target: migration`): minimal deps (alembic, sqlalchemy, asyncpg, pydantic only; no docling/opencv), tagged `:migration` and `:migration-<sha>`. Used only by the one-off migration ECS task.
+
+The migration task runs with the slim image so it pulls faster and fits in default Fargate ephemeral storage without increasing `ephemeralStorage.sizeInGiB` on the API task.
+
 ---
 
 ## 3. Task definition in the repo
 
-The workflow deploys using **`.aws/task-definition.json`** and only replaces the container image. The file in the repo must already contain valid ARNs (execution role, Secrets Manager secrets) for your AWS account.
+The workflow deploys using **`.aws/task-definition.json`** (API service) and **`.aws/task-definition-migration.json`** (one-off migration task). The workflow only replaces the container image in each. The file in the repo must already contain valid ARNs (execution role, Secrets Manager secrets) for your AWS account.
 
 From repo root, after Terraform apply:
 
@@ -96,11 +105,11 @@ From repo root, after Terraform apply:
 ./.aws/generate-task-definition.sh
 ```
 
-Then **commit and push** the updated file:
+This generates both `.aws/task-definition.json` and `.aws/task-definition-migration.json`. Commit and push the updated files:
 
 ```bash
-git add .aws/task-definition.json
-git commit -m "chore: update ECS task definition for CI/CD"
+git add .aws/task-definition.json .aws/task-definition-migration.json
+git commit -m "chore: update ECS task definitions for CI/CD"
 git push
 ```
 
@@ -123,7 +132,7 @@ Do **not** commit `.env.production.local` or `terraform.tfvars`; only the task d
   - ECS service: `youspeak-api-service-production`  
   - Live URL: `http://<alb_dns_name>` from `terraform output alb_dns_name`
 
-Migrations run **once per deploy** as a short-lived ECS task (`alembic upgrade head`) before the service is updated. The workflow uses the **same network configuration as the target ECS service** (from `describe-services`), so the migration task can reach RDS/Redis. If the service cannot be described (e.g. first run), it falls back to `PRIVATE_SUBNET_IDS` and `ECS_SECURITY_GROUP` secrets. If those are not set, the migration step is skipped (with a warning). On migration failure, the last 50 CloudWatch log lines for the task are printed to help debug connection errors. The migration task **must** have a non-empty security group (RDS allows ingress only from the ECS security group). If the ECS service returns empty `securityGroups`, the workflow falls back to the `ECS_SECURITY_GROUP` secret; if that is unset, migrations are skipped or the step fails with instructions to set it from Terraform.
+Migrations run **once per deploy** as a short-lived ECS task (`alembic upgrade head`) before the service is updated. The migration task uses the **slim migration image** (`:migration`), not the full API image, so it pulls quickly and avoids ephemeral storage issues. The workflow uses the **same network configuration as the target ECS service** (from `describe-services`), so the migration task can reach RDS/Redis. If the service cannot be described (e.g. first run), it falls back to `PRIVATE_SUBNET_IDS` and `ECS_SECURITY_GROUP` secrets. If those are not set, the migration step is skipped (with a warning). On migration failure, the last 50 CloudWatch log lines for the task are printed to help debug connection errors. The migration task **must** have a non-empty security group (RDS allows ingress only from the ECS security group). If the ECS service returns empty `securityGroups`, the workflow falls back to the `ECS_SECURITY_GROUP` secret; if that is unset, migrations are skipped or the step fails with instructions to set it from Terraform.
 
 ---
 
@@ -154,8 +163,8 @@ To require approval before live deploys:
   - The pipeline uses ECR as a remote build cache (`youspeak-backend:cache`). Subsequent builds reuse layers when `requirements.txt` and earlier Dockerfile steps are unchanged, reducing build time.
 
 - **Deploy fails: “task definition invalid”**  
-  - Run `./.aws/generate-task-definition.sh` again and commit the new `.aws/task-definition.json`.  
-  - Ensure the file has no placeholder like `YOUR_ACCOUNT_ID`; it must have real ARNs.
+  - Run `./.aws/generate-task-definition.sh` again and commit the new `.aws/task-definition.json` and `.aws/task-definition-migration.json`.  
+  - Ensure neither file has a placeholder like `YOUR_ACCOUNT_ID`; both must have real ARNs.
 
 - **Deploy fails: “service not found”**  
   - For staging: run `terraform apply` so the staging ECS service and ALB exist.  
@@ -166,8 +175,9 @@ To require approval before live deploys:
   - Confirm Terraform state: run `./.aws/terraform-status.sh` from repo root to print `private_subnet_ids`, `ecs_security_group_id`, and other outputs; ensure GitHub secret `ECS_SECURITY_GROUP` matches `terraform output -raw ecs_security_group_id`.
 
 - **Migration task exited with code null**  
-  - The workflow now prints **Task stoppedReason** and **Container reason** and waits 20s then fetches **CloudWatch logs** for the failed task. Check that output for the root cause (e.g. "Essential container in task exited", OutOfMemoryError, or a Python traceback).  
-  - If the container was **out of memory**, increase task memory: in `.aws/generate-task-definition.sh` set `memory` to `2048`, run the script, commit the updated `.aws/task-definition.json`, and redeploy.  
+  - The workflow now prints **Task stoppedReason** and **Container reason** and waits 20s then fetches **CloudWatch logs** for the failed task. Check that output for the root cause.  
+  - **CannotPullContainerError: no space left on device** — The **migration** task uses the slim `:migration` image (no docling/opencv) and 21 GiB ephemeral storage, so this should be rare. If it happens for the migration task, increase `ephemeralStorage.sizeInGiB` in `.aws/task-definition-migration.json`. The **API** task uses the full image and `ephemeralStorage.sizeInGiB: 50` in `.aws/task-definition.json`; if the API task hits this, increase it in `.aws/generate-task-definition.sh` (min 21, max 200).  
+  - If the container was **out of memory** at runtime, increase task memory: in `.aws/generate-task-definition.sh` set `memory` to `2048`, run the script, commit the updated `.aws/task-definition.json`, and redeploy.  
   - If logs show **missing env / Secrets Manager**, ensure the ECS execution role in Terraform has `secretsmanager:GetSecretValue` on the task definition’s secret ARNs (see Terraform `ecs_execution_secrets` policy).
 
 ---
