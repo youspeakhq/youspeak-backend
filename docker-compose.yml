@@ -102,6 +102,8 @@ services:
       - SECRET_KEY=test-secret-key-for-ci-pipeline-min-32-chars
       - ENVIRONMENT=test
       - TEST_USE_LIVE_SERVER=true
+      # From test container, API is reachable by service name (not localhost)
+      - LIVE_SERVER_URL=http://api:8000
     depends_on:
       api:
         condition: service_healthy
