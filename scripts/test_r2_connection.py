@@ -20,15 +20,26 @@ def main() -> None:
 
     import boto3
     from botocore.exceptions import ClientError
+    from botocore.config import Config as BotocoreConfig
 
     endpoint = f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+    config_kwargs = {
+        "signature_version": "s3v4",
+        "s3": {"addressing_style": "path"},
+        "request_checksum_calculation": "WHEN_REQUIRED",
+        "response_checksum_validation": "WHEN_REQUIRED",
+    }
+    try:
+        config = BotocoreConfig(**config_kwargs)
+    except TypeError:
+        config = BotocoreConfig(signature_version="s3v4", s3={"addressing_style": "path"})
     client = boto3.client(
         service_name="s3",
         endpoint_url=endpoint,
         aws_access_key_id=settings.R2_ACCESS_KEY_ID,
         aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
         region_name="auto",
-        config=boto3.session.Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+        config=config,
     )
     bucket = settings.R2_BUCKET_NAME
 
