@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 Test Cloudflare R2 connectivity and public URL.
-Loads app config (.env); requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME.
+Uses R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME from env (or .env).
 Run from repo root: python scripts/test_r2_connection.py
+Or after exporting vars from Terraform secrets: ./scripts/check_r2_credentials_terraform.sh
 """
 import sys
 from pathlib import Path
@@ -15,33 +16,40 @@ from app.config import settings
 
 def main() -> None:
     if not settings.R2_ACCOUNT_ID or not settings.R2_ACCESS_KEY_ID or not settings.R2_SECRET_ACCESS_KEY:
-        print("Missing R2 credentials. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY in .env")
+        print("Missing R2 credentials. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (env or .env)")
         sys.exit(1)
 
     import boto3
     from botocore.exceptions import ClientError
     from botocore.config import Config as BotocoreConfig
 
-    endpoint = f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+    # Strip so values from Secrets Manager (possible newlines) don't cause SignatureDoesNotMatch
+    account_id = (settings.R2_ACCOUNT_ID or "").strip()
+    access_key = (settings.R2_ACCESS_KEY_ID or "").strip()
+    secret_key = (settings.R2_SECRET_ACCESS_KEY or "").strip()
+    bucket = (settings.R2_BUCKET_NAME or "").strip() or "youspeak"
+
+    endpoint = f"https://{account_id}.r2.cloudflarestorage.com"
     config_kwargs = {
         "signature_version": "s3v4",
         "s3": {"addressing_style": "path"},
-        "request_checksum_calculation": "WHEN_REQUIRED",
-        "response_checksum_validation": "WHEN_REQUIRED",
     }
     try:
-        config = BotocoreConfig(**config_kwargs)
+        config = BotocoreConfig(
+            **config_kwargs,
+            request_checksum_calculation="WHEN_REQUIRED",
+            response_checksum_validation="WHEN_REQUIRED",
+        )
     except TypeError:
-        config = BotocoreConfig(signature_version="s3v4", s3={"addressing_style": "path"})
+        config = BotocoreConfig(**config_kwargs)
     client = boto3.client(
         service_name="s3",
         endpoint_url=endpoint,
-        aws_access_key_id=settings.R2_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
         region_name="auto",
         config=config,
     )
-    bucket = settings.R2_BUCKET_NAME
 
     # 1) Bucket access
     try:
