@@ -58,7 +58,7 @@ def get_ai_client() -> AsyncBedrockWrapper:
     model_id = settings.BEDROCK_MODEL_ID
     instructor_client = instructor.from_provider(
         f"bedrock/{model_id}",
-        mode=Mode.TOOLS,
+        mode=Mode.BEDROCK_TOOLS,
     )
     _ai_client = AsyncBedrockWrapper(instructor_client)
     return _ai_client
