@@ -2,6 +2,7 @@
 Bedrock AI client for structured outputs (instructor + AWS Bedrock).
 Single provider; boto3/instructor imported lazily for fast startup.
 """
+import os
 import asyncio
 from typing import Any
 
@@ -43,18 +44,20 @@ def get_ai_client() -> AsyncBedrockWrapper:
     if _ai_client is not None:
         return _ai_client
 
-    import boto3
     import instructor
     from instructor import Mode
 
-    sync_client = boto3.client(
-        service_name="bedrock-runtime",
-        region_name=settings.AWS_REGION,
-    )
+    # Let instructor create the boto3 client so we avoid "multiple values for argument 'client'" in from_bedrock.
+    # Ensure region is set for the auto-created client (ECS/task role use default creds).
+    region = settings.AWS_REGION
+    if os.environ.get("AWS_DEFAULT_REGION") != region:
+        os.environ["AWS_DEFAULT_REGION"] = region
+    if os.environ.get("AWS_REGION") != region:
+        os.environ["AWS_REGION"] = region
+
     model_id = settings.BEDROCK_MODEL_ID
     instructor_client = instructor.from_provider(
         f"bedrock/{model_id}",
-        client=sync_client,
         mode=Mode.TOOLS,
     )
     _ai_client = AsyncBedrockWrapper(instructor_client)
