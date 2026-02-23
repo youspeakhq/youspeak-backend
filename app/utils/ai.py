@@ -24,8 +24,9 @@ class AsyncBedrockWrapper:
         return self
 
     async def create(self, **kwargs) -> Any:
+        # instructor from_provider client exposes .create() at top level (not .chat.completions)
         return await anyio.to_thread.run_sync(
-            lambda: self.client.chat.completions.create(**kwargs)
+            lambda: self.client.create(**kwargs)
         )
 
 
@@ -45,9 +46,14 @@ def get_ai_client(provider: str = "bedrock"):
 
         sync_client = boto3.client(
             service_name="bedrock-runtime",
-            region_name=settings.AWS_REGION
+            region_name=settings.AWS_REGION,
         )
-        instructor_client = instructor.from_bedrock(sync_client)
+        # instructor.from_bedrock was removed; use from_provider (see python.useinstructor.com/integrations/bedrock)
+        model_id = settings.BEDROCK_MODEL_ID
+        instructor_client = instructor.from_provider(
+            f"bedrock/{model_id}",
+            client=sync_client,
+        )
         _ai_client = AsyncBedrockWrapper(instructor_client)
     elif provider == "openai":
         import instructor
