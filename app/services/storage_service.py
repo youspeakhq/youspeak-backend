@@ -17,31 +17,36 @@ def _r2_client():
         raise RuntimeError(
             "R2 storage not configured: set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY"
         )
-    # R2 requires path-style; botocore 1.36+ adds default checksums that R2 can reject — use WHEN_REQUIRED.
     from botocore.config import Config as BotocoreConfig
+
+    # R2 is S3-compatible; require SigV4 and path-style (Cloudflare R2 docs).
+    # Botocore 1.36+ may send checksums by default; R2 can reject them — use WHEN_REQUIRED when supported.
     config_kwargs = {
         "signature_version": "s3v4",
         "s3": {"addressing_style": "path"},
-        "request_checksum_calculation": "WHEN_REQUIRED",
-        "response_checksum_validation": "WHEN_REQUIRED",
     }
     try:
-        config = BotocoreConfig(**config_kwargs)
-    except TypeError:
         config = BotocoreConfig(
-            signature_version="s3v4",
-            s3={"addressing_style": "path"},
+            **config_kwargs,
+            request_checksum_calculation="WHEN_REQUIRED",
+            response_checksum_validation="WHEN_REQUIRED",
         )
-    kwargs = {
-        "service_name": "s3",
-        "endpoint_url": f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
-        "aws_access_key_id": settings.R2_ACCESS_KEY_ID,
-        "aws_secret_access_key": settings.R2_SECRET_ACCESS_KEY,
-        "region_name": "auto",
-    }
-    if config is not None:
-        kwargs["config"] = config
-    return boto3.client(**kwargs)
+    except TypeError:
+        config = BotocoreConfig(**config_kwargs)
+
+    # Endpoint per https://developers.cloudflare.com/r2/examples/aws/boto3/
+    endpoint = f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+    # Strip credentials so trailing newlines from Secrets Manager don't cause SignatureDoesNotMatch
+    access_key = (settings.R2_ACCESS_KEY_ID or "").strip()
+    secret_key = (settings.R2_SECRET_ACCESS_KEY or "").strip()
+    return boto3.client(
+        service_name="s3",
+        endpoint_url=endpoint,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        region_name="auto",
+        config=config,
+    )
 
 
 def public_url(key: str) -> str:

@@ -635,6 +635,29 @@ resource "aws_iam_role_policy_attachment" "bedrock" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
 }
 
+# AWS Marketplace permissions required for Bedrock to auto-enable foundation model access on first
+# invocation (see https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html).
+# Without these, first-time model use can fail with 403. If the account is a "channel program
+# account", AWS may still block access until the Solution Provider/Distributor enables it;
+# Terraform cannot override that restriction.
+resource "aws_iam_role_policy" "bedrock_marketplace_model_access" {
+  name   = "${var.app_name}-bedrock-marketplace-model-access-${var.environment}"
+  role   = aws_iam_role.ecs_task.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "BedrockFoundationModelSubscription"
+      Effect = "Allow"
+      Action = [
+        "aws-marketplace:Subscribe",
+        "aws-marketplace:Unsubscribe",
+        "aws-marketplace:ViewSubscriptions"
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
 # RDS PostgreSQL
 resource "aws_db_subnet_group" "main" {
   name       = "${var.app_name}-db-subnet-${var.environment}"
