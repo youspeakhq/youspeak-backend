@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # AI Settings
     OPENAI_API_KEY: str = ""
     AWS_REGION: str = "us-east-1"
-    BEDROCK_MODEL_ID: str = "anthropic.claude-3-sonnet-20240229-v1:0"
+    BEDROCK_MODEL_ID: str = "google.gemma-3-12b-it"
 
     # Email (Resend)
     RESEND_API_KEY: str = ""

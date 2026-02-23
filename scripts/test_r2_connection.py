@@ -15,19 +15,20 @@ from app.config import settings
 
 
 def main() -> None:
-    if not settings.R2_ACCOUNT_ID or not settings.R2_ACCESS_KEY_ID or not settings.R2_SECRET_ACCESS_KEY:
-        print("Missing R2 credentials. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (env or .env)")
-        sys.exit(1)
-
     import boto3
     from botocore.exceptions import ClientError
     from botocore.config import Config as BotocoreConfig
 
-    # Strip so values from Secrets Manager (possible newlines) don't cause SignatureDoesNotMatch
+    # Strip first so values from Secrets Manager (possible newlines/whitespace) don't cause SignatureDoesNotMatch.
+    # Validate after strip: whitespace-only credentials become empty and would produce invalid endpoint/auth.
     account_id = (settings.R2_ACCOUNT_ID or "").strip()
     access_key = (settings.R2_ACCESS_KEY_ID or "").strip()
     secret_key = (settings.R2_SECRET_ACCESS_KEY or "").strip()
     bucket = (settings.R2_BUCKET_NAME or "").strip() or "youspeak"
+
+    if not account_id or not access_key or not secret_key:
+        print("Missing R2 credentials. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (env or .env)")
+        sys.exit(1)
 
     endpoint = f"https://{account_id}.r2.cloudflarestorage.com"
     config_kwargs = {

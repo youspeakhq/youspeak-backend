@@ -26,7 +26,9 @@ if [ -z "$ARN_ACCOUNT" ] || [ "$ARN_ACCOUNT" = "null" ]; then
   echo "R2 not configured in Terraform (secret_r2_account_id_arn empty). Set r2_* in tfvars and apply."
   exit 1
 fi
-if [ -z "$ARN_ACCESS_KEY" ] || [ -z "$ARN_SECRET_KEY" ] || [ -z "$ARN_BUCKET" ]; then
+if [ -z "$ARN_ACCESS_KEY" ] || [ "$ARN_ACCESS_KEY" = "null" ] \
+   || [ -z "$ARN_SECRET_KEY" ] || [ "$ARN_SECRET_KEY" = "null" ] \
+   || [ -z "$ARN_BUCKET" ] || [ "$ARN_BUCKET" = "null" ]; then
   echo "Missing R2 secret ARNs. Check Terraform outputs."
   exit 1
 fi
