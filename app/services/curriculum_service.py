@@ -182,8 +182,8 @@ class CurriculumService:
                 messages=[
                     {"role": "system", "content": (
                         "You are a specialized curriculum analyst. Extract a structured list of topics "
-                        "from the syllabus text provided. Maintain the original order and include "
-                        "specific learning objectives."
+                        "from the syllabus text provided. Maintain the original order. For each topic include: "
+                        "title, content (brief 2-4 sentence summary when available), and specific learning objectives."
                     )},
                     {"role": "user", "content": f"Syllabus Content:\n\n{markdown_content}"}
                 ]
@@ -236,7 +236,8 @@ class CurriculumService:
                 {"role": "system", "content": f"You are an expert curriculum designer for {lang_name} language learning."},
                 {"role": "user", "content": (
                     f"Generate a detailed curriculum structure for: {prompt}. "
-                    "Each topic must include learning objectives and estimated duration."
+                    "Each topic must include: title, a brief content description (2-4 sentences summarizing what the topic covers), "
+                    "learning objectives, and estimated duration_hours."
                 )}
             ]
         )
