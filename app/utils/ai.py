@@ -1,6 +1,7 @@
 """
 Bedrock AI client for structured outputs (instructor + AWS Bedrock).
-Single provider; boto3/instructor imported lazily for fast startup.
+Uses MD_JSON mode so any Bedrock model (Nova, Gemma, etc.) works without native tool use.
+boto3/instructor imported lazily for fast startup.
 """
 import os
 import asyncio
@@ -56,9 +57,10 @@ def get_ai_client() -> AsyncBedrockWrapper:
         os.environ["AWS_REGION"] = region
 
     model_id = settings.BEDROCK_MODEL_ID
+    # MD_JSON: model-agnostic; no native tool/function calling required (works with Nova, Gemma, etc.)
     instructor_client = instructor.from_provider(
         f"bedrock/{model_id}",
-        mode=Mode.BEDROCK_TOOLS,
+        mode=Mode.MD_JSON,
     )
     _ai_client = AsyncBedrockWrapper(instructor_client)
     return _ai_client

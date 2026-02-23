@@ -40,10 +40,9 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_PASSWORD: str = ""
-    # AI Settings
-    OPENAI_API_KEY: str = ""
+    # AI Settings (Bedrock; MD_JSON mode supports any model: Nova, Gemma, etc.)
     AWS_REGION: str = "us-east-1"
-    BEDROCK_MODEL_ID: str = "google.gemma-3-12b-it"
+    BEDROCK_MODEL_ID: str = "amazon.nova-lite-v1:0"
 
     # Email (Resend)
     RESEND_API_KEY: str = ""
