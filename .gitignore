@@ -171,6 +171,9 @@ terraform/.terraform/
 terraform/terraform.tfvars
 terraform-outputs.txt
 
+# Generated at deploy time (staging task def from production + CURRICULUM_SERVICE_URL_STAGING)
+.aws/task-definition-staging.json
+
 # Local / production secrets (do not commit)
 .env
 .env.*

@@ -43,7 +43,6 @@ jobs:
               - 'requirements-*.txt'
               - 'Dockerfile'
               - '.aws/task-definition.json'
-              - '.aws/task-definition-staging.json'
               - '.aws/task-definition-migration.json'
             curriculum:
               - 'services/curriculum/**'
@@ -252,10 +251,6 @@ jobs:
             echo "::error::.aws/task-definition.json contains YOUR_ACCOUNT_ID. Run ./.aws/generate-task-definition.sh locally (after terraform apply) and commit the file."
             exit 1
           fi
-          if grep -q 'YOUR_ACCOUNT_ID' .aws/task-definition-staging.json 2>/dev/null; then
-            echo "::error::.aws/task-definition-staging.json contains YOUR_ACCOUNT_ID. Run ./.aws/generate-task-definition.sh locally (after terraform apply) and commit the file."
-            exit 1
-          fi
           echo "Task definition OK"
       - name: Build and push core image to Amazon ECR
         if: needs.paths.outputs.core == 'true'
@@ -340,6 +335,19 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+      - name: Generate staging task definition
+        if: needs.build-and-push.outputs.core_built == 'true'
+        run: |
+          if [ -z "${{ vars.CURRICULUM_SERVICE_URL_STAGING }}" ]; then
+            echo "::error::vars.CURRICULUM_SERVICE_URL_STAGING is not set. Set it from: cd terraform && terraform output -raw curriculum_service_url_staging"
+            exit 1
+          fi
+          jq --arg url "${{ vars.CURRICULUM_SERVICE_URL_STAGING }}" '
+            .containerDefinitions[0].environment |= (
+              (map(if .name == "ENVIRONMENT" then .value = "staging" elif .name == "CURRICULUM_SERVICE_URL" then .value = $url else . end)) as $e |
+              if ($e | any(.name == "CURRICULUM_SERVICE_URL")) then $e else ($e + [{name: "CURRICULUM_SERVICE_URL", value: $url}]) end
+            )
+          ' .aws/task-definition.json > .aws/task-definition-staging.json
       - name: Fill in the new image ID in the Amazon ECS task definition (staging)
         if: needs.build-and-push.outputs.core_built == 'true'
         id: task-def
