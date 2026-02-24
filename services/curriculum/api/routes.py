@@ -107,6 +107,8 @@ async def generate_curriculum(
         topics_create = await CurriculumService.generate_curriculum_topics(
             db, body.prompt, body.language_id
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=503,
@@ -212,6 +214,8 @@ async def extract_topics(
         topics = await CurriculumService.extract_topics(
             db, curriculum_id, curriculum.file_url
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=503,
@@ -253,6 +257,8 @@ async def propose_merge(
         proposals = await CurriculumService.propose_merge_strategy(
             db, teacher_curriculum, library_curriculum
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=503,
@@ -278,6 +284,8 @@ async def confirm_merge(
         merged = await CurriculumService.confirm_merge(
             db, school_id, curriculum_id, body.final_topics
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=503,
