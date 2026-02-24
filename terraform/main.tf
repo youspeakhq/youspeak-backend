@@ -584,7 +584,7 @@ resource "aws_security_group" "curriculum_alb_internal" {
 
 # Internal ALB and TG for curriculum (production)
 resource "aws_lb" "curriculum_internal_production" {
-  name               = "${var.app_name}-curriculum-internal-production"
+  name               = "${var.app_name}-curric-int-prod"
   internal           = true
   load_balancer_type = "application"
   security_groups    = [aws_security_group.curriculum_alb_internal.id]
@@ -592,7 +592,7 @@ resource "aws_lb" "curriculum_internal_production" {
 }
 
 resource "aws_lb_target_group" "curriculum_production" {
-  name        = "${var.app_name}-curriculum-tg-production"
+  name        = "${var.app_name}-curric-tg-prod"
   port        = 8001
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
@@ -622,7 +622,7 @@ resource "aws_lb_listener" "curriculum_internal_production" {
 
 # Internal ALB and TG for curriculum (staging)
 resource "aws_lb" "curriculum_internal_staging" {
-  name               = "${var.app_name}-curriculum-internal-staging"
+  name               = "${var.app_name}-curric-int-stg"
   internal           = true
   load_balancer_type = "application"
   security_groups    = [aws_security_group.curriculum_alb_internal.id]
@@ -630,7 +630,7 @@ resource "aws_lb" "curriculum_internal_staging" {
 }
 
 resource "aws_lb_target_group" "curriculum_staging" {
-  name        = "${var.app_name}-curriculum-tg-staging"
+  name        = "${var.app_name}-curric-tg-stg"
   port        = 8001
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
