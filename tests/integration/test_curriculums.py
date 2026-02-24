@@ -197,6 +197,10 @@ async def test_curriculum_not_found_scenarios(
         headers=headers,
         json={"library_curriculum_id": fake_uuid}
     )
+    # #region agent log (capture 500 body for debug)
+    if resp.status_code == 500:
+        pytest.fail(f"merge/propose returned 500; body: {resp.text}")
+    # #endregion
     assert resp.status_code == 404
     
     # Merge Confirm 404
