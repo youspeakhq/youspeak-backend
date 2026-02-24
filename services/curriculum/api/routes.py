@@ -103,9 +103,15 @@ async def generate_curriculum(
     school_id: uuid.UUID = Depends(get_school_id),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    topics_create = await CurriculumService.generate_curriculum_topics(
-        db, body.prompt, body.language_id
-    )
+    try:
+        topics_create = await CurriculumService.generate_curriculum_topics(
+            db, body.prompt, body.language_id
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI generation unavailable: {getattr(e, 'message', str(e))}",
+        )
     data = [
         TopicResponse(
             id=uuid.uuid4(),
@@ -202,9 +208,15 @@ async def extract_topics(
         raise HTTPException(
             status_code=400, detail="Curriculum has no document to extract from"
         )
-    topics = await CurriculumService.extract_topics(
-        db, curriculum_id, curriculum.file_url
-    )
+    try:
+        topics = await CurriculumService.extract_topics(
+            db, curriculum_id, curriculum.file_url
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI extraction unavailable: {getattr(e, 'message', str(e))}",
+        )
     data = [
         TopicResponse(
             id=t.id,
@@ -237,9 +249,15 @@ async def propose_merge(
     )
     if not teacher_curriculum or not library_curriculum:
         raise HTTPException(status_code=404, detail="Curriculum not found")
-    proposals = await CurriculumService.propose_merge_strategy(
-        db, teacher_curriculum, library_curriculum
-    )
+    try:
+        proposals = await CurriculumService.propose_merge_strategy(
+            db, teacher_curriculum, library_curriculum
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI merge proposal unavailable: {getattr(e, 'message', str(e))}",
+        )
     return SuccessResponse(
         data=MergeProposalResponse(
             proposal_id=uuid.uuid4(),
@@ -256,9 +274,15 @@ async def confirm_merge(
     school_id: uuid.UUID = Depends(get_school_id),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    merged = await CurriculumService.confirm_merge(
-        db, school_id, curriculum_id, body.final_topics
-    )
+    try:
+        merged = await CurriculumService.confirm_merge(
+            db, school_id, curriculum_id, body.final_topics
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI merge unavailable: {getattr(e, 'message', str(e))}",
+        )
     return SuccessResponse(
         data=_curriculum_to_response(merged),
         message="Curriculum merged successfully",

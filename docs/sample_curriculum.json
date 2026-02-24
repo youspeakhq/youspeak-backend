@@ -1,0 +1,51 @@
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "title": "Spanish 1 – Greetings and Basics",
+  "description": "Introductory Spanish for high school: greetings, numbers 1–20, and basic questions (name, origin).",
+  "source_type": "teacher_upload",
+  "file_url": null,
+  "status": "published",
+  "created_at": "2025-02-24T10:00:00Z",
+  "language_name": "Spanish",
+  "classes": [
+    { "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901", "name": "Spanish 101 - Period 2" }
+  ],
+  "topics": [
+    {
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "title": "Greetings and introductions",
+      "content": "Learn common greetings (hola, buenos días, ¿cómo te llamas?), how to introduce yourself, and ask someone's name.",
+      "duration_hours": 1.5,
+      "learning_objectives": [
+        "Say hello and goodbye in Spanish",
+        "Ask and answer 'What is your name?'",
+        "Use formal vs informal 'you' (usted/tú)"
+      ],
+      "order_index": 0
+    },
+    {
+      "id": "d4e5f6a7-b8c9-0123-def0-234567890123",
+      "title": "Numbers 1–20",
+      "content": "Count from 1 to 20, use numbers in simple phrases (age, phone digits).",
+      "duration_hours": 1.0,
+      "learning_objectives": [
+        "Count 1–20 in Spanish",
+        "State your age (¿Cuántos años tienes?)",
+        "Recognize numbers in listening"
+      ],
+      "order_index": 1
+    },
+    {
+      "id": "e5f6a7b8-c9d0-1234-ef01-345678901234",
+      "title": "Where are you from?",
+      "content": "Ask and answer about origin: ¿De dónde eres? Countries and nationalities.",
+      "duration_hours": 1.5,
+      "learning_objectives": [
+        "Ask 'Where are you from?'",
+        "Answer with country and nationality",
+        "Use ser (soy, eres, es) for origin"
+      ],
+      "order_index": 2
+    }
+  ]
+}
