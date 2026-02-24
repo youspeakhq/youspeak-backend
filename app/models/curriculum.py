@@ -30,14 +30,10 @@ class Curriculum(BaseModel, SchoolScopedMixin):
         index=True,
     )
 
-    # Relationships
-    language = relationship("Language", back_populates="curriculums")
-    classes = relationship(
-        "Class",
-        secondary="curriculum_classes",
-        back_populates="curriculums"
-    )
-    school = relationship("School", back_populates="curriculums")
+    # Relationships (one-way; curriculum service owns writes; core keeps for Alembic/reads only)
+    language = relationship("Language", foreign_keys=[language_id])
+    classes = relationship("Class", secondary="curriculum_classes")
+    school = relationship("School")
     topics = relationship("Topic", back_populates="curriculum", cascade="all, delete-orphan", order_by="Topic.order_index")
 
     def __repr__(self) -> str:

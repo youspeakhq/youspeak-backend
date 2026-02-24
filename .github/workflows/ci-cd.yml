@@ -1,11 +1,7 @@
 # Branch → deployment:
-#   main → staging API (youspeak-api-service-staging)
-#   live → live API (youspeak-api-service-production)
-#
-# Credentials: test/docker-compose jobs use localhost + test DB/Redis (CI only).
-# Deployed ECS tasks get DATABASE_URL, REDIS_URL, SECRET_KEY from AWS Secrets Manager
-# (Terraform writes those secrets with real RDS/ElastiCache endpoints). The task
-# definition uses valueFrom: <secret-arn>, so production never sees localhost.
+#   main → staging (core API + curriculum)
+#   live → production (core API + curriculum)
+# Only changed services are built and deployed (path-based).
 name: CI/CD Pipeline
 
 on:
@@ -17,16 +13,44 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: youspeak-backend
+  ECR_REPOSITORY_CURRICULUM: youspeak-curriculum-backend
   ECS_SERVICE: youspeak-api-service
+  ECS_SERVICE_CURRICULUM: youspeak-curriculum-service
   ECS_CLUSTER: youspeak-cluster
   ECS_TASK_DEFINITION: .aws/task-definition.json
+  ECS_TASK_DEFINITION_CURRICULUM: .aws/task-definition-curriculum.json
   CONTAINER_NAME: youspeak-api
+  CONTAINER_NAME_CURRICULUM: youspeak-curriculum
 
 jobs:
-  test:
-    name: Run Tests
+  paths:
+    name: Paths changed
     runs-on: ubuntu-latest
-    
+    outputs:
+      core: ${{ steps.filter.outputs.core }}
+      curriculum: ${{ steps.filter.outputs.curriculum }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            core:
+              - 'app/**'
+              - 'alembic/**'
+              - 'requirements.txt'
+              - 'requirements-*.txt'
+              - 'Dockerfile'
+              - '.aws/task-definition.json'
+              - '.aws/task-definition-migration.json'
+            curriculum:
+              - 'services/curriculum/**'
+
+  test:
+    name: Run Tests (core)
+    runs-on: ubuntu-latest
+    needs: paths
+    if: needs.paths.outputs.core == 'true' || github.event_name == 'pull_request'
     services:
       postgres:
         image: postgres:15-alpine
@@ -85,12 +109,24 @@ jobs:
         run: |
           alembic upgrade head
       
+      - name: Start curriculum service (for proxy tests)
+        if: needs.paths.outputs.core == 'true'
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          AWS_REGION: us-east-1
+          BEDROCK_MODEL_ID: amazon.nova-lite-v1:0
+        run: |
+          pip install -r services/curriculum/requirements.txt
+          (cd services/curriculum && DATABASE_URL="$DATABASE_URL" AWS_REGION="$AWS_REGION" BEDROCK_MODEL_ID="$BEDROCK_MODEL_ID" python3 -m uvicorn main:app --host 0.0.0.0 --port 8001) &
+          for i in $(seq 1 30); do curl -sf http://localhost:8001/health >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:8001/health || (echo "Curriculum service failed to start"; exit 1)
       - name: Start API server
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379/0
           SECRET_KEY: test-secret-key-for-ci-pipeline-min-32-chars
           ENVIRONMENT: test
+          CURRICULUM_SERVICE_URL: http://localhost:8001
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -180,46 +216,43 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
 
   build-and-push:
-    name: Build and Push Docker Image
+    name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    needs: [test, docker-compose]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/live')
+    needs: [paths, test, docker-compose]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/live') && (needs.test.result == 'success' || needs.test.result == 'skipped') && (needs.docker-compose.result == 'success' || needs.docker-compose.result == 'skipped')
     permissions:
       contents: read
-      security-events: write  # required for Trivy SARIF upload to Code Scanning
+      security-events: write
     outputs:
       image: ${{ steps.image-output.outputs.image }}
       migration_image: ${{ steps.image-output.outputs.migration_image }}
+      curriculum_image: ${{ steps.curriculum-image.outputs.curriculum_image }}
+      core_built: ${{ steps.image-output.outputs.core_built }}
+      curriculum_built: ${{ steps.curriculum-image.outputs.curriculum_built }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Validate task definition
-        run: |
-          if grep -q 'YOUR_ACCOUNT_ID' .aws/task-definition.json 2>/dev/null; then
-            echo "::error::.aws/task-definition.json contains YOUR_ACCOUNT_ID. Run ./.aws/generate-task-definition.sh locally (after terraform apply) and commit the file. See GITHUB_ACTIONS.md"
-            exit 1
-          fi
-          echo "Task definition OK"
-      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
-      # Registry cache (ref=...:cache): unchanged requirements.txt → pip layer reused, no re-download.
-      # First run or when :cache is missing: full download; then cache is pushed for next run.
-      # When requirements.txt changes: only that layer re-runs; pip cache mount may reduce re-downloads.
-      - name: Build and push image to Amazon ECR
+      - name: Validate task definition
+        if: needs.paths.outputs.core == 'true'
+        run: |
+          if grep -q 'YOUR_ACCOUNT_ID' .aws/task-definition.json 2>/dev/null; then
+            echo "::error::.aws/task-definition.json contains YOUR_ACCOUNT_ID. Run ./.aws/generate-task-definition.sh locally (after terraform apply) and commit the file."
+            exit 1
+          fi
+          echo "Task definition OK"
+      - name: Build and push core image to Amazon ECR
+        if: needs.paths.outputs.core == 'true'
         id: build-image
         uses: docker/build-push-action@v5
         with:
@@ -232,8 +265,8 @@ jobs:
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:cache
           cache-to: type=registry,mode=max,image-manifest=true,oci-mediatypes=true,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:cache
-
       - name: Build and push migration image to Amazon ECR
+        if: needs.paths.outputs.core == 'true'
         id: build-migration-image
         uses: docker/build-push-action@v5
         with:
@@ -244,48 +277,65 @@ jobs:
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:migration
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:migration-${{ github.sha }}
-      
-      - name: Set image output
+      - name: Build and push curriculum image to Amazon ECR
+        if: needs.paths.outputs.curriculum == 'true'
+        id: build-curriculum-image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./services/curriculum/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_CURRICULUM }}:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_CURRICULUM }}:latest
+      - name: Set image outputs
         id: image-output
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          CORE_BUILT: ${{ needs.paths.outputs.core }}
         run: |
-          echo "image=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_OUTPUT
-          echo "migration_image=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:migration" >> $GITHUB_OUTPUT
-      
-      - name: Scan image for vulnerabilities
+          echo "core_built=$CORE_BUILT" >> $GITHUB_OUTPUT
+          if [ "$CORE_BUILT" = "true" ]; then
+            echo "image=$REGISTRY/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "migration_image=$REGISTRY/${{ env.ECR_REPOSITORY }}:migration" >> $GITHUB_OUTPUT
+          fi
+      - name: Set curriculum image output
+        id: curriculum-image
+        run: |
+          echo "curriculum_image=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_CURRICULUM }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "curriculum_built=${{ needs.paths.outputs.curriculum }}" >> $GITHUB_OUTPUT
+      - name: Scan core image for vulnerabilities
+        if: success() && needs.paths.outputs.core == 'true'
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.image-output.outputs.image }}
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-results.sarif'
-      
       - name: Upload Trivy scan results to GitHub Security
+        if: success() && needs.paths.outputs.core == 'true' && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
-        if: success() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: 'trivy-results.sarif'
 
   deploy-staging:
     name: Deploy to Staging API (ECS)
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: [paths, build-and-push]
     if: github.ref == 'refs/heads/main'
     environment:
       name: staging
-      # Set from Terraform: terraform output -raw api_staging_url_https (or http://$(terraform output -raw alb_staging_dns_name) if no custom domain). Repo variable: STAGING_API_URL.
       url: ${{ vars.STAGING_API_URL }}
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      
       - name: Fill in the new image ID in the Amazon ECS task definition
+        if: needs.build-and-push.outputs.core_built == 'true'
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
@@ -295,32 +345,32 @@ jobs:
           environment-variables: |
             ENVIRONMENT=staging
             LOG_LEVEL=INFO
-      
       - name: Register task definition
+        if: needs.build-and-push.outputs.core_built == 'true'
         id: register-task
         run: |
           TASK_DEF_FILE="${{ steps.task-def.outputs.task-definition }}"
           [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
           TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
-
       - name: Fill in migration image in migration task definition
+        if: needs.build-and-push.outputs.core_built == 'true'
         id: task-def-migration
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: .aws/task-definition-migration.json
           container-name: youspeak-migration
           image: ${{ needs.build-and-push.outputs.migration_image }}
-
       - name: Register migration task definition
+        if: needs.build-and-push.outputs.core_built == 'true'
         id: register-migration-task
         run: |
           TASK_DEF_FILE="${{ steps.task-def-migration.outputs.task-definition }}"
           [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
           TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
-      
       - name: Run database migrations (one-off task)
+        if: needs.build-and-push.outputs.core_built == 'true'
         env:
           PRIVATE_SUBNET_IDS: ${{ secrets.PRIVATE_SUBNET_IDS }}
           ECS_SECURITY_GROUP: ${{ secrets.ECS_SECURITY_GROUP }}
@@ -373,8 +423,8 @@ jobs:
             exit 1
           fi
           echo "Migrations completed successfully"
-      
-      - name: Deploy Amazon ECS task definition
+      - name: Deploy core Amazon ECS task definition
+        if: needs.build-and-push.outputs.core_built == 'true'
         run: |
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
@@ -385,28 +435,54 @@ jobs:
           aws ecs wait services-stable \
             --cluster ${{ env.ECS_CLUSTER }} \
             --services ${{ env.ECS_SERVICE }}-staging
+      - name: Fill in curriculum image in curriculum task definition
+        if: needs.build-and-push.outputs.curriculum_built == 'true'
+        id: task-def-curriculum
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.ECS_TASK_DEFINITION_CURRICULUM }}
+          container-name: ${{ env.CONTAINER_NAME_CURRICULUM }}
+          image: ${{ needs.build-and-push.outputs.curriculum_image }}
+      - name: Register curriculum task definition
+        if: needs.build-and-push.outputs.curriculum_built == 'true'
+        id: register-curriculum-task
+        run: |
+          TASK_DEF_FILE="${{ steps.task-def-curriculum.outputs.task-definition }}"
+          [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
+      - name: Deploy curriculum ECS service (staging)
+        if: needs.build-and-push.outputs.curriculum_built == 'true'
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE_CURRICULUM }}-staging \
+            --task-definition ${{ steps.register-curriculum-task.outputs.task-definition-arn }} \
+            --force-new-deployment \
+            --no-cli-pager
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE_CURRICULUM }}-staging
 
   deploy-live:
     name: Deploy to Live API (ECS)
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: [paths, build-and-push]
     if: github.ref == 'refs/heads/live'
     environment:
       name: production
       url: https://api.youspeak.com
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      
       - name: Fill in the new image ID in the Amazon ECS task definition
+        if: needs.build-and-push.outputs.core_built == 'true'
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
@@ -416,32 +492,32 @@ jobs:
           environment-variables: |
             ENVIRONMENT=production
             LOG_LEVEL=WARNING
-      
       - name: Register task definition
+        if: needs.build-and-push.outputs.core_built == 'true'
         id: register-task
         run: |
           TASK_DEF_FILE="${{ steps.task-def.outputs.task-definition }}"
           [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
           TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
-
       - name: Fill in migration image in migration task definition
+        if: needs.build-and-push.outputs.core_built == 'true'
         id: task-def-migration
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: .aws/task-definition-migration.json
           container-name: youspeak-migration
           image: ${{ needs.build-and-push.outputs.migration_image }}
-
       - name: Register migration task definition
+        if: needs.build-and-push.outputs.core_built == 'true'
         id: register-migration-task
         run: |
           TASK_DEF_FILE="${{ steps.task-def-migration.outputs.task-definition }}"
           [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
           TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
-      
       - name: Run database migrations (one-off task)
+        if: needs.build-and-push.outputs.core_built == 'true'
         env:
           PRIVATE_SUBNET_IDS: ${{ secrets.PRIVATE_SUBNET_IDS }}
           ECS_SECURITY_GROUP: ${{ secrets.ECS_SECURITY_GROUP }}
@@ -491,8 +567,8 @@ jobs:
             exit 1
           fi
           echo "Migrations completed successfully"
-      
-      - name: Deploy Amazon ECS task definition
+      - name: Deploy core Amazon ECS task definition
+        if: needs.build-and-push.outputs.core_built == 'true'
         run: |
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
@@ -503,6 +579,34 @@ jobs:
           aws ecs wait services-stable \
             --cluster ${{ env.ECS_CLUSTER }} \
             --services ${{ env.ECS_SERVICE }}-production
+      - name: Fill in curriculum image in curriculum task definition
+        if: needs.build-and-push.outputs.curriculum_built == 'true'
+        id: task-def-curriculum
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.ECS_TASK_DEFINITION_CURRICULUM }}
+          container-name: ${{ env.CONTAINER_NAME_CURRICULUM }}
+          image: ${{ needs.build-and-push.outputs.curriculum_image }}
+      - name: Register curriculum task definition
+        if: needs.build-and-push.outputs.curriculum_built == 'true'
+        id: register-curriculum-task
+        run: |
+          TASK_DEF_FILE="${{ steps.task-def-curriculum.outputs.task-definition }}"
+          [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
+      - name: Deploy curriculum ECS service (production)
+        if: needs.build-and-push.outputs.curriculum_built == 'true'
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE_CURRICULUM }}-production \
+            --task-definition ${{ steps.register-curriculum-task.outputs.task-definition-arn }} \
+            --force-new-deployment \
+            --no-cli-pager
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE_CURRICULUM }}-production
 
       - name: Notify deployment
         if: success()

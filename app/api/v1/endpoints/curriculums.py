@@ -1,106 +1,92 @@
-from typing import Any, List, Optional
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Query, Form
-from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import UUID
+"""Curriculum routes: proxy to curriculum microservice (auth here, forward with X-School-Id)."""
+
 import json
+from typing import Any, List, Optional
+
+import httpx
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Query, Form
+from uuid import UUID
 
 from app.api import deps
 from app.models.user import User
-from app.services.curriculum_service import CurriculumService
 from app.services import storage_service as storage
+from app.config import settings
 from app.schemas.content import (
-    CurriculumResponse, CurriculumCreate, CurriculumUpdate,
-    CurriculumMergeProposeRequest, CurriculumMergeConfirmRequest, MergeProposalResponse,
-    TopicUpdate, TopicResponse, CurriculumGenerateRequest
+    CurriculumCreate,
+    CurriculumUpdate,
+    CurriculumMergeProposeRequest,
+    CurriculumMergeConfirmRequest,
+    CurriculumGenerateRequest,
+    TopicUpdate,
 )
 from app.schemas.responses import SuccessResponse, PaginatedResponse
-from app.models.enums import CurriculumStatus
 
 router = APIRouter()
 
 
-@router.get("", response_model=PaginatedResponse[CurriculumResponse])
+def _get_curriculum_client(request: Request) -> httpx.AsyncClient:
+    client = getattr(request.app.state, "curriculum_http", None)
+    if client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Curriculum service is not configured (CURRICULUM_SERVICE_URL)",
+        )
+    return client
+
+
+def _headers(school_id: UUID) -> dict:
+    h = {"X-School-Id": str(school_id)}
+    if settings.CURRICULUM_INTERNAL_SECRET:
+        h["X-Internal-Secret"] = settings.CURRICULUM_INTERNAL_SECRET
+    return h
+
+
+@router.get("", response_model=PaginatedResponse[Any])
 async def list_curriculums(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    status: Optional[CurriculumStatus] = Query(None),
+    status: Optional[str] = Query(None),
     language_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
-    current_user: User = Depends(deps.require_admin),  # Schools usually have curriculum managed by admins
-    db: AsyncSession = Depends(deps.get_db)
+    current_user: User = Depends(deps.require_admin),
+    request: Request = None,
 ) -> Any:
-    """
-    Get paginated list of curriculums for the school.
-    """
-    skip = (page - 1) * page_size
-    curriculums, total = await CurriculumService.get_curriculums(
-        db,
-        current_user.school_id,
-        skip=skip,
-        limit=page_size,
-        status=status,
-        language_id=language_id,
-        search=search
+    client = _get_curriculum_client(request)
+    params = {"page": page, "page_size": page_size}
+    if status is not None:
+        params["status"] = status
+    if language_id is not None:
+        params["language_id"] = language_id
+    if search is not None:
+        params["search"] = search
+    r = await client.get(
+        "/curriculums",
+        params=params,
+        headers=_headers(current_user.school_id),
     )
-
-    # Format response
-    serialized = []
-    for c in curriculums:
-        serialized.append(
-            CurriculumResponse(
-                id=c.id,
-                title=c.title,
-                description=c.description,
-                source_type=c.source_type,
-                file_url=c.file_url,
-                status=c.status,
-                created_at=c.created_at,
-                language_name=c.language.name if c.language else None,
-                classes=[{"id": cls.id, "name": cls.name} for cls in c.classes],
-                topics=[
-                    TopicResponse(
-                        id=t.id,
-                        title=t.title,
-                        content=t.content,
-                        duration_hours=t.duration_hours,
-                        learning_objectives=t.learning_objectives,
-                        order_index=t.order_index
-                    ) for t in c.topics
-                ] if getattr(c, 'topics', None) else []
-            )
-        )
-
-    total_pages = (total + page_size - 1) // page_size
-
-    return PaginatedResponse(
-        data=serialized,
-        meta={
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-            "total_pages": total_pages
-        }
-    )
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text or r.reason_phrase
+        raise HTTPException(status_code=r.status_code, detail=detail)
+    return r.json()
 
 
-@router.post("", response_model=SuccessResponse[CurriculumResponse])
+@router.post("", response_model=SuccessResponse[Any])
 async def upload_curriculum(
     title: str = Form(...),
     language_id: int = Form(...),
     description: Optional[str] = Form(None),
-    class_ids_json: Optional[str] = Form(None),  # JSON string list of UUIDs
+    class_ids_json: Optional[str] = Form(None),
     file: UploadFile = File(...),
     current_user: User = Depends(deps.require_admin),
-    db: AsyncSession = Depends(deps.get_db)
+    request: Request = None,
 ) -> Any:
-    """
-    Upload a new curriculum file and assign to classes.
-    """
-    # Parse class IDs if provided
     class_ids = []
     if class_ids_json:
         try:
-            class_ids = [UUID(cid) for cid in json.loads(class_ids_json)]
+            class_ids = [str(UUID(cid)) for cid in json.loads(class_ids_json)]
         except (ValueError, json.JSONDecodeError):
             raise HTTPException(status_code=400, detail="Invalid class_ids format")
 
@@ -108,269 +94,200 @@ async def upload_curriculum(
     key_prefix = f"curriculums/{current_user.school_id}"
     try:
         file_url = await storage.upload(
-            key_prefix, file.filename or "document.pdf", content, content_type=file.content_type
+            key_prefix,
+            file.filename or "document.pdf",
+            content,
+            content_type=file.content_type,
         )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
-    curriculum_in = CurriculumCreate(
-        title=title,
-        language_id=language_id,
-        description=description,
-        class_ids=class_ids
+    client = _get_curriculum_client(request)
+    body = {
+        "title": title,
+        "language_id": language_id,
+        "description": description,
+        "class_ids": class_ids,
+        "file_url": file_url,
+    }
+    r = await client.post(
+        "/curriculums",
+        json=body,
+        headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
     )
-
-    new_curriculum = await CurriculumService.create_curriculum(
-        db, current_user.school_id, curriculum_in, file_url=file_url
-    )
-    # Final serialization for response (including relationships fetched by service)
-    data = CurriculumResponse(
-        id=new_curriculum.id,
-        title=new_curriculum.title,
-        description=new_curriculum.description,
-        source_type=new_curriculum.source_type,
-        file_url=new_curriculum.file_url,
-        status=new_curriculum.status,
-        created_at=new_curriculum.created_at,
-        language_name=new_curriculum.language.name if new_curriculum.language else None,
-        classes=[{"id": cls.id, "name": cls.name} for cls in new_curriculum.classes],
-        topics=[]
-    )
-
-    return SuccessResponse(data=data, message="Curriculum uploaded successfully")
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text or r.reason_phrase
+        raise HTTPException(status_code=r.status_code, detail=detail)
+    return r.json()
 
 
-@router.post("/generate", response_model=SuccessResponse[List[TopicResponse]])
+@router.post("/generate", response_model=SuccessResponse[List[Any]])
 async def generate_curriculum(
     generate_in: CurriculumGenerateRequest,
     current_user: User = Depends(deps.require_admin),
-    db: AsyncSession = Depends(deps.get_db)
+    request: Request = None,
 ) -> Any:
-    """
-    Generate a full curriculum structure from a text prompt.
-    """
-    topics_create = await CurriculumService.generate_curriculum_topics(
-        db, generate_in.prompt, generate_in.language_id
+    client = _get_curriculum_client(request)
+    r = await client.post(
+        "/curriculums/generate",
+        json=generate_in.model_dump(),
+        headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
     )
-
-    import uuid
-    data = [
-        TopicResponse(
-            id=uuid.uuid4(),  # Return temporary IDs for UI tracking before persistence
-            title=t.title,
-            content=t.content,
-            duration_hours=t.duration_hours,
-            learning_objectives=t.learning_objectives,
-            order_index=t.order_index
-        ) for t in topics_create
-    ]
-    return SuccessResponse(data=data, message="Curriculum generated successfully")
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text or r.reason_phrase
+        raise HTTPException(status_code=r.status_code, detail=detail)
+    return r.json()
 
 
-@router.post("/{curriculum_id}/extract", response_model=SuccessResponse[List[TopicResponse]])
+@router.post("/{curriculum_id}/extract", response_model=SuccessResponse[List[Any]])
 async def extract_topics(
     curriculum_id: UUID,
     current_user: User = Depends(deps.require_admin),
-    db: AsyncSession = Depends(deps.get_db)
+    request: Request = None,
 ) -> Any:
-    """
-    Trigger AI extraction of topics for a newly uploaded curriculum document.
-    """
-    # Fetch Curriculum to ensure it exists and we have permissions
-    curriculum = await CurriculumService.get_curriculum_by_id(db, curriculum_id, current_user.school_id)
-    if not curriculum:
-        raise HTTPException(status_code=404, detail="Curriculum not found")
-
-    if not curriculum.file_url:
-        raise HTTPException(status_code=400, detail="Curriculum has no document to extract from")
-
-    # Use the real document URL for extraction
-    topics = await CurriculumService.extract_topics(db, curriculum_id, curriculum.file_url)
-
-    data = [
-        TopicResponse(
-            id=t.id,
-            title=t.title,
-            content=t.content,
-            duration_hours=t.duration_hours,
-            learning_objectives=t.learning_objectives,
-            order_index=t.order_index
-        ) for t in topics
-    ]
-    return SuccessResponse(data=data, message="Topics extracted successfully")
+    client = _get_curriculum_client(request)
+    r = await client.post(
+        f"/curriculums/{curriculum_id}/extract",
+        headers=_headers(current_user.school_id),
+    )
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text or r.reason_phrase
+        raise HTTPException(status_code=r.status_code, detail=detail)
+    return r.json()
 
 
-@router.patch("/topics/{topic_id}", response_model=SuccessResponse[TopicResponse])
+@router.patch("/topics/{topic_id}", response_model=SuccessResponse[Any])
 async def update_topic(
     topic_id: UUID,
     topic_in: TopicUpdate,
     current_user: User = Depends(deps.require_admin),
-    db: AsyncSession = Depends(deps.get_db)
+    request: Request = None,
 ) -> Any:
-    """
-    Teacher modification of an AI-generated topic.
-    """
-    # Note: Ideally add a check that the topic belongs to the user's school
-    updated = await CurriculumService.update_topic(db, topic_id, topic_in)
-    if not updated:
-        raise HTTPException(status_code=404, detail="Topic not found")
-
-    data = TopicResponse(
-        id=updated.id,
-        title=updated.title,
-        content=updated.content,
-        duration_hours=updated.duration_hours,
-        learning_objectives=updated.learning_objectives,
-        order_index=updated.order_index
+    client = _get_curriculum_client(request)
+    r = await client.patch(
+        f"/curriculums/topics/{topic_id}",
+        json=topic_in.model_dump(exclude_unset=True),
+        headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
     )
-    return SuccessResponse(data=data, message="Topic updated successfully")
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text or r.reason_phrase
+        raise HTTPException(status_code=r.status_code, detail=detail)
+    return r.json()
 
 
-@router.get("/{curriculum_id}", response_model=SuccessResponse[CurriculumResponse])
+@router.get("/{curriculum_id}", response_model=SuccessResponse[Any])
 async def get_curriculum(
     curriculum_id: UUID,
     current_user: User = Depends(deps.require_admin),
-    db: AsyncSession = Depends(deps.get_db)
+    request: Request = None,
 ) -> Any:
-    """Get details of a specific curriculum."""
-    curriculum = await CurriculumService.get_curriculum_by_id(db, curriculum_id, current_user.school_id)
-    if not curriculum:
-        raise HTTPException(status_code=404, detail="Curriculum not found")
-
-    data = CurriculumResponse(
-        id=curriculum.id,
-        title=curriculum.title,
-        description=curriculum.description,
-        source_type=curriculum.source_type,
-        file_url=curriculum.file_url,
-        status=curriculum.status,
-        created_at=curriculum.created_at,
-        language_name=curriculum.language.name if curriculum.language else None,
-        classes=[{"id": cls.id, "name": cls.name} for cls in curriculum.classes],
-        topics=[
-            TopicResponse(
-                id=t.id,
-                title=t.title,
-                content=t.content,
-                duration_hours=t.duration_hours,
-                learning_objectives=t.learning_objectives,
-                order_index=t.order_index
-            ) for t in curriculum.topics
-        ] if getattr(curriculum, 'topics', None) else []
+    client = _get_curriculum_client(request)
+    r = await client.get(
+        f"/curriculums/{curriculum_id}",
+        headers=_headers(current_user.school_id),
     )
-    return SuccessResponse(data=data)
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text or r.reason_phrase
+        raise HTTPException(status_code=r.status_code, detail=detail)
+    return r.json()
 
 
-@router.patch("/{curriculum_id}", response_model=SuccessResponse[CurriculumResponse])
+@router.patch("/{curriculum_id}", response_model=SuccessResponse[Any])
 async def update_curriculum(
     curriculum_id: UUID,
     curriculum_in: CurriculumUpdate,
     current_user: User = Depends(deps.require_admin),
-    db: AsyncSession = Depends(deps.get_db)
+    request: Request = None,
 ) -> Any:
-    """Update curriculum title, status, or class assignments."""
-    updated = await CurriculumService.update_curriculum(
-        db, curriculum_id, current_user.school_id, curriculum_in
+    client = _get_curriculum_client(request)
+    r = await client.patch(
+        f"/curriculums/{curriculum_id}",
+        json=curriculum_in.model_dump(exclude_unset=True),
+        headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
     )
-    if not updated:
-        raise HTTPException(status_code=404, detail="Curriculum not found")
-
-    data = CurriculumResponse(
-        id=updated.id,
-        title=updated.title,
-        description=updated.description,
-        source_type=updated.source_type,
-        file_url=updated.file_url,
-        status=updated.status,
-        created_at=updated.created_at,
-        language_name=updated.language.name if updated.language else None,
-        classes=[{"id": cls.id, "name": cls.name} for cls in updated.classes],
-        topics=[
-            TopicResponse(
-                id=t.id,
-                title=t.title,
-                content=t.content,
-                duration_hours=t.duration_hours,
-                learning_objectives=t.learning_objectives,
-                order_index=t.order_index
-            ) for t in updated.topics
-        ] if getattr(updated, 'topics', None) else []
-    )
-    return SuccessResponse(data=data, message="Curriculum updated successfully")
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text or r.reason_phrase
+        raise HTTPException(status_code=r.status_code, detail=detail)
+    return r.json()
 
 
-@router.post("/{curriculum_id}/merge/propose", response_model=SuccessResponse[MergeProposalResponse])
+@router.post("/{curriculum_id}/merge/propose", response_model=SuccessResponse[Any])
 async def propose_merge(
     curriculum_id: UUID,
     merge_in: CurriculumMergeProposeRequest,
     current_user: User = Depends(deps.require_admin),
-    db: AsyncSession = Depends(deps.get_db)
+    request: Request = None,
 ) -> Any:
-    """Trigger AI to propose a unified merge structure between two curriculums."""
-    teacher_curriculum = await CurriculumService.get_curriculum_by_id(
-        db, curriculum_id, current_user.school_id
+    client = _get_curriculum_client(request)
+    r = await client.post(
+        f"/curriculums/{curriculum_id}/merge/propose",
+        json=merge_in.model_dump(),
+        headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
     )
-    library_curriculum = await CurriculumService.get_curriculum_by_id(
-        db, merge_in.library_curriculum_id, current_user.school_id
-    )
-
-    if not teacher_curriculum or not library_curriculum:
-        raise HTTPException(status_code=404, detail="Curriculum not found")
-
-    proposals = await CurriculumService.propose_merge_strategy(db, teacher_curriculum, library_curriculum)
-
-    import uuid
-    data = MergeProposalResponse(
-        proposal_id=uuid.uuid4(),
-        proposed_topics=proposals
-    )
-    return SuccessResponse(data=data, message="Merge proposal generated")
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text or r.reason_phrase
+        raise HTTPException(status_code=r.status_code, detail=detail)
+    return r.json()
 
 
-@router.post("/{curriculum_id}/merge/confirm", response_model=SuccessResponse[CurriculumResponse])
+@router.post("/{curriculum_id}/merge/confirm", response_model=SuccessResponse[Any])
 async def confirm_merge(
     curriculum_id: UUID,
     merge_in: CurriculumMergeConfirmRequest,
     current_user: User = Depends(deps.require_admin),
-    db: AsyncSession = Depends(deps.get_db)
+    request: Request = None,
 ) -> Any:
-    """Finalize the merge with teacher-selected topics and create the new curriculum."""
-    merged = await CurriculumService.confirm_merge(
-        db, current_user.school_id, curriculum_id, merge_in.final_topics
+    client = _get_curriculum_client(request)
+    r = await client.post(
+        f"/curriculums/{curriculum_id}/merge/confirm",
+        json=merge_in.model_dump(),
+        headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
     )
-
-    data = CurriculumResponse(
-        id=merged.id,
-        title=merged.title,
-        description=merged.description,
-        source_type=merged.source_type,
-        file_url=merged.file_url,
-        status=merged.status,
-        created_at=merged.created_at,
-        language_name=merged.language.name if merged.language else None,
-        classes=[{"id": cls.id, "name": cls.name} for cls in merged.classes],
-        topics=[
-            TopicResponse(
-                id=t.id,
-                title=t.title,
-                content=t.content,
-                duration_hours=t.duration_hours,
-                learning_objectives=t.learning_objectives,
-                order_index=t.order_index
-            ) for t in merged.topics
-        ] if getattr(merged, 'topics', None) else []
-    )
-    return SuccessResponse(data=data, message="Curriculum merged successfully")
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text or r.reason_phrase
+        raise HTTPException(status_code=r.status_code, detail=detail)
+    return r.json()
 
 
 @router.delete("/{curriculum_id}", response_model=SuccessResponse)
 async def delete_curriculum(
     curriculum_id: UUID,
     current_user: User = Depends(deps.require_admin),
-    db: AsyncSession = Depends(deps.get_db)
+    request: Request = None,
 ) -> Any:
-    """Permanently delete a curriculum."""
-    success = await CurriculumService.delete_curriculum(db, curriculum_id, current_user.school_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Curriculum not found")
-    return SuccessResponse(data=None, message="Curriculum deleted successfully")
+    client = _get_curriculum_client(request)
+    r = await client.delete(
+        f"/curriculums/{curriculum_id}",
+        headers=_headers(current_user.school_id),
+    )
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text or r.reason_phrase
+        raise HTTPException(status_code=r.status_code, detail=detail)
+    return r.json()

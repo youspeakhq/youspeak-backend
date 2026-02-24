@@ -1,18 +1,12 @@
+"""Integration tests for curriculum API. Core API proxies to curriculum service; these tests hit the proxy."""
+
 import os
 import pytest
 from httpx import AsyncClient
 from uuid import UUID
-import json
-import io
-from typing import List
-from unittest.mock import AsyncMock, patch, MagicMock
-from app.schemas.content import TopicCreate, TopicProposal
-import importlib
+from unittest.mock import patch
 
 from tests.conftest import requires_db
-from app.database import init_db
-from app.models.curriculum import Curriculum
-from app.models.academic import curriculum_classes
 
 pytestmark = requires_db
 
@@ -25,18 +19,45 @@ requires_r2 = pytest.mark.skipif(
     reason="R2 storage not configured (set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY)",
 )
 
-@pytest.fixture(scope="session", autouse=True)
-async def setup_curriculum_tables():
-    """Ensure curriculum tables are created in the test database."""
-    import app.services.curriculum_service
-    importlib.reload(app.services.curriculum_service)
-    print(f"\nDEBUG: curriculum_service file: {app.services.curriculum_service.__file__}")
-    print(f"\nDEBUG: curriculum_service attributes: {dir(app.services.curriculum_service)}")
-    import os
-    if os.getenv("TEST_USE_LIVE_SERVER", "").lower() != "true":
-        await init_db()
+
+class _MockCurriculumResponse:
+    def __init__(self, status_code: int, json_data: dict = None, text: str = ""):
+        self.status_code = status_code
+        self._json = json_data if json_data is not None else {}
+        self.text = text or ""
+
+    def json(self):
+        return self._json
+
+
+class _MockCurriculumHttpClient:
+    """Mock curriculum service HTTP client: returns 404 for all requests (for proxy tests that expect 404)."""
+
+    async def get(self, url, params=None, headers=None, **kwargs):
+        return _MockCurriculumResponse(404, {"detail": "Not found"})
+
+    async def post(self, url, json=None, data=None, headers=None, **kwargs):
+        return _MockCurriculumResponse(404, {"detail": "Not found"})
+
+    async def patch(self, url, json=None, headers=None, **kwargs):
+        return _MockCurriculumResponse(404, {"detail": "Not found"})
+
+    async def delete(self, url, **kwargs):
+        return _MockCurriculumResponse(404, {"detail": "Not found"})
+
+
+@pytest.fixture
+def mock_curriculum_service_404():
+    """Patch proxy's curriculum client so it returns 404 (for tests that only need 404 from proxy)."""
+    mock_client = _MockCurriculumHttpClient()
+    with patch("app.api.v1.endpoints.curriculums._get_curriculum_client", return_value=mock_client):
+        yield
 
 @requires_r2
+@pytest.mark.skipif(
+    not os.getenv("CURRICULUM_SERVICE_URL"),
+    reason="CURRICULUM_SERVICE_URL required (proxy needs curriculum service)",
+)
 @pytest.mark.asyncio
 async def test_curriculum_lifecycle(
     async_client: AsyncClient,
@@ -149,11 +170,12 @@ async def test_curriculum_lifecycle(
 
 @pytest.mark.asyncio
 async def test_curriculum_not_found_scenarios(
-    async_client: AsyncClient, 
-    api_base: str, 
-    registered_school: dict
+    async_client: AsyncClient,
+    api_base: str,
+    registered_school: dict,
+    mock_curriculum_service_404,
 ):
-    """Test that all endpoints properly return 404 for a non-existent curriculum or topic."""
+    """Test that all endpoints properly return 404 when curriculum service returns 404 (proxy forwards)."""
     headers = registered_school["headers"]
     fake_uuid = "00000000-0000-0000-0000-000000000000"
     
@@ -194,6 +216,10 @@ async def test_curriculum_not_found_scenarios(
     assert resp.status_code == 404
 
 @requires_r2
+@pytest.mark.skipif(
+    not os.getenv("CURRICULUM_SERVICE_URL"),
+    reason="CURRICULUM_SERVICE_URL required (proxy needs curriculum service)",
+)
 @pytest.mark.asyncio
 async def test_curriculum_merge_proposal(
     async_client: AsyncClient,
@@ -235,82 +261,30 @@ async def test_curriculum_merge_proposal(
     assert len(data["proposed_topics"]) == 1
     assert data["proposed_topics"][0]["action"] == "blend"
 
-@pytest.mark.skipif(not os.getenv("RUN_LIVE_E2E"), reason="Curriculum generation uses Bedrock; set RUN_LIVE_E2E=1 to run")
+@pytest.mark.skipif(
+    not os.getenv("RUN_LIVE_E2E"),
+    reason="Curriculum generation uses Bedrock; set RUN_LIVE_E2E=1 to run",
+)
+@pytest.mark.skipif(
+    not os.getenv("CURRICULUM_SERVICE_URL"),
+    reason="CURRICULUM_SERVICE_URL required (proxy needs curriculum service)",
+)
 @pytest.mark.asyncio
 async def test_curriculum_generation(
     async_client: AsyncClient,
     api_base: str,
     registered_school: dict,
 ):
-    """Test generating curriculum topics from a prompt."""
+    """Test generating curriculum topics from a prompt (live Bedrock)."""
     headers = registered_school["headers"]
-    
-    # Mock AI response
-    mock_topics = [
-        TopicCreate(title="Intro", duration_hours=1.0, learning_objectives=["Goal 1"]),
-        TopicCreate(title="Advanced", duration_hours=2.0, learning_objectives=["Goal 2"])
-    ]
-    
-    generate_data = {
-        "prompt": "Learn French for travelers",
-        "language_id": 1
-    }
+    generate_data = {"prompt": "Learn French for travelers", "language_id": 1}
     resp = await async_client.post(
         f"{api_base}/curriculums/generate",
         headers=headers,
-        json=generate_data
+        json=generate_data,
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 200, resp.text
     data = resp.json()["data"]
-    assert len(data) == 2
-    assert data[0]["title"] == "Mock Topic 1" 
-    assert "id" in data[0] # Temporary UUID
-
-# Optimization: Add a global mock for AI components to avoid real calls in other tests
-@pytest.fixture(autouse=True)
-def mock_ai_engines():
-    """Surgical mocks for AI and external libraries."""
-    mock_client = MagicMock()
-    mock_llm = AsyncMock()
-    mock_client.chat.completions.create = mock_llm
-    
-    # Default mock for topic extraction/generation
-    mock_llm.return_value = [
-        TopicCreate(title="Mock Topic 1", duration_hours=1.0, learning_objectives=["Obj 1"]),
-        TopicCreate(title="Mock Topic 2", duration_hours=1.5, learning_objectives=["Obj 2"])
-    ]
-    
-    # Handle Merge Proposals
-    async def side_effect(*args, **kwargs):
-        response_model = kwargs.get("response_model")
-        if response_model == List[TopicProposal] or response_model == TopicProposal:
-            return [
-                TopicProposal(
-                    action="blend", 
-                    source="both", 
-                    topic=TopicCreate(title="Blended Topic", duration_hours=1.0)
-                )
-            ]
-        return mock_llm.return_value
-
-    mock_llm.side_effect = side_effect
-    
-    # Surgical patches: patch get_ai_client and DocumentConverter (imported inside extract_topics from docling)
-    with patch("app.services.curriculum_service.get_ai_client", return_value=mock_client), \
-         patch("docling.document_converter.DocumentConverter", autospec=True) as mock_doc:
-        
-        # Mock Docling conversion
-        mock_res = MagicMock()
-        mock_res.document.export_to_markdown.return_value = "Mocked Markdown Content"
-        mock_doc_instance = mock_doc.return_value
-        mock_doc_instance.convert.return_value = mock_res
-        
-        # Mock httpx ONLY inside the curriculum service
-        with patch("app.services.curriculum_service.httpx.AsyncClient") as mock_service_http:
-            mock_http_instance = mock_service_http.return_value.__aenter__.return_value
-            mock_http_resp = MagicMock()
-            mock_http_resp.content = b"%PDF-1.4 mock content"
-            mock_http_resp.status_code = 200
-            mock_http_instance.get = AsyncMock(return_value=mock_http_resp)
-            
-            yield mock_llm, mock_doc_instance
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert "title" in data[0] and "id" in data[0]

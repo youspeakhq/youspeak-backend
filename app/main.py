@@ -41,10 +41,21 @@ async def lifespan(app: FastAPI):
         await init_db()
         logger.info("Database initialized")
 
+    # Curriculum service HTTP client (internal proxy)
+    app.state.curriculum_http = None
+    if settings.CURRICULUM_SERVICE_URL:
+        import httpx
+        app.state.curriculum_http = httpx.AsyncClient(
+            base_url=settings.CURRICULUM_SERVICE_URL.rstrip("/"),
+            timeout=120.0,
+        )
+
     yield
 
     # Shutdown
     logger.info("Shutting down application")
+    if getattr(app.state, "curriculum_http", None) is not None:
+        await app.state.curriculum_http.aclose()
     await close_db()
 
 

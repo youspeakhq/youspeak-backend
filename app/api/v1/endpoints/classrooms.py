@@ -7,6 +7,7 @@ from uuid import UUID
 
 from app.api import deps
 from app.models.user import User
+from app.models.enums import UserRole
 from app.services.classroom_service import ClassroomService
 from app.schemas.academic import ClassroomCreate, ClassroomAddTeacher, ClassroomAddStudent
 from app.schemas.responses import SuccessResponse
@@ -95,7 +96,7 @@ def _user_to_response(u: User) -> UserResponse:
         school_id=u.school_id,
         profile_picture_url=u.profile_picture_url,
         student_number=getattr(u, "student_number", None),
-        is_verified=False,
+        is_verified=True if u.role != UserRole.STUDENT else False,
         created_at=u.created_at,
         updated_at=u.updated_at,
         last_login=getattr(u, "last_login", None),

@@ -387,6 +387,7 @@ async def test_get_classroom_students_returns_enrolled_students(
             "first_name": "Roster",
             "last_name": f"Y{unique_suffix}",
             "class_id": class_id_for_student,
+            "lang_id": 1,
         },
     )
     assert resp.status_code == 200

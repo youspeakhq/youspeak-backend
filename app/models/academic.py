@@ -85,11 +85,6 @@ class Class(BaseModel, SchoolScopedMixin):
     classroom = relationship("Classroom", back_populates="classes")
 
     schedules = relationship("ClassSchedule", back_populates="class_", cascade="all, delete-orphan")
-    curriculums = relationship(
-        "Curriculum",
-        secondary="curriculum_classes",
-        back_populates="classes"
-    )
     learning_sessions = relationship("LearningSession", back_populates="class_", cascade="all, delete-orphan")
     arenas = relationship("Arena", back_populates="class_", cascade="all, delete-orphan")
     awards = relationship("Award", back_populates="class_", cascade="all, delete-orphan")

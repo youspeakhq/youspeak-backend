@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
 
+    # Curriculum microservice (internal)
+    CURRICULUM_SERVICE_URL: str = ""
+    CURRICULUM_INTERNAL_SECRET: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

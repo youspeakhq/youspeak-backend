@@ -546,6 +546,168 @@ resource "aws_ecr_repository" "app" {
   }
 }
 
+# ECR Repository (curriculum microservice)
+resource "aws_ecr_repository" "curriculum" {
+  name                 = "${var.app_name}-curriculum-backend"
+  image_tag_mutability = "MUTABLE"
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+# CloudWatch Log Group (curriculum)
+resource "aws_cloudwatch_log_group" "curriculum" {
+  name              = "/ecs/${var.app_name}-curriculum-api"
+  retention_in_days = 14
+}
+
+# Security group for curriculum internal ALB (core API tasks reach this on 80)
+resource "aws_security_group" "curriculum_alb_internal" {
+  name        = "${var.app_name}-curriculum-alb-internal-${var.environment}"
+  description = "Internal ALB for curriculum service"
+  vpc_id      = aws_vpc.main.id
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs.id]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# ECS SG must allow outbound to curriculum ALB (already has egress 0.0.0.0/0)
+
+# Internal ALB and TG for curriculum (production)
+resource "aws_lb" "curriculum_internal_production" {
+  name               = "${var.app_name}-curriculum-internal-production"
+  internal           = true
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.curriculum_alb_internal.id]
+  subnets            = aws_subnet.private[*].id
+}
+
+resource "aws_lb_target_group" "curriculum_production" {
+  name        = "${var.app_name}-curriculum-tg-production"
+  port        = 8001
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200"
+    path                = "/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 3
+  }
+}
+
+resource "aws_lb_listener" "curriculum_internal_production" {
+  load_balancer_arn = aws_lb.curriculum_internal_production.arn
+  port              = "80"
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.curriculum_production.arn
+  }
+}
+
+# Internal ALB and TG for curriculum (staging)
+resource "aws_lb" "curriculum_internal_staging" {
+  name               = "${var.app_name}-curriculum-internal-staging"
+  internal           = true
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.curriculum_alb_internal.id]
+  subnets            = aws_subnet.private[*].id
+}
+
+resource "aws_lb_target_group" "curriculum_staging" {
+  name        = "${var.app_name}-curriculum-tg-staging"
+  port        = 8001
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200"
+    path                = "/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 3
+  }
+}
+
+resource "aws_lb_listener" "curriculum_internal_staging" {
+  load_balancer_arn = aws_lb.curriculum_internal_staging.arn
+  port              = "80"
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.curriculum_staging.arn
+  }
+}
+
+# ECS service: curriculum production
+resource "aws_ecs_service" "curriculum_production" {
+  name            = "${var.app_name}-curriculum-service-production"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = "youspeak-curriculum-task"
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  platform_version = "LATEST"
+  network_configuration {
+    subnets          = aws_subnet.private[*].id
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = false
+  }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.curriculum_production.arn
+    container_name   = "youspeak-curriculum"
+    container_port   = 8001
+  }
+  health_check_grace_period_seconds = 90
+  enable_execute_command           = true
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
+}
+
+# ECS service: curriculum staging
+resource "aws_ecs_service" "curriculum_staging" {
+  name            = "${var.app_name}-curriculum-service-staging"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = "youspeak-curriculum-task"
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  platform_version = "LATEST"
+  network_configuration {
+    subnets          = aws_subnet.private[*].id
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = false
+  }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.curriculum_staging.arn
+    container_name   = "youspeak-curriculum"
+    container_port   = 8001
+  }
+  health_check_grace_period_seconds = 90
+  enable_execute_command           = true
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
+}
+
 # ECS Cluster
 resource "aws_ecs_cluster" "main" {
   name = "${var.app_name}-cluster"
@@ -953,4 +1115,19 @@ output "api_url_https" {
 output "api_staging_url_https" {
   description = "Staging API URL (HTTPS). Set when domain_name is configured."
   value       = local.enable_https ? "https://${local.staging_fqdn}" : null
+}
+
+output "curriculum_service_url_production" {
+  description = "Internal URL for curriculum service (production). Use as CURRICULUM_SERVICE_URL for core API production task."
+  value       = "http://${aws_lb.curriculum_internal_production.dns_name}"
+}
+
+output "curriculum_service_url_staging" {
+  description = "Internal URL for curriculum service (staging). Use as CURRICULUM_SERVICE_URL for core API staging task."
+  value       = "http://${aws_lb.curriculum_internal_staging.dns_name}"
+}
+
+output "ecr_curriculum_repository_url" {
+  description = "ECR repository URL for curriculum service image"
+  value       = aws_ecr_repository.curriculum.repository_url
 }

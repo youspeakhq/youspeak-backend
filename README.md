@@ -143,8 +143,9 @@ pytest --cov=app tests/ --no-cov-on-fail
 
 ### Test structure
 - `tests/unit_test.py` - Unit tests (config, no external deps)
-- `tests/integration/` - Per-endpoint integration tests (auth, schools, admin, students, teachers, classes, references, users)
+- `tests/integration/` - Per-endpoint integration tests (auth, schools, admin, students, teachers, classes, references, users, curriculums proxy)
 - `tests/e2e/` - Full flow E2E tests (school onboarding, teacher+student flow)
+- `services/curriculum/tests/` - Curriculum microservice tests (run with `PYTHONPATH=services/curriculum pytest services/curriculum/tests/ -v`; require DATABASE_URL)
 
 ### Run CI checks locally (before pushing)
 Lint, Docker Compose, and tests—same as GitHub Actions, without pushing:

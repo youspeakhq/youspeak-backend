@@ -1,0 +1,11 @@
+fastapi[standard]==0.109.2
+uvicorn[standard]==0.27.0
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+pydantic>=2.8.0,<3.0.0
+pydantic-settings>=2.3.0,<3.0.0
+httpx==0.26.0
+instructor[bedrock]>=1.14.0,<2
+docling>=2.7.0,<3
+openai>=2.0.0,<3.0.0
+boto3>=1.34.0

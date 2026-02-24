@@ -36,6 +36,7 @@ SECRET_R2_ACCESS_KEY_ARN=$(terraform -chdir=terraform output -raw secret_r2_acce
 SECRET_R2_SECRET_ARN=$(terraform -chdir=terraform output -raw secret_r2_secret_access_key_arn 2>/dev/null || true)
 SECRET_R2_BUCKET_ARN=$(terraform -chdir=terraform output -raw secret_r2_bucket_name_arn 2>/dev/null || true)
 STORAGE_PUBLIC_BASE_URL=$(terraform -chdir=terraform output -raw storage_public_base_url 2>/dev/null || echo "")
+CURRICULUM_SERVICE_URL=$(terraform -chdir=terraform output -raw curriculum_service_url_production 2>/dev/null || echo "")
 
 if [ -z "$EXEC_ROLE_ARN" ] || [ -z "$SECRET_DB_ARN" ]; then
     echo -e "${RED}Error: Terraform outputs not found. Run from repo root after: cd terraform && terraform init && terraform apply${NC}"
@@ -68,6 +69,13 @@ if [ -n "$SECRET_R2_ACCESS_KEY_ARN" ]; then
   STORAGE_URL_ESC=$(echo "$STORAGE_PUBLIC_BASE_URL" | sed 's/"/\\"/g')
   R2_ENV_JSON=",
         { \"name\": \"STORAGE_PUBLIC_BASE_URL\", \"value\": \"${STORAGE_URL_ESC}\" }"
+fi
+
+CURRICULUM_ENV_JSON=""
+if [ -n "$CURRICULUM_SERVICE_URL" ]; then
+  CURRICULUM_ESC=$(echo "$CURRICULUM_SERVICE_URL" | sed 's/"/\\"/g')
+  CURRICULUM_ENV_JSON=",
+        { \"name\": \"CURRICULUM_SERVICE_URL\", \"value\": \"${CURRICULUM_ESC}\" }"
 fi
 
 # Generate task definition from template (use execution role for task role as well)
@@ -108,7 +116,7 @@ cat > .aws/task-definition.json <<EOF
         {
           "name": "LOG_FORMAT",
           "value": "json"
-        }${R2_ENV_JSON}
+        }${R2_ENV_JSON}${CURRICULUM_ENV_JSON}
       ],
       "secrets": [
         {
