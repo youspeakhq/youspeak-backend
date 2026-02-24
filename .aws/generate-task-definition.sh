@@ -37,6 +37,7 @@ SECRET_R2_SECRET_ARN=$(terraform -chdir=terraform output -raw secret_r2_secret_a
 SECRET_R2_BUCKET_ARN=$(terraform -chdir=terraform output -raw secret_r2_bucket_name_arn 2>/dev/null || true)
 STORAGE_PUBLIC_BASE_URL=$(terraform -chdir=terraform output -raw storage_public_base_url 2>/dev/null || echo "")
 CURRICULUM_SERVICE_URL=$(terraform -chdir=terraform output -raw curriculum_service_url_production 2>/dev/null || echo "")
+CURRICULUM_SERVICE_URL_STAGING=$(terraform -chdir=terraform output -raw curriculum_service_url_staging 2>/dev/null || echo "")
 
 if [ -z "$EXEC_ROLE_ARN" ] || [ -z "$SECRET_DB_ARN" ]; then
     echo -e "${RED}Error: Terraform outputs not found. Run from repo root after: cd terraform && terraform init && terraform apply${NC}"
@@ -78,7 +79,14 @@ if [ -n "$CURRICULUM_SERVICE_URL" ]; then
         { \"name\": \"CURRICULUM_SERVICE_URL\", \"value\": \"${CURRICULUM_ESC}\" }"
 fi
 
-# Generate task definition from template (use execution role for task role as well)
+CURRICULUM_STAGING_ENV_JSON=""
+if [ -n "$CURRICULUM_SERVICE_URL_STAGING" ]; then
+  CURRICULUM_STG_ESC=$(echo "$CURRICULUM_SERVICE_URL_STAGING" | sed 's/"/\\"/g')
+  CURRICULUM_STAGING_ENV_JSON=",
+        { \"name\": \"CURRICULUM_SERVICE_URL\", \"value\": \"${CURRICULUM_STG_ESC}\" }"
+fi
+
+# Generate production task definition
 cat > .aws/task-definition.json <<EOF
 {
   "family": "youspeak-api-task",
@@ -153,6 +161,81 @@ cat > .aws/task-definition.json <<EOF
 }
 EOF
 
+# Generate staging task definition (ENVIRONMENT=staging, curriculum staging URL)
+cat > .aws/task-definition-staging.json <<EOF
+{
+  "family": "youspeak-api-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "ephemeralStorage": { "sizeInGiB": 50 },
+  "executionRoleArn": "${EXEC_ROLE_ARN}",
+  "taskRoleArn": "${TASK_ROLE_ARN}",
+  "containerDefinitions": [
+    {
+      "name": "youspeak-api",
+      "image": "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/youspeak-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "ENVIRONMENT",
+          "value": "staging"
+        },
+        {
+          "name": "API_V1_PREFIX",
+          "value": "/api/v1"
+        },
+        {
+          "name": "LOG_LEVEL",
+          "value": "INFO"
+        },
+        {
+          "name": "LOG_FORMAT",
+          "value": "json"
+        }${R2_ENV_JSON}${CURRICULUM_STAGING_ENV_JSON}
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "${SECRET_DB_ARN}"
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": "${SECRET_REDIS_ARN}"
+        },
+        {
+          "name": "SECRET_KEY",
+          "valueFrom": "${SECRET_KEY_ARN}"
+        }${RESEND_SECRET_JSON}${R2_SECRET_JSON}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/youspeak-api",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")' || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
+EOF
+
 # Migration-only task (slim image without docling/opencv); used by CI one-off migration step
 cat > .aws/task-definition-migration.json <<EOF
 {
@@ -187,7 +270,8 @@ cat > .aws/task-definition-migration.json <<EOF
 }
 EOF
 
-echo -e "${GREEN}✓ Task definition generated at .aws/task-definition.json${NC}"
+echo -e "${GREEN}✓ Production task definition at .aws/task-definition.json${NC}"
+echo -e "${GREEN}✓ Staging task definition at .aws/task-definition-staging.json${NC}"
 echo -e "${GREEN}✓ Migration task definition at .aws/task-definition-migration.json${NC}"
 echo ""
 echo "Next steps:"

@@ -18,6 +18,7 @@ env:
   ECS_SERVICE_CURRICULUM: youspeak-curriculum-service
   ECS_CLUSTER: youspeak-cluster
   ECS_TASK_DEFINITION: .aws/task-definition.json
+  ECS_TASK_DEFINITION_STAGING: .aws/task-definition-staging.json
   ECS_TASK_DEFINITION_CURRICULUM: .aws/task-definition-curriculum.json
   CONTAINER_NAME: youspeak-api
   CONTAINER_NAME_CURRICULUM: youspeak-curriculum
@@ -42,6 +43,7 @@ jobs:
               - 'requirements-*.txt'
               - 'Dockerfile'
               - '.aws/task-definition.json'
+              - '.aws/task-definition-staging.json'
               - '.aws/task-definition-migration.json'
             curriculum:
               - 'services/curriculum/**'
@@ -250,6 +252,10 @@ jobs:
             echo "::error::.aws/task-definition.json contains YOUR_ACCOUNT_ID. Run ./.aws/generate-task-definition.sh locally (after terraform apply) and commit the file."
             exit 1
           fi
+          if grep -q 'YOUR_ACCOUNT_ID' .aws/task-definition-staging.json 2>/dev/null; then
+            echo "::error::.aws/task-definition-staging.json contains YOUR_ACCOUNT_ID. Run ./.aws/generate-task-definition.sh locally (after terraform apply) and commit the file."
+            exit 1
+          fi
           echo "Task definition OK"
       - name: Build and push core image to Amazon ECR
         if: needs.paths.outputs.core == 'true'
@@ -334,17 +340,14 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: Fill in the new image ID in the Amazon ECS task definition
+      - name: Fill in the new image ID in the Amazon ECS task definition (staging)
         if: needs.build-and-push.outputs.core_built == 'true'
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+          task-definition: ${{ env.ECS_TASK_DEFINITION_STAGING }}
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ needs.build-and-push.outputs.image }}
-          environment-variables: |
-            ENVIRONMENT=staging
-            LOG_LEVEL=INFO
       - name: Register task definition
         if: needs.build-and-push.outputs.core_built == 'true'
         id: register-task
