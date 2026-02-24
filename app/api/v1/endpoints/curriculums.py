@@ -1,28 +1,9 @@
 """Curriculum routes: proxy to curriculum microservice (auth here, forward with X-School-Id)."""
 
 import json
-import os
-import time
 from typing import Any, List, Optional
 
 import httpx
-# #region agent log
-def _debug_log_path():
-    try:
-        root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-        return os.path.join(root, ".cursor", "debug-ab308d.log")
-    except Exception:
-        return "/tmp/debug-ab308d.log"
-def _dlog(location: str, message: str, data: dict, hypothesis_id: str):
-    try:
-        path = _debug_log_path()
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        payload = {"sessionId": "ab308d", "timestamp": int(time.time() * 1000), "location": location, "message": message, "data": data, "hypothesisId": hypothesis_id}
-        with open(path, "a") as f:
-            f.write(json.dumps(payload) + "\n")
-    except Exception:
-        pass
-# #endregion
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Query, Form
 from fastapi.responses import JSONResponse
 from uuid import UUID
@@ -63,9 +44,6 @@ def _headers(school_id: UUID) -> dict:
 
 def _proxy_error_response(r: httpx.Response) -> JSONResponse:
     """Return JSONResponse with upstream status and normalized ErrorResponse envelope for API contract."""
-    # #region agent log
-    _dlog("curriculums.py:_proxy_error_response:entry", "proxy_error_response entered", {"status_code": getattr(r, "status_code", None), "r_type": type(r).__name__}, "H3")
-    # #endregion
     try:
         raw = r.json()
         if isinstance(raw, dict) and "detail" in raw:
@@ -73,11 +51,8 @@ def _proxy_error_response(r: httpx.Response) -> JSONResponse:
             message = detail if isinstance(detail, str) else "; ".join(str(x) for x in detail) if isinstance(detail, list) else str(detail)
         else:
             message = str(raw) if raw is not None else (r.text or r.reason_phrase or "Upstream error")
-    except Exception as e1:
+    except Exception:
         message = r.text or r.reason_phrase or "Upstream error"
-        # #region agent log
-        _dlog("curriculums.py:_proxy_error_response:r.json_exc", "r.json() raised", {"exc_type": type(e1).__name__, "exc_msg": str(e1)}, "H5")
-        # #endregion
     code = {
         400: "BAD_REQUEST",
         401: "UNAUTHORIZED",
@@ -85,21 +60,8 @@ def _proxy_error_response(r: httpx.Response) -> JSONResponse:
         404: "NOT_FOUND",
         422: "VALIDATION_ERROR",
     }.get(r.status_code, "UPSTREAM_ERROR")
-    # #region agent log
-    _dlog("curriculums.py:_proxy_error_response:before_body", "building body", {"code": code, "message_len": len(message) if message else 0}, "H2")
-    # #endregion
-    try:
-        body = ErrorResponse(error=ErrorDetail(code=code, message=message)).model_dump()
-        out = JSONResponse(status_code=r.status_code, content=body)
-        # #region agent log
-        _dlog("curriculums.py:_proxy_error_response:return", "returning JSONResponse", {"status_code": r.status_code}, "H2")
-        # #endregion
-        return out
-    except Exception as e2:
-        # #region agent log
-        _dlog("curriculums.py:_proxy_error_response:body_exc", "ErrorResponse/model_dump or JSONResponse raised", {"exc_type": type(e2).__name__, "exc_msg": str(e2)}, "H2")
-        # #endregion
-        raise
+    body = ErrorResponse(error=ErrorDetail(code=code, message=message)).model_dump()
+    return JSONResponse(status_code=r.status_code, content=body)
 
 
 @router.get("", response_model=PaginatedResponse[Any])
@@ -186,7 +148,7 @@ async def generate_curriculum(
     client = _get_curriculum_client(request)
     r = await client.post(
         "/curriculums/generate",
-        json=generate_in.model_dump(),
+        json=generate_in.model_dump(mode="json"),
         headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
     )
     if r.status_code >= 400:
@@ -220,7 +182,7 @@ async def update_topic(
     client = _get_curriculum_client(request)
     r = await client.patch(
         f"/curriculums/topics/{topic_id}",
-        json=topic_in.model_dump(exclude_unset=True),
+        json=topic_in.model_dump(mode="json", exclude_unset=True),
         headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
     )
     if r.status_code >= 400:
@@ -254,7 +216,7 @@ async def update_curriculum(
     client = _get_curriculum_client(request)
     r = await client.patch(
         f"/curriculums/{curriculum_id}",
-        json=curriculum_in.model_dump(exclude_unset=True),
+        json=curriculum_in.model_dump(mode="json", exclude_unset=True),
         headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
     )
     if r.status_code >= 400:
@@ -269,28 +231,12 @@ async def propose_merge(
     merge_in: CurriculumMergeProposeRequest,
     current_user: User = Depends(deps.require_admin),
 ) -> Any:
-    # #region agent log
-    _dlog("curriculums.py:propose_merge:entry", "propose_merge entered", {"curriculum_id": str(curriculum_id)}, "H1")
-    # #endregion
-    try:
-        body_dict = merge_in.model_dump()
-        # #region agent log
-        _dlog("curriculums.py:propose_merge:after_model_dump", "merge_in.model_dump() ok", {}, "H4")
-        # #endregion
-    except Exception as e:
-        # #region agent log
-        _dlog("curriculums.py:propose_merge:model_dump_exc", "merge_in.model_dump() raised", {"exc_type": type(e).__name__, "exc_msg": str(e)}, "H4")
-        # #endregion
-        raise
     client = _get_curriculum_client(request)
     r = await client.post(
         f"/curriculums/{curriculum_id}/merge/propose",
-        json=body_dict,
+        json=merge_in.model_dump(mode="json"),
         headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
     )
-    # #region agent log
-    _dlog("curriculums.py:propose_merge:after_post", "client.post returned", {"r_type": type(r).__name__, "status_code": getattr(r, "status_code", None)}, "H3")
-    # #endregion
     if r.status_code >= 400:
         return _proxy_error_response(r)
     return r.json()
@@ -306,7 +252,7 @@ async def confirm_merge(
     client = _get_curriculum_client(request)
     r = await client.post(
         f"/curriculums/{curriculum_id}/merge/confirm",
-        json=merge_in.model_dump(),
+        json=merge_in.model_dump(mode="json"),
         headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
     )
     if r.status_code >= 400:
