@@ -4,8 +4,10 @@ from typing import Optional, List, Dict, Any
 from uuid import UUID
 from sqlalchemy import select, and_, insert, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.academic import Classroom, classroom_teachers, classroom_students
+from app.models.user import User
 from app.models.enums import UserRole
 from app.schemas.academic import ClassroomCreate
 from app.services.user_service import UserService
@@ -154,3 +156,45 @@ class ClassroomService:
         )
         await db.commit()
         return True
+
+    @staticmethod
+    async def get_classroom_students(
+        db: AsyncSession,
+        classroom_id: UUID,
+        school_id: UUID,
+    ) -> List[User]:
+        """Return students enrolled in the classroom. Empty list if classroom not found or not in school."""
+        stmt = (
+            select(Classroom)
+            .options(selectinload(Classroom.students))
+            .where(
+                Classroom.id == classroom_id,
+                Classroom.school_id == school_id,
+            )
+        )
+        result = await db.execute(stmt)
+        classroom = result.scalar_one_or_none()
+        if not classroom:
+            return []
+        return list(classroom.students)
+
+    @staticmethod
+    async def get_classroom_teachers(
+        db: AsyncSession,
+        classroom_id: UUID,
+        school_id: UUID,
+    ) -> List[User]:
+        """Return teachers assigned to the classroom. Empty list if classroom not found or not in school."""
+        stmt = (
+            select(Classroom)
+            .options(selectinload(Classroom.teachers))
+            .where(
+                Classroom.id == classroom_id,
+                Classroom.school_id == school_id,
+            )
+        )
+        result = await db.execute(stmt)
+        classroom = result.scalar_one_or_none()
+        if not classroom:
+            return []
+        return list(classroom.teachers)

@@ -10,6 +10,7 @@ from app.models.user import User
 from app.services.classroom_service import ClassroomService
 from app.schemas.academic import ClassroomCreate, ClassroomAddTeacher, ClassroomAddStudent
 from app.schemas.responses import SuccessResponse
+from app.schemas.user import UserResponse
 
 router = APIRouter()
 
@@ -81,6 +82,63 @@ async def get_classroom(
             "student_count": student_count or 0,
         }
     )
+
+
+def _user_to_response(u: User) -> UserResponse:
+    """Build UserResponse from User ORM without loading relationship attributes."""
+    return UserResponse(
+        id=u.id,
+        email=u.email,
+        full_name=u.full_name,
+        is_active=u.is_active,
+        role=u.role,
+        school_id=u.school_id,
+        profile_picture_url=u.profile_picture_url,
+        student_number=getattr(u, "student_number", None),
+        is_verified=False,
+        created_at=u.created_at,
+        updated_at=u.updated_at,
+        last_login=getattr(u, "last_login", None),
+        classrooms=[],
+    )
+
+
+@router.get("/{classroom_id}/students", response_model=SuccessResponse)
+async def get_classroom_students(
+    classroom_id: UUID,
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """List students in a classroom. Admin only."""
+    classroom = await ClassroomService.get_classroom_by_id(
+        db, classroom_id, current_user.school_id
+    )
+    if not classroom:
+        raise HTTPException(status_code=404, detail="Classroom not found")
+    students = await ClassroomService.get_classroom_students(
+        db, classroom_id, current_user.school_id
+    )
+    data = [_user_to_response(u) for u in students]
+    return SuccessResponse(data=data)
+
+
+@router.get("/{classroom_id}/teachers", response_model=SuccessResponse)
+async def get_classroom_teachers(
+    classroom_id: UUID,
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """List teachers in a classroom. Admin only."""
+    classroom = await ClassroomService.get_classroom_by_id(
+        db, classroom_id, current_user.school_id
+    )
+    if not classroom:
+        raise HTTPException(status_code=404, detail="Classroom not found")
+    teachers = await ClassroomService.get_classroom_teachers(
+        db, classroom_id, current_user.school_id
+    )
+    data = [_user_to_response(u) for u in teachers]
+    return SuccessResponse(data=data)
 
 
 @router.post("/{classroom_id}/teachers", response_model=SuccessResponse)

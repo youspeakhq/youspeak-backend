@@ -341,6 +341,114 @@ async def test_add_student_to_classroom(
 
 
 @pytest.mark.asyncio
+async def test_get_classroom_teachers_returns_assigned_teachers(
+    async_client: AsyncClient,
+    api_base: str,
+    registered_school: dict,
+    classroom_id,
+    teacher_id_and_headers,
+):
+    """GET /classrooms/{id}/teachers returns teachers assigned to the classroom."""
+    teacher_id, _ = teacher_id_and_headers
+    if not teacher_id:
+        pytest.skip("Could not resolve teacher_id from login response")
+    resp = await async_client.post(
+        f"{api_base}/classrooms/{classroom_id}/teachers",
+        headers=registered_school["headers"],
+        json={"teacher_id": str(teacher_id)},
+    )
+    assert resp.status_code == 200
+
+    resp = await async_client.get(
+        f"{api_base}/classrooms/{classroom_id}/teachers",
+        headers=registered_school["headers"],
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert isinstance(data, list)
+    ids = [t["id"] for t in data]
+    assert teacher_id in ids
+
+
+@pytest.mark.asyncio
+async def test_get_classroom_students_returns_enrolled_students(
+    async_client: AsyncClient,
+    api_base: str,
+    registered_school: dict,
+    classroom_id,
+    class_id_for_student,
+    unique_suffix: str,
+):
+    """GET /classrooms/{id}/students returns students enrolled in the classroom."""
+    resp = await async_client.post(
+        f"{api_base}/students",
+        headers=registered_school["headers"],
+        json={
+            "first_name": "Roster",
+            "last_name": f"Y{unique_suffix}",
+            "class_id": class_id_for_student,
+        },
+    )
+    assert resp.status_code == 200
+    student_id = resp.json()["data"]["id"]
+    resp = await async_client.post(
+        f"{api_base}/classrooms/{classroom_id}/students",
+        headers=registered_school["headers"],
+        json={"student_id": str(student_id)},
+    )
+    assert resp.status_code == 200
+
+    resp = await async_client.get(
+        f"{api_base}/classrooms/{classroom_id}/students",
+        headers=registered_school["headers"],
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert isinstance(data, list)
+    ids = [s["id"] for s in data]
+    assert student_id in ids
+
+
+@pytest.mark.asyncio
+async def test_get_classroom_students_empty(
+    async_client: AsyncClient, api_base: str, registered_school: dict, classroom_id
+):
+    """GET /classrooms/{id}/students returns empty list when no students."""
+    resp = await async_client.get(
+        f"{api_base}/classrooms/{classroom_id}/students",
+        headers=registered_school["headers"],
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_classroom_teachers_not_found(
+    async_client: AsyncClient, api_base: str, registered_school: dict
+):
+    """GET /classrooms/{id}/teachers returns 404 for unknown classroom."""
+    fake_id = str(uuid.uuid4())
+    resp = await async_client.get(
+        f"{api_base}/classrooms/{fake_id}/teachers",
+        headers=registered_school["headers"],
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_classroom_students_not_found(
+    async_client: AsyncClient, api_base: str, registered_school: dict
+):
+    """GET /classrooms/{id}/students returns 404 for unknown classroom."""
+    fake_id = str(uuid.uuid4())
+    resp = await async_client.get(
+        f"{api_base}/classrooms/{fake_id}/students",
+        headers=registered_school["headers"],
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_create_classroom_invalid_level(
     async_client: AsyncClient, api_base: str, registered_school: dict, unique_suffix: str
 ):
