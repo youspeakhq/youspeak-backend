@@ -20,7 +20,7 @@ from app.schemas.content import (
     CurriculumGenerateRequest,
     TopicUpdate,
 )
-from app.schemas.responses import SuccessResponse, PaginatedResponse
+from app.schemas.responses import SuccessResponse, PaginatedResponse, ErrorResponse, ErrorDetail
 
 router = APIRouter()
 
@@ -43,12 +43,25 @@ def _headers(school_id: UUID) -> dict:
 
 
 def _proxy_error_response(r: httpx.Response) -> JSONResponse:
-    """Return JSONResponse with upstream status and body so proxy errors are forwarded reliably."""
+    """Return JSONResponse with upstream status and normalized ErrorResponse envelope for API contract."""
     try:
-        content = r.json()
+        raw = r.json()
+        if isinstance(raw, dict) and "detail" in raw:
+            detail = raw["detail"]
+            message = detail if isinstance(detail, str) else "; ".join(str(x) for x in detail) if isinstance(detail, list) else str(detail)
+        else:
+            message = str(raw) if raw is not None else (r.text or r.reason_phrase or "Upstream error")
     except Exception:
-        content = {"detail": r.text or r.reason_phrase or "Upstream error"}
-    return JSONResponse(status_code=r.status_code, content=content)
+        message = r.text or r.reason_phrase or "Upstream error"
+    code = {
+        400: "BAD_REQUEST",
+        401: "UNAUTHORIZED",
+        403: "FORBIDDEN",
+        404: "NOT_FOUND",
+        422: "VALIDATION_ERROR",
+    }.get(r.status_code, "UPSTREAM_ERROR")
+    body = ErrorResponse(error=ErrorDetail(code=code, message=message)).model_dump()
+    return JSONResponse(status_code=r.status_code, content=body)
 
 
 @router.get("", response_model=PaginatedResponse[Any])
