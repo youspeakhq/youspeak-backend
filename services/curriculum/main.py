@@ -1,5 +1,7 @@
 """Curriculum service FastAPI app."""
 
+# CI: changes here trigger curriculum image build (linux/amd64) and push to ECR
+
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 
