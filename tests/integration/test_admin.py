@@ -82,3 +82,16 @@ async def test_get_leaderboard(
         assert "rank" in entry and "student_name" in entry and "class_name" in entry and "points" in entry
     for entry in data["top_classes"]:
         assert "rank" in entry and "class_name" in entry and "score" in entry
+
+
+@pytest.mark.asyncio
+async def test_get_leaderboard_invalid_timeframe(
+    async_client: AsyncClient, api_base: str, registered_school: dict
+):
+    resp = await async_client.get(
+        f"{api_base}/admin/leaderboard",
+        headers=registered_school["headers"],
+        params={"timeframe": "year"},
+    )
+    assert resp.status_code == 400
+    assert "timeframe" in resp.json().get("detail", "").lower()

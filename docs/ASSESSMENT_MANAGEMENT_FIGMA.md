@@ -2,7 +2,7 @@
 
 **Context: Teacher console.** All assessment endpoints are for the authenticated **teacher** only. They require teacher auth and scope to the current teacher's assignments, questions, and submissions.
 
-Source: Figma file **"Indiigoo Labs _You Speak_ AI language assistant"**, page **Websites**, section **Assessment management** (node `3743:5415`). Fetched via Figma MCP (`get_design_context`, `get_node`).
+Source: Figma file **"Indiigoo Labs _You Speak_ AI language assistant"**, page **Websites**, section **Assessment management** (node `3743:5415`). Fetched via Figma MCP (`get_design_context`, `get_node`). **Caching:** Prefer `docs/figma-cache/` when present; see [FIGMA_MCP_CACHING.md](FIGMA_MCP_CACHING.md).
 
 ---
 
@@ -49,10 +49,15 @@ Source: Figma file **"Indiigoo Labs _You Speak_ AI language assistant"**, page *
 | Create assessment | `/api/v1/assessments` | POST | Body: title, instructions, type, due_date, class_ids, optional question_ids + points. |
 | Get one assessment | `/api/v1/assessments/{id}` | GET | For edit / review. |
 | Update assessment | `/api/v1/assessments/{id}` | PATCH | Draft only or allow publish. |
-| Publish assessment | `/api/v1/assessments/{id}/publish` | POST | Optional. |
+| Publish assessment | `/api/v1/assessments/{id}/publish` | POST | Sets status to published. |
+| Topics from curriculum | `/api/v1/assessments/topics` | GET | Optional `class_id`. For “Select question topics” / “Detected from [class]”. |
+| Upload questions (file) | `/api/v1/assessments/questions/upload` | POST | Multipart file → R2 → curriculum parse → extract-questions. Optional `?save_to_bank=1`. |
+| Upload marking scheme (file) | `/api/v1/assessments/marking-scheme/upload` | POST | Multipart file → R2 → curriculum parse → extract-marking-scheme. |
 | List questions for assignment | `/api/v1/assessments/{id}/questions` | GET | For “Review generated questions”. |
 | Set questions on assignment | `/api/v1/assessments/{id}/questions` | PUT | question_ids + points. |
 | Question bank (teacher) | `/api/v1/assessments/questions` | GET, POST | List/Create questions for reuse. |
+| Generate with AI | `/api/v1/assessments/questions/generate` | POST | Body: `topics`, `assignment_type`. Calls curriculum/Bedrock. |
+| Mark with AI | `/api/v1/assessments/{id}/submissions/{submission_id}/grade-with-ai` | POST | Requires submission `content_url`. Calls curriculum parse + evaluate (Bedrock). |
 | Submissions by assignment | `/api/v1/assessments/{id}/submissions` | GET | Query: `page`, `page_size`, `status`, `search` (student name). For “Class students list”. |
 | Get one submission | `/api/v1/assessments/{assignment_id}/submissions/{submission_id}` | GET | For View Analytics. |
 | Grade submission | `/api/v1/assessments/{assignment_id}/submissions/{submission_id}/grade` | PATCH | teacher_score, grade_score, status. |
@@ -66,11 +71,16 @@ Source: Figma file **"Indiigoo Labs _You Speak_ AI language assistant"**, page *
 - **questions** ↔ Question bank; **assignment_questions** (with points) ↔ questions attached to an assessment.
 - **student_submissions** ↔ Status (Submitted/Pending), Score By % (grade_score or ai_score); teacher override via teacher_score/grade_score.
 
-Topics for “Select question topics” / “Detected from [class]” can be supplied later by curriculum service or a dedicated topics endpoint; not required for minimal alignment.
+Topics for “Select question topics” / “Detected from [class]”: GET `/api/v1/assessments/topics?class_id=...` (from curriculum).
 
 ---
 
 ## 5. Implemented vs to-do
 
 - **Implemented in this pass:** Router `assessments`, GET/POST/PATCH assessments, GET/POST questions (bank), GET/PUT assignment questions, GET/PATCH submissions (list + grade), GET analytics summary. See `app/api/v1/endpoints/assessments.py` and `app/services/assessment_service.py`.
-- **Optional later:** Publish endpoint, file upload for “Upload questions manually” / “Upload marking scheme”, AI generate (separate service), topics from curriculum.
+- **Generate with AI:** POST `/api/v1/assessments/questions/generate` (body: `topics`, `assignment_type`) → curriculum service → Bedrock. Curriculum: POST `/curriculums/assessment-questions/generate`.
+- **Enable AI marking:** Assignment has `enable_ai_marking`. POST `/api/v1/assessments/{id}/submissions/{submission_id}/grade-with-ai` → curriculum parse-document + evaluate-submission (Bedrock). Curriculum: POST `/curriculums/evaluate-submission`.
+- **Publish:** POST `/api/v1/assessments/{id}/publish`.
+- **Upload questions manually (file):** POST `/api/v1/assessments/questions/upload` — file → R2 → curriculum parse-document → extract-questions (Bedrock). Optional `save_to_bank=1`.
+- **Upload marking scheme (file):** POST `/api/v1/assessments/marking-scheme/upload` — file → R2 → curriculum parse-document → extract-marking-scheme (Bedrock).
+- **Topics from curriculum:** GET `/api/v1/assessments/topics?class_id=...` (curriculum list filtered by class).

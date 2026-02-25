@@ -95,6 +95,7 @@ class AssessmentService:
             type=data.type,
             due_date=data.due_date,
             status=AssignmentStatus.DRAFT,
+            enable_ai_marking=getattr(data, "enable_ai_marking", False),
         )
         db.add(a)
         await db.flush()
@@ -128,12 +129,29 @@ class AssessmentService:
             a.instructions = data.instructions
         if data.due_date is not None:
             a.due_date = data.due_date
+        if getattr(data, "enable_ai_marking", None) is not None:
+            a.enable_ai_marking = data.enable_ai_marking
         if data.class_ids is not None:
             await db.execute(delete(assignment_classes).where(assignment_classes.c.assignment_id == assignment_id))
             for cid in data.class_ids:
                 await db.execute(
                     insert(assignment_classes).values(assignment_id=assignment_id, class_id=cid)
                 )
+        await db.commit()
+        await db.refresh(a)
+        return a
+
+    @staticmethod
+    async def publish_assignment(
+        db: AsyncSession,
+        assignment_id: UUID,
+        teacher_id: UUID,
+    ) -> Optional[Assignment]:
+        """Set assignment status to PUBLISHED (teacher-scoped)."""
+        a = await AssessmentService.get_assignment(db, assignment_id, teacher_id)
+        if not a:
+            return None
+        a.status = AssignmentStatus.PUBLISHED
         await db.commit()
         await db.refresh(a)
         return a
@@ -289,6 +307,8 @@ class AssessmentService:
             sub.teacher_score = Decimal(str(data.teacher_score))
         if data.grade_score is not None:
             sub.grade_score = Decimal(str(data.grade_score))
+        if getattr(data, "ai_score", None) is not None:
+            sub.ai_score = Decimal(str(data.ai_score))
         if data.status is not None:
             sub.status = SubmissionStatus(data.status)
         await db.commit()

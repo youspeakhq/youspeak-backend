@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -80,9 +80,12 @@ async def create_activity_log_entry(
     return SuccessResponse(data=out, message="Activity logged successfully")
 
 
+VALID_LEADERBOARD_TIMEFRAMES = {"week", "month", "all"}
+
+
 @router.get("/leaderboard", response_model=SuccessResponse[LeaderboardResponse])
 async def get_leaderboard(
-    timeframe: str = "week",
+    timeframe: str = Query("week", description="week | month | all"),
     current_user: User = Depends(deps.require_admin),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
@@ -90,5 +93,10 @@ async def get_leaderboard(
     Top performing students and classes by arena points (Figma: Students leaderboard).
     Timeframe: week | month | all.
     """
+    if timeframe not in VALID_LEADERBOARD_TIMEFRAMES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"timeframe must be one of: {', '.join(sorted(VALID_LEADERBOARD_TIMEFRAMES))}",
+        )
     data = await SchoolService.get_leaderboard(db, current_user.school_id, timeframe=timeframe)
     return SuccessResponse(data=data, message="Leaderboard retrieved successfully")

@@ -2,15 +2,17 @@
 
 Why jobs were heavy and what we changed.
 
+**Current architecture:** The curriculum is a **microservice** with its own image and `services/curriculum/requirements.txt` (instructor, docling → torch, etc.). The **core API** image uses only root `requirements.txt` and does **not** include torch/docling. See `docs/DEPENDENCIES.md` for the dependency split.
+
 ---
 
-## Why things were heavy
+## Why things were heavy (historically)
 
 ### 1. **Heavy dependencies at import time**
 
 - **docling** (PDF → structured content) pulls in **torch**, **transformers**, and large CUDA/runtime libs.
 - **instructor** (structured AI outputs) pulls in openai/boto and extra deps.
-- The app imported these at **module load**: `app.api.v1.router` → `curriculums` → `curriculum_service` → `from docling...` and `app.utils.ai` → `import instructor`. So every process (including uvicorn) loaded torch/docling before handling any request, making **startup slow** and **/health** slow to respond.
+- Previously the app imported these at **module load**: `app.api.v1.router` → `curriculums` → `curriculum_service` → `from docling...` and `app.utils.ai` → `import instructor`. So every process (including uvicorn) loaded torch/docling before handling any request, making **startup slow** and **/health** slow to respond.
 
 ### 2. **Duplicate work in CI**
 
@@ -30,11 +32,11 @@ Why jobs were heavy and what we changed.
 
 ## Changes made
 
-### 1. **Lazy imports for heavy libs**
+### 1. **Lazy imports and microservice split**
 
-- **docling**: `DocumentConverter` is now imported **inside** `CurriculumService.extract_topics()` instead of at the top of `curriculum_service.py`. Docling/torch load only when a PDF extract runs.
-- **instructor / boto3**: Imported **inside** `get_ai_client()` in `app/utils/ai.py`. They load only when the AI client is first used (e.g. curriculum generate or extract).
-- **Result**: App startup and **/health** no longer wait on torch/docling; they respond quickly so healthchecks can pass without huge `start_period`s.
+- **Microservice split**: Curriculum now runs as a separate service with its own image and deps (instructor, docling → torch). Core API image has no torch/docling.
+- **Within curriculum**: `DocumentConverter` is imported **inside** the extract flow; instructor is used in the curriculum AI client. So curriculum startup and healthchecks can stay manageable.
+- **Result**: Core API startup and **/health** are fast; curriculum carries the heavy deps in isolation.
 
 ### 2. **Test stage reuses builder**
 

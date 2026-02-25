@@ -2,7 +2,7 @@
 
 **Context: Teacher console.** Arena management endpoints are for the authenticated **teacher** only. They operate on arenas for classes the teacher teaches. Admin leaderboard (existing) shows arena performance school-wide.
 
-**Figma source:** File **"Indiigoo Labs _You Speak_ AI language assistant"**, page **Websites**, section **Arena management** (node `3967:6382`). Fetched via Figma MCP: `get_design_context` (depth 1), `get_node` on frames below.
+**Figma source:** File **"Indiigoo Labs _You Speak_ AI language assistant"**, page **Websites**, section **Arena management** (node `3967:6382`). Fetched via Figma MCP: `get_design_context` (depth 1), `get_node` on frames below. **Caching:** Prefer `docs/figma-cache/` when present; see [FIGMA_MCP_CACHING.md](FIGMA_MCP_CACHING.md).
 
 ---
 

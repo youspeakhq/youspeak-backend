@@ -194,3 +194,168 @@ async def test_import_roster_csv(
     assert "enrolled" in data
     assert "created" in data
     assert data["enrolled"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_get_teacher_leaderboard(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict
+):
+    """Teacher leaderboard returns same shape as admin; scoped to teacher's classes."""
+    resp = await async_client.get(
+        f"{api_base}/my-classes/leaderboard",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert "top_students" in data
+    assert "top_classes" in data
+    assert "timeframe" in data
+    assert data["timeframe"] in ("week", "month", "all")
+    assert isinstance(data["top_students"], list)
+    assert isinstance(data["top_classes"], list)
+    for entry in data["top_students"]:
+        assert "rank" in entry and "student_name" in entry and "class_name" in entry and "points" in entry
+    for entry in data["top_classes"]:
+        assert "rank" in entry and "class_name" in entry and "score" in entry
+
+
+@pytest.mark.asyncio
+async def test_get_teacher_leaderboard_with_timeframe(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict
+):
+    resp = await async_client.get(
+        f"{api_base}/my-classes/leaderboard",
+        headers=teacher_headers,
+        params={"timeframe": "month"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data"]["timeframe"] == "month"
+
+
+@pytest.mark.asyncio
+async def test_get_teacher_leaderboard_invalid_timeframe(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict
+):
+    resp = await async_client.get(
+        f"{api_base}/my-classes/leaderboard",
+        headers=teacher_headers,
+        params={"timeframe": "year"},
+    )
+    assert resp.status_code == 400
+    assert "timeframe" in resp.json().get("detail", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_get_teacher_leaderboard_requires_teacher(
+    async_client: AsyncClient, api_base: str, registered_school: dict
+):
+    """Admin token cannot access teacher leaderboard (403)."""
+    resp = await async_client.get(
+        f"{api_base}/my-classes/leaderboard",
+        headers=registered_school["headers"],
+    )
+    assert resp.status_code == 403
+
+
+# --- Awards (Create New Award – Figma Leaderboard) ---
+
+
+@pytest.mark.asyncio
+async def test_list_my_class_awards_empty(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict
+):
+    """GET /my-classes/awards returns paginated list (empty when no awards)."""
+    resp = await async_client.get(
+        f"{api_base}/my-classes/awards",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "data" in body
+    assert "meta" in body
+    assert isinstance(body["data"], list)
+    assert body["meta"]["total"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_create_award(
+    async_client: AsyncClient,
+    api_base: str,
+    teacher_headers: dict,
+    unique_suffix: str,
+):
+    """Create class, add student, create award (Figma: Create New Award)."""
+    resp = await async_client.get(
+        f"{api_base}/schools/semesters",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    semester_id = resp.json()["data"][0]["id"]
+    resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        json={
+            "name": f"Award Class {unique_suffix}",
+            "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
+            "language_id": 1,
+            "semester_id": semester_id,
+        },
+    )
+    assert resp.status_code == 200
+    class_id = resp.json()["data"]["id"]
+    csv_content = (
+        b"first_name,last_name,email\n"
+        + f"Awardee,One,awardee.{unique_suffix}@test.com\n".encode()
+    )
+    resp = await async_client.post(
+        f"{api_base}/my-classes/{class_id}/roster/import",
+        headers=teacher_headers,
+        files={"file": ("roster.csv", csv_content, "text/csv")},
+    )
+    assert resp.status_code == 200
+    # Get student_id from roster
+    resp = await async_client.get(
+        f"{api_base}/my-classes/{class_id}/roster",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    roster = resp.json()["data"]
+    assert isinstance(roster, list)
+    student_id = roster[0]["id"] if roster else None
+    assert student_id, "Need at least one student to create award"
+    resp = await async_client.post(
+        f"{api_base}/my-classes/awards",
+        headers=teacher_headers,
+        json={
+            "title": "Star of the Week",
+            "criteria": "Outstanding participation",
+            "class_ids": [class_id],
+            "student_ids": [student_id],
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert data[0]["title"] == "Star of the Week"
+    assert data[0]["criteria"] == "Outstanding participation"
+    assert data[0]["student_id"] == student_id
+    assert data[0]["class_id"] == class_id
+    assert "awarded_at" in data[0]
+
+
+@pytest.mark.asyncio
+async def test_create_award_requires_teacher(
+    async_client: AsyncClient, api_base: str, registered_school: dict
+):
+    """Admin cannot create awards (403)."""
+    resp = await async_client.post(
+        f"{api_base}/my-classes/awards",
+        headers=registered_school["headers"],
+        json={
+            "title": "Test",
+            "class_ids": ["00000000-0000-0000-0000-000000000001"],
+            "student_ids": ["00000000-0000-0000-0000-000000000002"],
+        },
+    )
+    assert resp.status_code == 403

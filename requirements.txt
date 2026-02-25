@@ -14,8 +14,8 @@ bcrypt>=4.0.1,<5
 python-multipart>=0.0.7
 
 # Configuration & Validation
-pydantic>=2.8.0,<3.0.0  # instructor 1.14+ requires pydantic>=2.8.0; compatible with FastAPI
-eval-type-backport>=0.3.0  # required on Python 3.9 for pydantic to resolve instructor's str|Path etc.
+pydantic>=2.8.0,<3.0.0
+eval-type-backport>=0.3.0  # Python 3.9: pydantic type resolution
 pydantic-settings>=2.3.0,<3.0.0
 email-validator==2.1.0.post1
 

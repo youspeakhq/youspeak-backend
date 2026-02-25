@@ -1,5 +1,5 @@
-from typing import Any, List
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from typing import Any, List, Optional
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -7,10 +7,16 @@ from uuid import UUID
 from app.api import deps
 from app.models.user import User
 from app.schemas.academic import ClassResponse, ClassCreate, RosterUpdate
-from app.schemas.responses import SuccessResponse
+from app.schemas.admin import LeaderboardResponse
+from app.schemas.award import AwardCreate, AwardOut
+from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
 from app.services.academic_service import AcademicService
+from app.services.award_service import AwardService
+from app.services.school_service import SchoolService
 
 router = APIRouter()
+
+VALID_LEADERBOARD_TIMEFRAMES = {"week", "month", "all"}
 
 
 @router.get("", response_model=SuccessResponse[List[ClassResponse]])
@@ -23,6 +29,80 @@ async def get_my_classes(
     """
     classes = await AcademicService.get_teacher_classes(db, current_user.id)
     return SuccessResponse(data=classes)
+
+
+@router.get("/leaderboard", response_model=SuccessResponse[LeaderboardResponse])
+async def get_my_classes_leaderboard(
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+    timeframe: str = Query("week", description="week | month | all"),
+) -> Any:
+    """
+    Leaderboard for the teacher's classes only (Figma: Leaderboards and awards).
+    Timeframe: week | month | all.
+    """
+    if timeframe not in VALID_LEADERBOARD_TIMEFRAMES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"timeframe must be one of: {', '.join(sorted(VALID_LEADERBOARD_TIMEFRAMES))}",
+        )
+    teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+    class_ids = [c.id for c in teacher_classes]
+    data = await SchoolService.get_leaderboard(
+        db, current_user.school_id, timeframe=timeframe, class_ids=class_ids
+    )
+    return SuccessResponse(data=data, message="Leaderboard retrieved successfully")
+
+
+@router.get("/awards", response_model=PaginatedResponse[AwardOut])
+async def list_my_class_awards(
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+    class_id: Optional[UUID] = Query(None, description="Filter by class"),
+    student_id: Optional[UUID] = Query(None, description="Filter by student"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> Any:
+    """
+    List awards for the teacher's classes (Figma: Leaderboard awards cards).
+    """
+    items, total = await AwardService.list_teacher_awards(
+        db, current_user.id, class_id=class_id, student_id=student_id, page=page, page_size=page_size
+    )
+    total_pages = (total + page_size - 1) // page_size if total else 0
+    return PaginatedResponse(
+        data=[AwardOut(**x) for x in items],
+        meta=PaginationMeta(page=page, page_size=page_size, total=total, total_pages=total_pages),
+        message="Awards retrieved successfully",
+    )
+
+
+@router.post("/awards", response_model=SuccessResponse[List[AwardOut]])
+async def create_awards(
+    payload: AwardCreate,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Create new award(s) (Figma: Create New Award – Award name, Criteria, Associated class(es), Select student(s)).
+    Creates one award per (student, class) for each selected student enrolled in each selected class.
+    """
+    created, err = await AwardService.create_awards(db, current_user.id, current_user.school_id, payload)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    out = [
+        AwardOut(
+            id=a.id,
+            student_id=a.student_id,
+            class_id=a.class_id,
+            title=a.title,
+            description=a.description,
+            criteria=a.criteria,
+            awarded_at=a.awarded_at,
+        )
+        for a in created
+    ]
+    return SuccessResponse(data=out, message=f"{len(out)} award(s) created successfully")
 
 
 @router.post("", response_model=SuccessResponse[ClassResponse])

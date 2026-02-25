@@ -96,3 +96,66 @@ class CurriculumResponse(BaseModel):
 class CurriculumGenerateRequest(BaseModel):
     prompt: str
     language_id: int
+
+
+# --- Document parsing (reusable: curriculum + assessment) ---
+
+
+class ParseDocumentRequest(BaseModel):
+    file_url: str
+
+
+class ParseDocumentResponse(BaseModel):
+    markdown: str
+
+
+class ExtractedQuestion(BaseModel):
+    question_text: str
+    type: str  # "multiple_choice" | "open_text" | "oral"
+    correct_answer: Optional[str] = None
+    options: Optional[List[str]] = None
+
+
+class ExtractQuestionsRequest(BaseModel):
+    markdown: str
+
+
+class ExtractQuestionsResponse(BaseModel):
+    questions: List[ExtractedQuestion]
+
+
+class MarkingCriterion(BaseModel):
+    criterion: str
+    max_points: int
+    description: Optional[str] = None
+
+
+class ExtractMarkingSchemeRequest(BaseModel):
+    markdown: str
+
+
+class ExtractMarkingSchemeResponse(BaseModel):
+    criteria: List[MarkingCriterion]
+
+
+class GenerateAssessmentQuestionsRequest(BaseModel):
+    topics: List[str]
+    assignment_type: str = "written"  # "oral" | "written"
+
+
+class QuestionForEvaluation(BaseModel):
+    question_text: str
+    points: int = 1
+    correct_answer: Optional[str] = None
+
+
+class EvaluateSubmissionRequest(BaseModel):
+    instructions: Optional[str] = None
+    questions: List[QuestionForEvaluation]
+    submission_markdown: str
+    marking_criteria: Optional[List[MarkingCriterion]] = None
+
+
+class EvaluateSubmissionResponse(BaseModel):
+    score: float  # 0–100 or 0–total_points; normalize in caller if needed
+    feedback: Optional[str] = None

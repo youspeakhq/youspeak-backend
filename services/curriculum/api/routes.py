@@ -19,6 +19,16 @@ from schemas.content import (
     CurriculumMergeProposeRequest,
     CurriculumMergeConfirmRequest,
     MergeProposalResponse,
+    ParseDocumentRequest,
+    ParseDocumentResponse,
+    ExtractQuestionsRequest,
+    ExtractQuestionsResponse,
+    ExtractMarkingSchemeRequest,
+    ExtractMarkingSchemeResponse,
+    GenerateAssessmentQuestionsRequest,
+    ExtractedQuestion,
+    EvaluateSubmissionRequest,
+    EvaluateSubmissionResponse,
 )
 from schemas.responses import SuccessResponse, PaginatedResponse
 from models.enums import CurriculumStatus
@@ -94,6 +104,100 @@ async def create_curriculum(
     return SuccessResponse(
         data=_curriculum_to_response(new_curriculum),
         message="Curriculum uploaded successfully",
+    )
+
+
+@router.post("/parse-document", response_model=SuccessResponse[ParseDocumentResponse])
+async def parse_document(
+    body: ParseDocumentRequest,
+) -> Any:
+    """Parse a document (URL) to markdown. Reusable for curriculum and assessment uploads."""
+    from utils.document_parser import parse_document_to_markdown
+
+    markdown = await parse_document_to_markdown(body.file_url)
+    return SuccessResponse(data=ParseDocumentResponse(markdown=markdown), message="Document parsed")
+
+
+@router.post("/assessment-questions/generate", response_model=SuccessResponse[List[ExtractedQuestion]])
+async def generate_assessment_questions(
+    body: GenerateAssessmentQuestionsRequest,
+) -> Any:
+    """Generate with AI: produce assessment questions from topics (Bedrock)."""
+    try:
+        questions = await CurriculumService.generate_assessment_questions(
+            topics=body.topics,
+            assignment_type=body.assignment_type or "written",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI generation unavailable: {getattr(e, 'message', str(e))}",
+        )
+    return SuccessResponse(data=questions, message="Questions generated")
+
+
+@router.post("/evaluate-submission", response_model=SuccessResponse[EvaluateSubmissionResponse])
+async def evaluate_submission(
+    body: EvaluateSubmissionRequest,
+) -> Any:
+    """Mark with AI: score a submission (Bedrock)."""
+    questions_dict = [
+        {"question_text": q.question_text, "points": q.points, "correct_answer": q.correct_answer}
+        for q in body.questions
+    ]
+    criteria_dict = (
+        [{"criterion": c.criterion, "max_points": c.max_points, "description": c.description} for c in body.marking_criteria]
+        if body.marking_criteria
+        else None
+    )
+    try:
+        result = await CurriculumService.evaluate_submission(
+            instructions=body.instructions,
+            questions=questions_dict,
+            submission_markdown=body.submission_markdown,
+            marking_criteria=criteria_dict,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI evaluation unavailable: {getattr(e, 'message', str(e))}",
+        )
+    return SuccessResponse(data=result, message="Submission evaluated")
+
+
+@router.post("/extract-questions", response_model=SuccessResponse[ExtractQuestionsResponse])
+async def extract_questions_from_document(
+    body: ExtractQuestionsRequest,
+) -> Any:
+    """Extract questions from document markdown (Upload questions manually)."""
+    try:
+        questions = await CurriculumService.extract_questions_from_markdown(body.markdown)
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI extraction unavailable: {getattr(e, 'message', str(e))}",
+        )
+    return SuccessResponse(
+        data=ExtractQuestionsResponse(questions=questions),
+        message="Questions extracted",
+    )
+
+
+@router.post("/extract-marking-scheme", response_model=SuccessResponse[ExtractMarkingSchemeResponse])
+async def extract_marking_scheme_from_document(
+    body: ExtractMarkingSchemeRequest,
+) -> Any:
+    """Extract marking scheme from document markdown (Upload marking scheme)."""
+    try:
+        criteria = await CurriculumService.extract_marking_scheme_from_markdown(body.markdown)
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI extraction unavailable: {getattr(e, 'message', str(e))}",
+        )
+    return SuccessResponse(
+        data=ExtractMarkingSchemeResponse(criteria=criteria),
+        message="Marking scheme extracted",
     )
 
 

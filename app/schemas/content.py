@@ -121,6 +121,7 @@ class AssessmentCreate(BaseModel):
     instructions: Optional[str] = None
     due_date: Optional[datetime] = None
     class_ids: List[UUID] = []
+    enable_ai_marking: bool = False
 
 
 class AssessmentUpdate(BaseModel):
@@ -129,6 +130,7 @@ class AssessmentUpdate(BaseModel):
     instructions: Optional[str] = None
     due_date: Optional[datetime] = None
     class_ids: Optional[List[UUID]] = None
+    enable_ai_marking: Optional[bool] = None
 
 
 class AssessmentContentUpdate(BaseModel):
@@ -142,6 +144,7 @@ class AssessmentResponse(BaseModel):
     status: AssignmentStatus
     due_date: Optional[datetime] = None
     instructions: Optional[str] = None
+    enable_ai_marking: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -157,6 +160,7 @@ class AssessmentListRow(BaseModel):
     active_students: Optional[int] = None
     task_topic: Optional[str] = None
     average_score: Optional[float] = None
+    enable_ai_marking: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -190,6 +194,7 @@ class SubmissionRow(BaseModel):
 class SubmissionGradeUpdate(BaseModel):
     teacher_score: Optional[float] = None
     grade_score: Optional[float] = None
+    ai_score: Optional[float] = None
     status: Optional[str] = None
 
 
@@ -197,3 +202,24 @@ class AnalyticsSummary(BaseModel):
     total_assessments: int
     total_assignments: int
     average_completion_rate: Optional[float] = None
+
+
+class GenerateQuestionsRequest(BaseModel):
+    """Request for Generate with AI (calls curriculum/Bedrock)."""
+    topics: List[str]
+    assignment_type: str = "written"  # oral | written
+
+
+class GeneratedQuestion(BaseModel):
+    """One AI-generated question (from curriculum service)."""
+    question_text: str
+    type: str  # multiple_choice | open_text | oral
+    correct_answer: Optional[str] = None
+    options: Optional[List[str]] = None
+
+
+class MarkingCriterionItem(BaseModel):
+    """One marking criterion (from curriculum extract-marking-scheme)."""
+    criterion: str
+    max_points: int
+    description: Optional[str] = None

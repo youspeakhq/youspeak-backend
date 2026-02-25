@@ -216,11 +216,15 @@ class SchoolService:
 
     @staticmethod
     async def get_leaderboard(
-        db: AsyncSession, school_id: UUID, timeframe: str = "week"
+        db: AsyncSession,
+        school_id: UUID,
+        timeframe: str = "week",
+        class_ids: Optional[List[UUID]] = None,
     ) -> LeaderboardResponse:
         """
         Top students and top classes by arena points (Figma: Students leaderboard + top classes).
         Timeframe filters Arena.start_time: week (7d), month (30d), all (no filter).
+        When class_ids is set, restrict to those classes (e.g. teacher-scoped leaderboard).
         """
         since: Optional[datetime] = None
         if timeframe == "week":
@@ -231,6 +235,16 @@ class SchoolService:
         arena_filter = Arena.class_id == Class.id
         if since is not None:
             arena_filter = and_(arena_filter, Arena.start_time >= since)
+
+        base_where = [
+            Class.school_id == school_id,
+            User.school_id == school_id,
+            User.role == UserRole.STUDENT,
+            User.deleted_at.is_(None),
+            arena_filter,
+        ]
+        if class_ids is not None:
+            base_where.append(Class.id.in_(class_ids))
 
         # Student-class-points: (user_id, first_name, last_name, class_id, class_name, sub_class, points)
         student_pts = (
@@ -247,13 +261,7 @@ class SchoolService:
             .join(ArenaPerformer, ArenaPerformer.user_id == User.id)
             .join(Arena, Arena.id == ArenaPerformer.arena_id)
             .join(Class, Class.id == Arena.class_id)
-            .where(
-                Class.school_id == school_id,
-                User.school_id == school_id,
-                User.role == UserRole.STUDENT,
-                User.deleted_at.is_(None),
-                arena_filter,
-            )
+            .where(and_(*base_where))
             .group_by(User.id, User.first_name, User.last_name, Class.id, Class.name, Class.sub_class)
         )
         result = await db.execute(student_pts)
@@ -293,6 +301,9 @@ class SchoolService:
         ]
 
         # Top classes: sum of arena performer points per class
+        class_where = [Class.school_id == school_id, arena_filter]
+        if class_ids is not None:
+            class_where.append(Class.id.in_(class_ids))
         class_pts = (
             select(
                 Class.id.label("class_id"),
@@ -303,7 +314,7 @@ class SchoolService:
             .select_from(Class)
             .join(Arena, Arena.class_id == Class.id)
             .join(ArenaPerformer, ArenaPerformer.arena_id == Arena.id)
-            .where(Class.school_id == school_id, arena_filter)
+            .where(and_(*class_where))
             .group_by(Class.id, Class.name, Class.sub_class)
         )
         result_classes = await db.execute(class_pts)

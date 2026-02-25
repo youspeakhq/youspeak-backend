@@ -1,11 +1,9 @@
 """Curriculum business logic (CRUD + AI extraction/merge)."""
 
 import os
-import tempfile
 from typing import List, Optional
 from uuid import UUID
 
-import httpx
 from sqlalchemy import select, func, delete, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -20,6 +18,9 @@ from schemas.content import (
     TopicCreate,
     TopicUpdate,
     TopicProposal,
+    ExtractedQuestion,
+    MarkingCriterion,
+    EvaluateSubmissionResponse,
 )
 
 
@@ -164,61 +165,44 @@ class CurriculumService:
     async def extract_topics(
         db: AsyncSession, curriculum_id: UUID, file_url_or_path: str
     ) -> List[Topic]:
-        from docling.document_converter import DocumentConverter
+        from utils.document_parser import parse_document_to_markdown
 
-        converter = DocumentConverter()
+        markdown_content = await parse_document_to_markdown(file_url_or_path)
 
-        if file_url_or_path.startswith("http"):
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(file_url_or_path)
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                    tmp.write(resp.content)
-                    temp_path = tmp.name
-        else:
-            temp_path = file_url_or_path
+        ai_client = _get_ai_client()
+        topics_data = await ai_client.chat.completions.create(
+            model=settings.BEDROCK_MODEL_ID,
+            response_model=List[TopicCreate],
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a specialized curriculum analyst. Extract a structured list of topics "
+                        "from the syllabus text provided. Maintain the original order. For each topic include: "
+                        "title, content (brief 2-4 sentence summary when available), and specific learning objectives."
+                    ),
+                },
+                {"role": "user", "content": f"Syllabus Content:\n\n{markdown_content}"},
+            ],
+        )
 
-        try:
-            result = converter.convert(temp_path)
-            markdown_content = result.document.export_to_markdown()
-
-            ai_client = _get_ai_client()
-            topics_data = await ai_client.chat.completions.create(
-                model=settings.BEDROCK_MODEL_ID,
-                response_model=List[TopicCreate],
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a specialized curriculum analyst. Extract a structured list of topics "
-                            "from the syllabus text provided. Maintain the original order. For each topic include: "
-                            "title, content (brief 2-4 sentence summary when available), and specific learning objectives."
-                        ),
-                    },
-                    {"role": "user", "content": f"Syllabus Content:\n\n{markdown_content}"},
-                ],
+        topics_to_insert = []
+        for index, item in enumerate(topics_data, 1):
+            db_topic = Topic(
+                curriculum_id=curriculum_id,
+                title=item.title,
+                duration_hours=item.duration_hours,
+                learning_objectives=item.learning_objectives,
+                content=item.content,
+                order_index=item.order_index or index,
             )
+            db.add(db_topic)
+            topics_to_insert.append(db_topic)
 
-            topics_to_insert = []
-            for index, item in enumerate(topics_data, 1):
-                db_topic = Topic(
-                    curriculum_id=curriculum_id,
-                    title=item.title,
-                    duration_hours=item.duration_hours,
-                    learning_objectives=item.learning_objectives,
-                    content=item.content,
-                    order_index=item.order_index or index,
-                )
-                db.add(db_topic)
-                topics_to_insert.append(db_topic)
-
-            await db.commit()
-            for t in topics_to_insert:
-                await db.refresh(t)
-            return topics_to_insert
-
-        finally:
-            if file_url_or_path.startswith("http") and os.path.exists(temp_path):
-                os.remove(temp_path)
+        await db.commit()
+        for t in topics_to_insert:
+            await db.refresh(t)
+        return topics_to_insert
 
     @staticmethod
     async def generate_curriculum_topics(
@@ -354,3 +338,134 @@ class CurriculumService:
         return await CurriculumService.get_curriculum_by_id(
             db, merged_curriculum.id, school_id
         )
+
+    @staticmethod
+    async def generate_assessment_questions(
+        topics: List[str],
+        assignment_type: str = "written",
+    ) -> List[ExtractedQuestion]:
+        """Generate assessment questions from topics using Bedrock (Generate with AI)."""
+        if os.getenv("TEST_MODE") == "true":
+            return [
+                ExtractedQuestion(
+                    question_text="Sample question from topic",
+                    type="open_text",
+                    correct_answer=None,
+                )
+            ]
+        ai_client = _get_ai_client()
+        type_hint = "oral (speaking/listening)" if assignment_type == "oral" else "written"
+        prompt = (
+            f"Generate 5–10 assessment questions for a {type_hint} language assessment. "
+            "Topics to cover: " + ", ".join(topics) + ". "
+            "For each question include: question_text, type (one of: multiple_choice, open_text, oral), "
+            "correct_answer when applicable, and options for multiple_choice."
+        )
+        questions = await ai_client.chat.completions.create(
+            model=settings.BEDROCK_MODEL_ID,
+            response_model=List[ExtractedQuestion],
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an expert language assessment designer. Output a structured list of questions "
+                        "suitable for the given topics and assessment type. Use clear question_text and appropriate "
+                        "type (multiple_choice, open_text, oral)."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return questions
+
+    @staticmethod
+    async def extract_questions_from_markdown(markdown: str) -> List[ExtractedQuestion]:
+        """Extract structured questions from document markdown (Upload questions manually)."""
+        if os.getenv("TEST_MODE") == "true":
+            return [
+                ExtractedQuestion(question_text="Sample extracted question", type="open_text", correct_answer=None),
+            ]
+        ai_client = _get_ai_client()
+        questions = await ai_client.chat.completions.create(
+            model=settings.BEDROCK_MODEL_ID,
+            response_model=List[ExtractedQuestion],
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an assessment designer. Extract a structured list of questions from the document. "
+                        "For each question include: question_text, type (multiple_choice, open_text, or oral), "
+                        "correct_answer when evident, and options for multiple_choice."
+                    ),
+                },
+                {"role": "user", "content": f"Document content (markdown):\n\n{markdown}"},
+            ],
+        )
+        return questions
+
+    @staticmethod
+    async def extract_marking_scheme_from_markdown(markdown: str) -> List[MarkingCriterion]:
+        """Extract marking criteria from document markdown (Upload marking scheme)."""
+        if os.getenv("TEST_MODE") == "true":
+            return [
+                MarkingCriterion(criterion="Sample criterion", max_points=10, description="Test"),
+            ]
+        ai_client = _get_ai_client()
+        criteria = await ai_client.chat.completions.create(
+            model=settings.BEDROCK_MODEL_ID,
+            response_model=List[MarkingCriterion],
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an assessment designer. Extract marking criteria from the document. "
+                        "For each criterion include: criterion (short name), max_points (integer), description (optional)."
+                    ),
+                },
+                {"role": "user", "content": f"Document content (markdown):\n\n{markdown}"},
+            ],
+        )
+        return criteria
+
+    @staticmethod
+    async def evaluate_submission(
+        instructions: Optional[str],
+        questions: List[dict],
+        submission_markdown: str,
+        marking_criteria: Optional[List[dict]] = None,
+    ) -> EvaluateSubmissionResponse:
+        """Score a submission using Bedrock (Mark with AI). Returns score 0–100 and optional feedback."""
+        if os.getenv("TEST_MODE") == "true":
+            return EvaluateSubmissionResponse(score=75.0, feedback="Sample AI feedback (test mode).")
+        ai_client = _get_ai_client()
+
+        questions_desc = "\n".join(
+            f"- Q: {q.get('question_text', '')} (points: {q.get('points', 1)}; model answer: {q.get('correct_answer', 'N/A')})"
+            for q in questions
+        )
+        criteria_desc = ""
+        if marking_criteria:
+            criteria_desc = "\nMarking criteria:\n" + "\n".join(
+                f"- {c.get('criterion', '')}: max {c.get('max_points', 0)}"
+                for c in marking_criteria
+            )
+
+        prompt = (
+            f"Assignment instructions:\n{instructions or 'None'}\n\n"
+            f"Questions and model answers:\n{questions_desc}\n{criteria_desc}\n\n"
+            f"Student submission (markdown):\n{submission_markdown}\n\n"
+            "Score the submission from 0 to 100 and provide brief feedback."
+        )
+
+        result = await ai_client.chat.completions.create(
+            model=settings.BEDROCK_MODEL_ID,
+            response_model=EvaluateSubmissionResponse,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an assessment grader. Output a JSON object with 'score' (0–100) and 'feedback' (brief text).",
+                },
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return result

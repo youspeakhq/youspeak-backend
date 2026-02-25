@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy requirements
 COPY requirements.txt .
 
-# Ensure script installs (e.g. uvicorn, alembic, docling) are on PATH to avoid pip warnings
+# Ensure script installs (e.g. uvicorn, alembic) are on PATH to avoid pip warnings
 ENV PATH=/root/.local/bin:$PATH
 
 # Install Python dependencies (cache mount speeds up rebuilds when deps change)

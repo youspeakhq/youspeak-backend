@@ -88,8 +88,9 @@ The **Build and Push Docker Image** job uses ECR as a registry cache (`ref=.../y
 
 The job builds and pushes **two** images:
 
-- **API image** (`target: runtime`): full app with docling/opencv/torch, tagged `:latest` and `:<sha>`. Used by the ECS service.
-- **Migration image** (`target: migration`): minimal deps (alembic, sqlalchemy, asyncpg, pydantic only; no docling/opencv), tagged `:migration` and `:migration-<sha>`. Used only by the one-off migration ECS task.
+- **API image** (`target: runtime`): core app only (no torch/docling); tagged `:latest` and `:<sha>`. Used by the ECS API service.
+- **Curriculum image** (separate Dockerfile under `services/curriculum/`): curriculum microservice with its own deps (instructor, docling → torch, etc.). Used by the ECS curriculum service.
+- **Migration image** (`target: migration`): minimal deps (alembic, sqlalchemy, asyncpg, pydantic only), tagged `:migration` and `:migration-<sha>`. Used only by the one-off migration ECS task.
 
 The migration task runs with the slim image so it pulls faster and fits in default Fargate ephemeral storage without increasing `ephemeralStorage.sizeInGiB` on the API task.
 
@@ -176,7 +177,7 @@ To require approval before live deploys:
 
 - **Migration task exited with code null**  
   - The workflow now prints **Task stoppedReason** and **Container reason** and waits 20s then fetches **CloudWatch logs** for the failed task. Check that output for the root cause.  
-  - **CannotPullContainerError: no space left on device** — The **migration** task uses the slim `:migration` image (no docling/opencv) and 21 GiB ephemeral storage, so this should be rare. If it happens for the migration task, increase `ephemeralStorage.sizeInGiB` in `.aws/task-definition-migration.json`. The **API** task uses the full image and `ephemeralStorage.sizeInGiB: 50` in `.aws/task-definition.json`; if the API task hits this, increase it in `.aws/generate-task-definition.sh` (min 21, max 200).  
+  - **CannotPullContainerError: no space left on device** — The **migration** task uses the slim `:migration` image (no docling/opencv) and 21 GiB ephemeral storage, so this should be rare. If it happens for the migration task, increase `ephemeralStorage.sizeInGiB` in `.aws/task-definition-migration.json`. The **API** task uses the core image and `ephemeralStorage.sizeInGiB: 50` in `.aws/task-definition.json`; if the API task hits this, increase it in `.aws/generate-task-definition.sh` (min 21, max 200).  
   - If the container was **out of memory** at runtime, increase task memory: in `.aws/generate-task-definition.sh` set `memory` to `2048`, run the script, commit the updated `.aws/task-definition.json`, and redeploy.  
   - If logs show **missing env / Secrets Manager**, ensure the ECS execution role in Terraform has `secretsmanager:GetSecretValue` on the task definition’s secret ARNs (see Terraform `ecs_execution_secrets` policy).
 

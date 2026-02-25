@@ -1,6 +1,6 @@
 """Domain 5: Assessment Models (Question Bank, Assignments, Submissions)"""
 
-from sqlalchemy import Column, String, Text, DateTime, Integer, Numeric, ForeignKey, Table
+from sqlalchemy import Boolean, Column, String, Text, DateTime, Integer, Numeric, ForeignKey, Table
 from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.orm import relationship
 
@@ -50,6 +50,7 @@ class Assignment(BaseModel):
         nullable=False,
         index=True,
     )
+    enable_ai_marking = Column(Boolean, nullable=False, default=False, server_default="false")
 
     # Relationships
     teacher = relationship("User", back_populates="created_assignments")
