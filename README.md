@@ -119,6 +119,8 @@ alembic downgrade -1
 
 ## Testing
 
+**Strategy:** See **[docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md)** for how we use unit, integration, and E2E tests and when to write each.
+
 ### Unit tests (no database required)
 ```bash
 pytest tests/unit_test.py -v
@@ -142,9 +144,9 @@ pytest --cov=app tests/ --no-cov-on-fail
 ```
 
 ### Test structure
-- `tests/unit_test.py` - Unit tests (config, no external deps)
-- `tests/integration/` - Per-endpoint integration tests (auth, schools, admin, students, teachers, classes, references, users, curriculums proxy)
-- `tests/e2e/` - Full flow E2E tests (school onboarding, teacher+student flow)
+- `tests/unit/` and `tests/unit_test.py` - Unit tests (no DB; isolated logic with mocks)
+- `tests/integration/` - **Integration tests**: real DB + HTTP (ASGI client); per-endpoint contract, auth, and behavior. Require `DATABASE_URL` and `SECRET_KEY`.
+- `tests/e2e/` - E2E tests: full critical flows (school onboarding, teacher+student flow)
 - `services/curriculum/tests/` - Curriculum microservice tests (run with `PYTHONPATH=services/curriculum pytest services/curriculum/tests/ -v`; require DATABASE_URL)
 
 ### Run CI checks locally (before pushing)

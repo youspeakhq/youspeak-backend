@@ -92,3 +92,8 @@ class PasswordChange(BaseModel):
     """Schema for changing password"""
     current_password: str
     new_password: str = Field(..., min_length=8, description="New password must be at least 8 characters")
+
+
+class DeleteAccountRequest(BaseModel):
+    """Schema for self-service account deletion (password confirmation)."""
+    password: str = Field(..., description="Current password to confirm deletion")

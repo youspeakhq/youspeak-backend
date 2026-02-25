@@ -285,6 +285,7 @@ jobs:
         with:
           context: .
           file: ./services/curriculum/Dockerfile
+          platforms: linux/amd64
           push: true
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_CURRICULUM }}:${{ github.sha }}
@@ -446,29 +447,13 @@ jobs:
           aws ecs wait services-stable \
             --cluster ${{ env.ECS_CLUSTER }} \
             --services ${{ env.ECS_SERVICE }}-staging
-      - name: Fill in curriculum image in curriculum task definition
-        if: needs.build-and-push.outputs.curriculum_built == 'true'
-        id: task-def-curriculum
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: ${{ env.ECS_TASK_DEFINITION_CURRICULUM }}
-          container-name: ${{ env.CONTAINER_NAME_CURRICULUM }}
-          image: ${{ needs.build-and-push.outputs.curriculum_image }}
-      - name: Register curriculum task definition
-        if: needs.build-and-push.outputs.curriculum_built == 'true'
-        id: register-curriculum-task
-        run: |
-          TASK_DEF_FILE="${{ steps.task-def-curriculum.outputs.task-definition }}"
-          [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
-          TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
-          echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
+      # Staging curriculum uses Terraform-managed task def (youspeak-curriculum-task-tf) with env-specific secrets; only force new deployment to pull new image.
       - name: Deploy curriculum ECS service (staging)
         if: needs.build-and-push.outputs.curriculum_built == 'true'
         run: |
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service ${{ env.ECS_SERVICE_CURRICULUM }}-staging \
-            --task-definition ${{ steps.register-curriculum-task.outputs.task-definition-arn }} \
             --force-new-deployment \
             --no-cli-pager
           aws ecs wait services-stable \

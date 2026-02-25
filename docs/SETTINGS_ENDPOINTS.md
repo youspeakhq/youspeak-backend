@@ -24,7 +24,7 @@ All paths are relative to **`/api/v1`**. Use **Bearer token** (admin or current 
 
 | Action | Method | Path | Auth | Request | Response |
 |--------|--------|------|------|---------|----------|
-| Get available languages (for “Add Language” dropdown) | `GET` | `/references/languages` | Any (optional) | — | `{ "data": [ { "id", "name", "code" }, ... ] }` |
+| Get available languages (for "Add Language" dropdown) | `GET` | `/references/languages` | Any (optional) | — | `{ "data": [ { "id", "name", "code" }, ... ] }` |
 | Load current school languages | — | Use `GET /schools/profile` | Admin | — | `data.languages` is the list of codes |
 | Save languages offered | `PUT` | `/schools/program` | Admin | `{ "languages": ["en", "es", "fr"] }` | `{ "data": { "languages": ["en", "es", "fr"] }, "message": "..." }` |
 | Remove a language | `DELETE` | `/schools/program/{language_code}` | Admin | — (code in path, e.g. `fr`) | `{ "data": { "languages": [...] }, "message": "Language removed successfully" }` |
@@ -44,7 +44,19 @@ All paths are relative to **`/api/v1`**. Use **Bearer token** (admin or current 
 
 ---
 
-## 4. Auth (for “Log out” and general access)
+## 4. Billing tab (school management)
+
+| Action | Method | Path | Auth | Request | Response |
+|--------|--------|------|------|---------|----------|
+| List billing history | `GET` | `/schools/bills` | Admin | Query: `page`, `page_size` (optional) | Paginated list of bills (Date, Amount, Status; frontend can add View Receipt when receipt URL is available) |
+
+**Query:** `page` (default 1), `page_size` (default 20, max 100).
+
+**Bill item (in `data`):** `id`, `amount`, `status` (`pending` \| `paid` \| `failed`), `due_date`, `created_at`.
+
+---
+
+## 5. Auth (for "Log out" and general access)
 
 | Action | Method | Path | Auth | Request | Response |
 |--------|--------|------|------|---------|----------|
@@ -64,6 +76,7 @@ POST   /schools/logo              → upload logo (multipart)
 GET    /references/languages      → list all languages (for dropdown)
 PUT    /schools/program           → save languages offered
 DELETE /schools/program/{code}    → remove one language (e.g. /schools/program/fr)
+GET    /schools/bills             → list billing history (paginated; admin only)
 POST   /users/change-password     → change password
 DELETE /users/me                  → delete account (body: { "password": "..." })
 POST   /auth/login                → login (for token)

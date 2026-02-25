@@ -1,10 +1,11 @@
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.models.user import User
 from app.services.school_service import SchoolService
+from app.services.billing_service import BillingService
 from app.services import storage_service as storage
 from app.schemas.school import (
     SchoolResponse,
@@ -12,7 +13,8 @@ from app.schemas.school import (
     SchoolProgramsUpdate,
     SchoolProgramsResponse,
 )
-from app.schemas.responses import SuccessResponse
+from app.schemas.billing import BillResponse
+from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
 
 router = APIRouter()
 
@@ -49,6 +51,8 @@ async def update_school_profile(
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
     school = await SchoolService.get_school_with_languages(db, current_user.school_id)
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
 
     return SuccessResponse(data=school, message="Profile updated successfully")
 
@@ -94,6 +98,8 @@ async def remove_school_program(
             detail="Language not found or not offered by this school",
         )
     school = await SchoolService.get_school_with_languages(db, current_user.school_id)
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
     codes = [l.code for l in school.languages]
     return SuccessResponse(
         data=SchoolProgramsResponse(languages=codes),
@@ -131,6 +137,8 @@ async def upload_school_logo(
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
     school = await SchoolService.get_school_with_languages(db, current_user.school_id)
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
 
     return SuccessResponse(
         data=school,
@@ -158,3 +166,25 @@ async def get_semesters(
         for s in semesters
     ]
     return SuccessResponse(data=data)
+
+
+@router.get("/bills", response_model=PaginatedResponse[BillResponse])
+async def list_school_bills(
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+) -> Any:
+    """
+    List billing history for the school (Figma: Billing / Billing History table).
+    Admin only. Returns Date (due_date), Amount, Status; frontend can add View Receipt when receipt_url is available.
+    """
+    bills, total = await BillingService.list_bills(
+        db, current_user.school_id, page=page, page_size=page_size
+    )
+    total_pages = (total + page_size - 1) // page_size if total else 0
+    return PaginatedResponse(
+        data=[BillResponse.model_validate(b) for b in bills],
+        meta=PaginationMeta(page=page, page_size=page_size, total=total, total_pages=total_pages),
+        message="Billing history retrieved successfully",
+    )

@@ -6,12 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import math
 
 from app.database import get_db
-from app.schemas.user import User as UserSchema, UserUpdate, PasswordChange
-from app.schemas.responses import PaginatedResponse
+from app.schemas.user import User as UserSchema, UserUpdate, PasswordChange, DeleteAccountRequest
+from app.schemas.responses import PaginatedResponse, SuccessResponse
 from app.services.user_service import UserService
 from app.api.deps import get_current_user, require_admin
 from app.models.user import User as UserModel
 from app.models.enums import UserRole
+from app.core.security import verify_password
 
 router = APIRouter()
 
@@ -121,6 +122,29 @@ async def update_user(
         )
 
     return user
+
+
+@router.delete("/me", response_model=SuccessResponse)
+async def delete_my_account(
+    body: DeleteAccountRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> SuccessResponse:
+    """
+    Permanently delete the current user's account. Requires password confirmation.
+    """
+    if not verify_password(body.password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect password",
+        )
+    success = await UserService.delete_user(db, current_user.id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    return SuccessResponse(data=None, message="Account deleted successfully")
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,3 +1,4 @@
 # Lessons (codebase-specific)
 
 - **Never commit ECS/task definition files that contain hardcoded AWS resource identifiers** (account IDs, IAM role ARNs, Secrets Manager ARNs, internal ALB URLs). Either generate them dynamically in CI from a template + Terraform outputs or GitHub variables, or use placeholders and substitute at deploy time. Do not add environment-specific task definition files (e.g. staging) to version control with real credentials/ARNs.
+- **Curriculum image for ECS Fargate must be linux/amd64.** Local `docker build` on Apple Silicon produces arm64; ECS fails with "image Manifest does not contain descriptor matching platform 'linux/amd64'". Use `docker buildx build --platform linux/amd64 ... --push` for manual pushes, or rely on CI (which runs on linux/amd64).

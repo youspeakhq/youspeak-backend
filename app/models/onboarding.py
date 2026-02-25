@@ -45,7 +45,11 @@ class School(BaseModel, StatusMixin):
         nullable=False,
     )
 
-    # Address
+    # Contact (Bio Data per Figma)
+    email = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
+
+    # Address (Location per Figma)
     address_country = Column(String(100), nullable=True)
     address_state = Column(String(100), nullable=True)
     address_city = Column(String(100), nullable=True)

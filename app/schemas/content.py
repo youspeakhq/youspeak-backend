@@ -118,8 +118,17 @@ class QuestionBase(BaseModel):
 class AssessmentCreate(BaseModel):
     title: str
     type: AssignmentType
+    instructions: Optional[str] = None
     due_date: Optional[datetime] = None
     class_ids: List[UUID] = []
+
+
+class AssessmentUpdate(BaseModel):
+    title: Optional[str] = None
+    type: Optional[AssignmentType] = None
+    instructions: Optional[str] = None
+    due_date: Optional[datetime] = None
+    class_ids: Optional[List[UUID]] = None
 
 
 class AssessmentContentUpdate(BaseModel):
@@ -131,6 +140,60 @@ class AssessmentResponse(BaseModel):
     title: str
     type: AssignmentType
     status: AssignmentStatus
-    due_date: Optional[datetime]
+    due_date: Optional[datetime] = None
+    instructions: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AssessmentListRow(BaseModel):
+    """One row for Task Management table: class-level or assignment-level."""
+    id: UUID
+    title: str
+    type: AssignmentType
+    status: AssignmentStatus
+    due_date: Optional[datetime] = None
+    class_name: Optional[str] = None
+    active_students: Optional[int] = None
+    task_topic: Optional[str] = None
+    average_score: Optional[float] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QuestionResponse(BaseModel):
+    id: UUID
+    question_text: str
+    type: QuestionType
+    correct_answer: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AssignmentQuestionItem(BaseModel):
+    question_id: UUID
+    points: int = 1
+
+
+class SubmissionRow(BaseModel):
+    """One row for Class students list: student, status, score."""
+    id: UUID
+    student_id: UUID
+    student_name: Optional[str] = None
+    status: str
+    score_percent: Optional[float] = None
+    submitted_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SubmissionGradeUpdate(BaseModel):
+    teacher_score: Optional[float] = None
+    grade_score: Optional[float] = None
+    status: Optional[str] = None
+
+
+class AnalyticsSummary(BaseModel):
+    total_assessments: int
+    total_assignments: int
+    average_completion_rate: Optional[float] = None

@@ -165,3 +165,36 @@ async def test_get_semesters(
     assert len(data) > 0
     assert "id" in data[0]
     assert "name" in data[0]
+
+
+@pytest.mark.asyncio
+async def test_list_school_bills_requires_auth(async_client: AsyncClient, api_base: str):
+    """GET /schools/bills returns 401/403 without token."""
+    resp = await async_client.get(f"{api_base}/schools/bills")
+    assert resp.status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_list_school_bills_success(
+    async_client: AsyncClient, api_base: str, registered_school: dict
+):
+    """Admin can list billing history; response has data list and pagination meta."""
+    resp = await async_client.get(
+        f"{api_base}/schools/bills",
+        headers=registered_school["headers"],
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert "data" in body
+    assert "meta" in body
+    assert isinstance(body["data"], list)
+    assert body["meta"]["page"] == 1
+    assert body["meta"]["page_size"] >= 1
+    assert body["meta"]["total"] >= 0
+    assert body["meta"]["total_pages"] >= 0
+    for item in body["data"]:
+        assert "id" in item
+        assert "amount" in item
+        assert "status" in item
+        assert "due_date" in item
+        assert "created_at" in item

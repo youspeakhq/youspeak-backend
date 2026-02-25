@@ -1,5 +1,5 @@
-from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from typing import Optional, List, Any
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from datetime import datetime
 from uuid import UUID
 
@@ -17,6 +17,8 @@ class SchoolBase(BaseModel):
     name: str
     school_type: SchoolType
     program_type: ProgramType
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
     address_country: Optional[str] = None
     address_state: Optional[str] = None
     address_city: Optional[str] = None
@@ -53,6 +55,14 @@ class SchoolResponse(SchoolBase):
     id: UUID
     is_active: bool
     created_at: datetime
+    languages: List[str] = Field(default_factory=list, description="Language codes offered by the school")
+
+    @field_validator("languages", mode="before")
+    @classmethod
+    def languages_to_codes(cls, v: Any) -> List[str]:
+        if not v:
+            return []
+        return [x.code if hasattr(x, "code") else x for x in v]
 
     model_config = ConfigDict(from_attributes=True)
 

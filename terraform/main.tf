@@ -683,11 +683,63 @@ resource "aws_ecs_service" "curriculum_production" {
   }
 }
 
-# ECS service: curriculum staging
+# Curriculum microservice: ECS task definition for staging. Uses current env's secrets so staging
+# can share DB/secrets when using a single state, or use staging secrets when applied with environment=staging.
+resource "aws_ecs_task_definition" "curriculum_staging" {
+  family                   = "youspeak-curriculum-task-staging"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "512"
+  memory                   = "1024"
+  ephemeral_storage {
+    size_in_gib = 50
+  }
+  execution_role_arn = aws_iam_role.ecs_execution.arn
+  task_role_arn      = aws_iam_role.ecs_task.arn
+
+  container_definitions = jsonencode([{
+    name      = "youspeak-curriculum"
+    image     = "${aws_ecr_repository.curriculum.repository_url}:latest"
+    essential = true
+    portMappings = [{ containerPort = 8001, protocol = "tcp" }]
+    environment = [
+      { name = "ENVIRONMENT", value = "staging" },
+      { name = "AWS_REGION", value = var.aws_region },
+      { name = "BEDROCK_MODEL_ID", value = "amazon.nova-lite-v1:0" }
+    ]
+    secrets = concat(
+      [{ name = "DATABASE_URL", valueFrom = aws_secretsmanager_secret.database_url.arn }],
+      var.r2_access_key_id != "" ? [
+        { name = "R2_ACCOUNT_ID", valueFrom = aws_secretsmanager_secret.r2_account_id[0].arn },
+        { name = "R2_ACCESS_KEY_ID", valueFrom = aws_secretsmanager_secret.r2_access_key_id[0].arn },
+        { name = "R2_SECRET_ACCESS_KEY", valueFrom = aws_secretsmanager_secret.r2_secret_access_key[0].arn },
+        { name = "R2_BUCKET_NAME", valueFrom = aws_secretsmanager_secret.r2_bucket_name[0].arn }
+      ] : []
+    )
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = aws_cloudwatch_log_group.curriculum.name
+        "awslogs-region"        = var.aws_region
+        "awslogs-stream-prefix" = "ecs"
+        "awslogs-create-group"  = "true"
+      }
+    }
+    healthCheck = {
+      command     = ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\" || exit 1"]
+      interval    = 30
+      timeout     = 5
+      retries     = 3
+      startPeriod = 60
+    }
+  }])
+}
+
+# ECS service: curriculum staging (microservice; uses Terraform task def above)
 resource "aws_ecs_service" "curriculum_staging" {
   name            = "${var.app_name}-curriculum-service-staging"
   cluster         = aws_ecs_cluster.main.id
-  task_definition = "youspeak-curriculum-task"
+  task_definition = aws_ecs_task_definition.curriculum_staging.arn
   desired_count   = 1
   launch_type     = "FARGATE"
   platform_version = "LATEST"
@@ -703,9 +755,6 @@ resource "aws_ecs_service" "curriculum_staging" {
   }
   health_check_grace_period_seconds = 90
   enable_execute_command           = true
-  lifecycle {
-    ignore_changes = [task_definition]
-  }
 }
 
 # ECS Cluster

@@ -89,3 +89,71 @@ async def test_list_users_includes_classrooms(
     # Assert classrooms are populated for both
     assert any(c["id"] == classroom_id for c in teacher_found["classrooms"])
     assert any(c["id"] == classroom_id for c in student_found["classrooms"])
+
+
+# --- Delete my account (self-service) ---
+
+
+@pytest.mark.asyncio
+async def test_delete_my_account_requires_auth(async_client: AsyncClient, api_base: str):
+    """DELETE /users/me without token returns 401 or 403."""
+    resp = await async_client.request(
+        "DELETE",
+        f"{api_base}/users/me",
+        json={"password": "any"},
+    )
+    assert resp.status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_delete_my_account_wrong_password(
+    async_client: AsyncClient, api_base: str, registered_school: dict
+):
+    """DELETE /users/me with wrong password returns 400."""
+    resp = await async_client.request(
+        "DELETE",
+        f"{api_base}/users/me",
+        headers=registered_school["headers"],
+        json={"password": "WrongPassword123!"},
+    )
+    assert resp.status_code == 400
+    assert "password" in resp.json().get("detail", "").lower() or "incorrect" in resp.json().get("detail", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_delete_my_account_success(
+    async_client: AsyncClient, api_base: str, unique_suffix: str
+):
+    """DELETE /users/me with correct password deletes account and returns success."""
+    email = f"delete_me_{unique_suffix}@test.example.com"
+    password = "DeleteMePass123!"
+    reg = await async_client.post(
+        f"{api_base}/auth/register/school",
+        json={
+            "email": email,
+            "password": password,
+            "school_name": f"Delete Me School {unique_suffix}",
+        },
+    )
+    assert reg.status_code == 200, reg.text
+    login = await async_client.post(
+        f"{api_base}/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert login.status_code == 200, login.text
+    token = login.json()["data"]["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = await async_client.request(
+        "DELETE",
+        f"{api_base}/users/me",
+        headers=headers,
+        json={"password": password},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert "deleted" in (data.get("message") or "").lower()
+
+    # Same token should no longer be valid (user deleted)
+    get_resp = await async_client.get(f"{api_base}/users", headers=headers)
+    assert get_resp.status_code in (401, 403, 404)
