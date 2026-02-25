@@ -34,6 +34,16 @@ class SchoolService:
         return result.scalar_one_or_none()
 
     @staticmethod
+    async def get_school_with_languages(db: AsyncSession, school_id: UUID) -> Optional[School]:
+        """Fetch school with languages relationship loaded (for profile response)."""
+        result = await db.execute(
+            select(School)
+            .where(School.id == school_id)
+            .options(selectinload(School.languages))
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def create_school_with_admin(
         db: AsyncSession,
         school_data: SchoolCreate,
@@ -168,6 +178,32 @@ class SchoolService:
         languages = result.scalars().all()
 
         school.languages = list(languages)
+        await db.commit()
+        return True
+
+    @staticmethod
+    async def remove_program(db: AsyncSession, school_id: UUID, language_code: str) -> bool:
+        """Remove one language from the school's offered languages. Returns False if language not in DB or not offered by school."""
+        lang_stmt = select(Language).where(Language.code == language_code)
+        lang_result = await db.execute(lang_stmt)
+        language = lang_result.scalar_one_or_none()
+        if not language:
+            return False
+
+        stmt = (
+            select(School)
+            .where(School.id == school_id)
+            .options(selectinload(School.languages))
+        )
+        result = await db.execute(stmt)
+        school = result.scalar_one_or_none()
+        if not school:
+            return False
+
+        if language not in school.languages:
+            return False
+
+        school.languages = [l for l in school.languages if l.code != language_code]
         await db.commit()
         return True
 

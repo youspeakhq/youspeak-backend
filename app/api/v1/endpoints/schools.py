@@ -23,9 +23,9 @@ async def get_school_profile(
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
-    Fetch school details. Admin only.
+    Fetch school details including languages offered. Admin only.
     """
-    school = await SchoolService.get_school_by_id(db, current_user.school_id)
+    school = await SchoolService.get_school_with_languages(db, current_user.school_id)
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
 
@@ -48,6 +48,7 @@ async def update_school_profile(
     )
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
+    school = await SchoolService.get_school_with_languages(db, current_user.school_id)
 
     return SuccessResponse(data=school, message="Profile updated successfully")
 
@@ -72,6 +73,31 @@ async def update_school_programs(
     return SuccessResponse(
         data=SchoolProgramsResponse(languages=program_in.languages),
         message="School programs updated successfully",
+    )
+
+
+@router.delete("/program/{language_code}", response_model=SuccessResponse[SchoolProgramsResponse])
+async def remove_school_program(
+    language_code: str,
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Remove one language from the school's offered languages. Admin only.
+    """
+    success = await SchoolService.remove_program(
+        db, current_user.school_id, language_code
+    )
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail="Language not found or not offered by this school",
+        )
+    school = await SchoolService.get_school_with_languages(db, current_user.school_id)
+    codes = [l.code for l in school.languages]
+    return SuccessResponse(
+        data=SchoolProgramsResponse(languages=codes),
+        message="Language removed successfully",
     )
 
 
@@ -104,6 +130,7 @@ async def upload_school_logo(
     )
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
+    school = await SchoolService.get_school_with_languages(db, current_user.school_id)
 
     return SuccessResponse(
         data=school,
