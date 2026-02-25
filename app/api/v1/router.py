@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, users, schools, admin, students,
     teachers, classes, classrooms, references,
-    curriculums
+    curriculums, assessments, arenas
 )
 
 # Create API v1 router
@@ -23,3 +23,5 @@ api_router.include_router(classrooms.router, prefix="/classrooms", tags=["Classr
 api_router.include_router(references.router, prefix="/references", tags=["References"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 api_router.include_router(curriculums.router, prefix="/curriculums", tags=["Curriculum"])
+api_router.include_router(assessments.router, prefix="/assessments", tags=["Teacher Console – Assessment Management"])
+api_router.include_router(arenas.router, prefix="/arenas", tags=["Teacher Console – Arena Management"])

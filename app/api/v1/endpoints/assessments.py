@@ -46,6 +46,34 @@ def _assignment_to_list_row(a, class_name: Optional[str] = None, active_students
 # Define /questions/bank before /{assignment_id} so "questions" is not parsed as UUID
 
 
+@router.get("/questions/bank", response_model=PaginatedResponse[QuestionResponse])
+async def list_question_bank(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """List teacher's question bank."""
+    skip = (page - 1) * page_size
+    questions, total = await AssessmentService.list_questions(db, current_user.id, skip=skip, limit=page_size)
+    total_pages = (total + page_size - 1) // page_size if total else 0
+    return PaginatedResponse(
+        data=[QuestionResponse.model_validate(q) for q in questions],
+        meta=PaginationMeta(page=page, page_size=page_size, total=total, total_pages=total_pages),
+    )
+
+
+@router.post("/questions/bank", response_model=SuccessResponse[QuestionResponse])
+async def create_question(
+    body: QuestionBase,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """Create a question in the teacher's bank."""
+    q = await AssessmentService.create_question(db, current_user.id, body)
+    return SuccessResponse(data=QuestionResponse.model_validate(q), message="Question created")
+
+
 @router.get("/analytics/summary", response_model=SuccessResponse[AnalyticsSummary])
 async def get_analytics_summary(
     class_id: Optional[UUID] = Query(None, description="Filter by class"),
@@ -149,7 +177,7 @@ async def set_assignment_questions(
     ok = await AssessmentService.set_assignment_questions(db, assignment_id, current_user.id, body)
     if not ok:
         raise HTTPException(status_code=404, detail="Assessment not found")
-    return SuccessResponse(message="Questions updated")
+    return SuccessResponse(data={"updated": True}, message="Questions updated")
 
 
 # --- Submissions (Class students list) ---
@@ -165,6 +193,9 @@ async def list_submissions(
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """List submissions for an assignment (Students Performance table)."""
+    assignment = await AssessmentService.get_assignment(db, assignment_id, current_user.id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
     skip = (page - 1) * page_size
     rows, total = await AssessmentService.list_submissions(
         db, assignment_id, current_user.id, status_filter=status, search=search, skip=skip, limit=page_size

@@ -156,3 +156,35 @@ async def class_id_for_student(
     )
     assert resp.status_code == 200, resp.text
     return resp.json()["data"]["id"]
+
+
+@pytest.fixture
+async def teacher_headers(
+    async_client: AsyncClient, api_base: str, registered_school: dict, unique_suffix: str
+):
+    """Create a teacher and return auth headers for teacher-console endpoints."""
+    email = f"teacher_{unique_suffix}@test.com"
+    resp = await async_client.post(
+        f"{api_base}/teachers",
+        headers=registered_school["headers"],
+        json={"first_name": "Teacher", "last_name": "One", "email": email},
+    )
+    assert resp.status_code == 200, resp.text
+    code = resp.json()["data"]["access_code"]
+    await async_client.post(
+        f"{api_base}/auth/register/teacher",
+        json={
+            "access_code": code,
+            "email": email,
+            "password": "Pass123!",
+            "first_name": "Teacher",
+            "last_name": "One",
+        },
+    )
+    resp = await async_client.post(
+        f"{api_base}/auth/login",
+        json={"email": email, "password": "Pass123!"},
+    )
+    assert resp.status_code == 200, resp.text
+    token = resp.json()["data"]["access_token"]
+    return {"Authorization": f"Bearer {token}"}

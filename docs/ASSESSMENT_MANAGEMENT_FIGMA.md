@@ -1,5 +1,7 @@
 # Assessment Management – Figma → Backend Alignment
 
+**Context: Teacher console.** All assessment endpoints are for the authenticated **teacher** only. They require teacher auth and scope to the current teacher's assignments, questions, and submissions.
+
 Source: Figma file **"Indiigoo Labs _You Speak_ AI language assistant"**, page **Websites**, section **Assessment management** (node `3743:5415`). Fetched via Figma MCP (`get_design_context`, `get_node`).
 
 ---
