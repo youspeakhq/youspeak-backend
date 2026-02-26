@@ -76,6 +76,22 @@ async def test_register_school_invalid_school_type(async_client: AsyncClient, ap
 
 
 @pytest.mark.asyncio
+async def test_register_school_accepts_mixed_school_type(async_client: AsyncClient, api_base: str, unique_suffix: str):
+    """Backend supports primary, secondary, mixed (not tertiary) per product."""
+    resp = await async_client.post(
+        f"{api_base}/auth/register/school",
+        json={
+            "email": f"mixed_{unique_suffix}@test.com",
+            "password": "Pass123!",
+            "school_name": f"Mixed School {unique_suffix}",
+            "school_type": "mixed",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json().get("data", {}).get("school_id") is not None
+
+
+@pytest.mark.asyncio
 async def test_register_school_invalid_program_type(async_client: AsyncClient, api_base: str, unique_suffix: str):
     resp = await async_client.post(
         f"{api_base}/auth/register/school",

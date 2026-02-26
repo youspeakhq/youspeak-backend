@@ -50,7 +50,7 @@ For the "Tell us about your school" screen when the user does **not** skip.
 - `school_name` — School name
 
 **Optional (defaults applied if omitted):**
-- `school_type` — `"primary"` | `"secondary"` | `"tertiary"` (default: `"secondary"`)
+- `school_type` — `"primary"` | `"secondary"` | `"mixed"` (default: `"secondary"`)
 - `program_type` — `"pioneer"` | `"partnership"` (default: `"partnership"`)
 - `address_country`, `address_state`, `address_city`, `address_zip`
 - `languages` — Array of language codes, e.g. `["es", "fr"]`

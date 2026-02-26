@@ -15,10 +15,10 @@ class InquiryType(str, enum.Enum):
 
 
 class SchoolType(str, enum.Enum):
-    """School education levels"""
+    """School education levels (primary, secondary, mixed per product)"""
     PRIMARY = "primary"
     SECONDARY = "secondary"
-    TERTIARY = "tertiary"
+    MIXED = "mixed"
 
 
 class ProgramType(str, enum.Enum):

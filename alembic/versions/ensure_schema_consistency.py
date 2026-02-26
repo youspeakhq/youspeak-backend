@@ -19,7 +19,7 @@ def upgrade() -> None:
     # Lowercase enum values (PostgreSQL ADD VALUE IF NOT EXISTS)
     for value in ("billing", "demo_request", "new_onboarding", "program_selection_guidance"):
         op.execute(f"ALTER TYPE inquiry_type ADD VALUE IF NOT EXISTS '{value}'")
-    for value in ("primary", "secondary", "tertiary"):
+    for value in ("primary", "secondary", "mixed"):
         op.execute(f"ALTER TYPE school_type ADD VALUE IF NOT EXISTS '{value}'")
     for value in ("pioneer", "partnership"):
         op.execute(f"ALTER TYPE program_type ADD VALUE IF NOT EXISTS '{value}'")
