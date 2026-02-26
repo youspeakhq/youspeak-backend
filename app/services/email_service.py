@@ -17,14 +17,30 @@ import logging
 from urllib.parse import urlencode
 
 from app.config import settings
-from app.services.email_branding import (
-    BUTTON_STYLE,
-    CODE_STYLE,
-    PRIMARY_HEX,
-    TEXT_MUTED_HEX,
-    TEXT_PRIMARY_HEX,
-    FONT_FAMILY,
-)
+
+try:
+    from app.services.email_branding import (
+        BUTTON_STYLE,
+        CODE_STYLE,
+        PRIMARY_HEX,
+        TEXT_MUTED_HEX,
+        TEXT_PRIMARY_HEX,
+        FONT_FAMILY,
+    )
+except ModuleNotFoundError:
+    # Fallback when email_branding.py is not present (e.g. CI before file is committed)
+    PRIMARY_HEX = "#4B0082"
+    TEXT_PRIMARY_HEX = "#1E293B"
+    TEXT_MUTED_HEX = "#64748B"
+    FONT_FAMILY = "Space Grotesk, system-ui, sans-serif"
+    BUTTON_STYLE = (
+        f"background: {PRIMARY_HEX}; color: white; padding: 12px 24px; "
+        "text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;"
+    )
+    CODE_STYLE = (
+        f"background: #F9FAFC; color: {TEXT_PRIMARY_HEX}; "
+        "padding: 6px 10px; border-radius: 4px; font-size: 14px;"
+    )
 
 logger = logging.getLogger(__name__)
 
