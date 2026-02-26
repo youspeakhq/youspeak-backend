@@ -117,3 +117,5 @@ aws secretsmanager put-secret-value \
 ```
 
 Or in the AWS Console: Secrets Manager → `youspeak/database-url-staging` → **Store a new secret value**, then run the `aws ecs update-service` command above.
+
+**Confirm which secrets have values:** run `./scripts/confirm-and-set-staging-secrets.sh` (no args). To set the DB secret from env: `export DATABASE_URL='...'` then `./scripts/confirm-and-set-staging-secrets.sh --set-db`.
