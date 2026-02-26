@@ -63,7 +63,7 @@ cd .. && .aws/generate-task-definition.sh
 
 3. Deploy: push to `main`/`live` so CI registers the new task definition and updates the ECS service, or run `aws ecs update-service ... --force-new-deployment` after registering the task definition.
 
-Terraform creates four secrets in AWS Secrets Manager and grants the ECS execution role access. The generate script injects them (and `STORAGE_PUBLIC_BASE_URL`) into the task definition.
+Terraform creates four secrets in AWS Secrets Manager and grants the ECS execution role access. The generate script injects them (and `STORAGE_PUBLIC_BASE_URL`) into the task definition. If the secret *resources* already exist but have no value (e.g. staging), run a targeted apply for the R2 secret versions: `terraform apply -var=environment=staging -target=aws_secretsmanager_secret_version.r2_account_id -target=aws_secretsmanager_secret_version.r2_access_key_id -target=aws_secretsmanager_secret_version.r2_secret_access_key -target=aws_secretsmanager_secret_version.r2_bucket_name`. If tasks then fail with AccessDeniedException on R2 secrets, update the execution role policy: `terraform apply -var=environment=staging -target=aws_iam_role_policy.ecs_execution_secrets`. See **docs/ECS-CURRICULUM-PENDING.md** for full staging troubleshooting.
 
 ## 4. Production (custom domain)
 

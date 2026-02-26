@@ -7,7 +7,15 @@ set -e
 
 SET_DB="${1:-}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
-SECRETS=( "youspeak/database-url-staging" "youspeak/redis-url-staging" "youspeak/secret-key-staging" )
+SECRETS=(
+  "youspeak/database-url-staging"
+  "youspeak/redis-url-staging"
+  "youspeak/secret-key-staging"
+  "youspeak/r2-account-id-staging"
+  "youspeak/r2-access-key-id-staging"
+  "youspeak/r2-secret-access-key-staging"
+  "youspeak/r2-bucket-name-staging"
+)
 
 has_current() {
   aws secretsmanager list-secret-version-ids --secret-id "$1" --region "$AWS_REGION" \
@@ -27,7 +35,7 @@ done
 
 if [ ${#MISSING[@]} -eq 0 ]; then
   echo ""
-  echo "All required staging secrets have a value. Force ECS deploy:"
+  echo "All staging secrets have a value. Force ECS deploy:"
   echo "  aws ecs update-service --cluster youspeak-cluster --service youspeak-curriculum-service-staging --force-new-deployment --region $AWS_REGION"
   exit 0
 fi
@@ -48,8 +56,8 @@ if [[ "$SET_DB" == "--set-db" ]]; then
     echo "  Done. Re-run without --set-db to confirm; then force ECS deploy."
   fi
 else
-  echo "Terraform: cd terraform && terraform apply -var=environment=staging (needs db_password; DB must be in state for secret value)."
-  echo "Manual: export DATABASE_URL='postgresql://...' then ./scripts/confirm-and-set-staging-secrets.sh --set-db"
+  echo "To set all staging secrets from env and deploy: ./scripts/set-all-staging-secrets-from-env.sh"
+  echo "Or set individually: export DATABASE_URL='...' then ./scripts/confirm-and-set-staging-secrets.sh --set-db"
   echo "Then: aws ecs update-service --cluster youspeak-cluster --service youspeak-curriculum-service-staging --force-new-deployment --region $AWS_REGION"
   exit 1
 fi
