@@ -6,8 +6,10 @@ Usage:
   python scripts/send_test_email.py
   # Requires RESEND_API_KEY in .env (or export)
 
-To send to any recipient: verify a domain at resend.com/domains, set EMAIL_FROM
-to an address at that domain (e.g. noreply@mail.youspeak.com). See docs/EMAIL_SETUP.md.
+With an unverified domain, Resend only allows sending to the account email.
+Default TO_EMAIL is set to that so the script works in development. Override with
+  TEST_EMAIL=other@example.com python scripts/send_test_email.py
+once you have verified a domain and set EMAIL_FROM to an address on it.
 """
 import os
 import sys
@@ -29,7 +31,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.services.email_service import send_teacher_invite
 
-TO_EMAIL = "mbakaragoodness2003@gmail.com"
+# Resend allows only the account email when domain is unverified; override with TEST_EMAIL
+TO_EMAIL = os.getenv("TEST_EMAIL", "youspeakhq@indiigoolabs.org")
 FIRST_NAME = "Test"
 ACCESS_CODE = "TEST-EMAIL-VERIFY"
 

@@ -1,5 +1,6 @@
 from datetime import timedelta
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,12 +12,13 @@ from app.services.user_service import UserService
 from app.services.school_service import SchoolService
 from app.schemas.auth import (
     LoginRequest, Token, RegisterSchoolRequest, RegisterTeacherRequest,
-    VerifyCodeRequest, PasswordResetRequest
+    VerifyCodeRequest, PasswordResetRequest, PasswordResetEmailRequest
 )
 from app.schemas.school import SchoolCreate, ContactInquiryCreate
 from app.models.enums import SchoolType, ProgramType
 from app.models.onboarding import ContactInquiry
 from app.schemas.responses import SuccessResponse
+from app.services.email_service import send_password_reset
 
 router = APIRouter()
 
@@ -195,6 +197,26 @@ async def verify_code(
     )
 
 
+@router.post("/password/request-reset", response_model=SuccessResponse)
+async def request_password_reset(
+    body: PasswordResetEmailRequest,
+    db: AsyncSession = Depends(deps.get_db)
+) -> Any:
+    """
+    Request a password reset. Sends an email with a reset link if the account exists.
+    Always returns 200 to avoid email enumeration.
+    """
+    user = await UserService.get_user_by_email(db, email=body.email)
+    if user:
+        token = security.generate_password_reset_token(str(user.id))
+        reset_link = f"{settings.FRONTEND_RESET_PASSWORD_URL.rstrip('/')}?token={quote(token, safe='')}"
+        send_password_reset(body.email, reset_link)
+    return SuccessResponse(
+        data={},
+        message="If an account exists with this email, you will receive a password reset link shortly."
+    )
+
+
 @router.post("/password/reset", response_model=SuccessResponse)
 async def reset_password(
     reset_in: PasswordResetRequest,
@@ -214,4 +236,4 @@ async def reset_password(
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return SuccessResponse(message="Password updated successfully")
+    return SuccessResponse(data={}, message="Password updated successfully")

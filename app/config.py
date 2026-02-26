@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "YouSpeak <onboarding@resend.dev>"
     FRONTEND_SIGNUP_URL: str = "https://app.youspeak.com/signup"
+    FRONTEND_RESET_PASSWORD_URL: str = "https://app.youspeak.com/reset-password"
 
     # Storage (Cloudflare R2 – S3-compatible)
     STORAGE_PUBLIC_BASE_URL: str = "https://storage.youspeak.com"

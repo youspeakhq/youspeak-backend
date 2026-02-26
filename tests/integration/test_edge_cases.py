@@ -138,6 +138,35 @@ async def test_password_reset_invalid_token(async_client: AsyncClient, api_base:
     assert resp.status_code == 400
 
 
+@pytest.mark.asyncio
+async def test_password_request_reset_returns_200_registered_email(
+    async_client: AsyncClient, api_base: str, registered_school: dict
+):
+    """Request reset for a known account: 200 and generic message (no email enumeration)."""
+    resp = await async_client.post(
+        f"{api_base}/auth/password/request-reset",
+        json={"email": registered_school["admin_email"]},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "message" in data
+    assert "account" in data["message"].lower() or "email" in data["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_password_request_reset_returns_200_unknown_email(
+    async_client: AsyncClient, api_base: str, unique_suffix: str
+):
+    """Request reset for unknown email: still 200 with same generic message."""
+    resp = await async_client.post(
+        f"{api_base}/auth/password/request-reset",
+        json={"email": f"no-such-user-{unique_suffix}@test.example.com"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "message" in data
+
+
 # --- Auth token edge cases ---
 
 
