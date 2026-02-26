@@ -3,7 +3,7 @@
 Test Cloudflare R2 connectivity and public URL.
 Uses R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME from env (or .env).
 Run from repo root: python scripts/test_r2_connection.py
-Or after exporting vars from Terraform secrets: ./scripts/check_r2_credentials_terraform.sh
+Or after exporting vars from Terraform secrets: ./scripts/verify_r2_credentials_from_terraform.sh
 """
 import sys
 from pathlib import Path
