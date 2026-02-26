@@ -8,10 +8,18 @@ from app.api import deps
 from app.models.user import User
 from app.schemas.academic import ClassResponse, ClassCreate, RosterUpdate
 from app.schemas.admin import LeaderboardResponse
+from app.schemas.analytics import (
+    ClassPerformanceSummary,
+    LearningSessionCreate,
+    LearningSessionOut,
+    RoomMonitorCard,
+    RoomMonitorResponse,
+)
 from app.schemas.award import AwardCreate, AwardOut
 from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
 from app.services.academic_service import AcademicService
 from app.services.award_service import AwardService
+from app.services.learning_session_service import LearningSessionService
 from app.services.school_service import SchoolService
 
 router = APIRouter()
@@ -124,6 +132,132 @@ async def create_class(
         return SuccessResponse(data=new_class, message="Class created successfully")
     except IntegrityError:
         raise HTTPException(status_code=400, detail="Invalid data provided, e.g., nonexistent semester_id or language_id.")
+
+
+@router.get("/monitor", response_model=SuccessResponse[List[RoomMonitorCard]])
+async def list_room_monitor_cards(
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Room monitor dashboard: one card per class the teacher teaches (Figma: row of class cards).
+    """
+    cards_data = await LearningSessionService.list_monitor_cards_for_teacher(db, current_user.id)
+    data = [
+        RoomMonitorCard(
+            class_id=cid,
+            class_name=cname,
+            student_count=count,
+            active_session=LearningSessionOut.model_validate(active) if active else None,
+        )
+        for cid, cname, count, active in cards_data
+    ]
+    return SuccessResponse(data=data, message="Room monitor cards retrieved successfully")
+
+
+@router.get("/{class_id}/monitor", response_model=SuccessResponse[RoomMonitorResponse])
+async def get_room_monitor(
+    class_id: UUID,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Room monitor detail for one class: card data plus Class Performance Summary (Figma: detail + summary section).
+    """
+    cls = await AcademicService.get_class_by_id(db, class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+    if not any(c.id == class_id for c in teacher_classes):
+        raise HTTPException(status_code=404, detail="Class not found")
+    roster = await AcademicService.get_class_roster(db, class_id)
+    active = await LearningSessionService.get_active_session(db, class_id)
+    recent_sessions = await LearningSessionService.list_sessions_for_class(
+        db, class_id, current_user.id, limit=5
+    )
+    performance_summary = ClassPerformanceSummary(
+        recent_sessions_count=len(recent_sessions),
+        recent_sessions=[LearningSessionOut.model_validate(s) for s in recent_sessions],
+    )
+    data = RoomMonitorResponse(
+        class_id=class_id,
+        class_name=cls.name,
+        student_count=len(roster),
+        active_session=LearningSessionOut.model_validate(active) if active else None,
+        performance_summary=performance_summary,
+    )
+    return SuccessResponse(data=data, message="Room monitor retrieved successfully")
+
+
+@router.get("/{class_id}/sessions", response_model=SuccessResponse[List[LearningSessionOut]])
+async def list_class_sessions(
+    class_id: UUID,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+    limit: int = Query(50, ge=1, le=100),
+) -> Any:
+    """
+    List learning sessions for a class (most recent first).
+    """
+    cls = await AcademicService.get_class_by_id(db, class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    sessions = await LearningSessionService.list_sessions_for_class(
+        db, class_id, current_user.id, limit=limit
+    )
+    return SuccessResponse(
+        data=[LearningSessionOut.model_validate(s) for s in sessions],
+        message="Sessions retrieved successfully",
+    )
+
+
+@router.post("/{class_id}/sessions", response_model=SuccessResponse[LearningSessionOut])
+async def start_class_session(
+    class_id: UUID,
+    body: LearningSessionCreate,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Start a learning session for the class. Only one active session per class at a time.
+    """
+    cls = await AcademicService.get_class_by_id(db, class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    session = await LearningSessionService.start_session(
+        db, class_id, current_user.id, body.session_type
+    )
+    if not session:
+        raise HTTPException(
+            status_code=400,
+            detail="Class not found, access denied, or a session is already in progress.",
+        )
+    return SuccessResponse(
+        data=LearningSessionOut.model_validate(session),
+        message="Session started successfully",
+    )
+
+
+@router.patch("/{class_id}/sessions/{session_id}", response_model=SuccessResponse)
+async def end_class_session(
+    class_id: UUID,
+    session_id: UUID,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    End an in-progress learning session.
+    """
+    cls = await AcademicService.get_class_by_id(db, class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    ok = await LearningSessionService.end_session(db, session_id, class_id, current_user.id)
+    if not ok:
+        raise HTTPException(
+            status_code=400,
+            detail="Session not found, already ended, or access denied.",
+        )
+    return SuccessResponse(data={}, message="Session ended successfully")
 
 
 @router.get("/{class_id}/roster", response_model=SuccessResponse)
