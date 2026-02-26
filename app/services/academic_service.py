@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.models.academic import Class, ClassSchedule, class_enrollments, teacher_assignments
 from app.models.enums import StudentRole, ClassStatus, UserRole
 from app.schemas.academic import ClassCreate
+from app.services.school_service import SchoolService
 
 
 class AcademicService:
@@ -272,7 +273,9 @@ class AcademicService:
         existing = existing_users.get(email)
         if existing:
             if existing.school_id != school_id:
-                return None, 0, 0, f"Row {row_index + 2}: {email} belongs to another school"
+                other_school = await SchoolService.get_school_by_id(db, existing.school_id)
+                school_name = other_school.name if other_school else "another school"
+                return None, 0, 0, f"Row {row_index + 2}: {email} already belongs to school '{school_name}'"
             if existing.role != UserRole.STUDENT:
                 return None, 0, 0, f"Row {row_index + 2}: {email} is not a student"
             return existing.id, 0, 0, None

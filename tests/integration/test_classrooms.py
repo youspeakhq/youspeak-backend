@@ -341,6 +341,58 @@ async def test_add_student_to_classroom(
 
 
 @pytest.mark.asyncio
+async def test_add_student_to_classroom_rejects_student_from_another_school_with_school_name(
+    async_client: AsyncClient,
+    api_base: str,
+    registered_school: dict,
+    classroom_id,
+    unique_suffix: str,
+):
+    """Adding a student who belongs to another school returns 400 and mentions that school by name."""
+    # Register a second school (school B)
+    other_suffix = f"other_{unique_suffix}"
+    other_email = f"admin_{other_suffix}@test.example.com"
+    other_school_name = f"Other School {other_suffix}"
+    resp = await async_client.post(
+        f"{api_base}/auth/register/school",
+        json={
+            "email": other_email,
+            "password": "TestPassword123!",
+            "school_name": other_school_name,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    login_resp = await async_client.post(
+        f"{api_base}/auth/login",
+        json={"email": other_email, "password": "TestPassword123!"},
+    )
+    assert login_resp.status_code == 200
+    other_headers = {"Authorization": f"Bearer {login_resp.json()['data']['access_token']}"}
+    # Create a student in school B (no class enrollment needed)
+    student_resp = await async_client.post(
+        f"{api_base}/students",
+        headers=other_headers,
+        json={
+            "first_name": "Cross",
+            "last_name": f"Student{other_suffix}",
+            "lang_id": 1,
+        },
+    )
+    assert student_resp.status_code == 200
+    other_school_student_id = student_resp.json()["data"]["id"]
+    # School A tries to add school B's student to school A's classroom
+    resp = await async_client.post(
+        f"{api_base}/classrooms/{classroom_id}/students",
+        headers=registered_school["headers"],
+        json={"student_id": str(other_school_student_id)},
+    )
+    assert resp.status_code == 400
+    detail = resp.json().get("detail", "")
+    assert other_school_name in detail, f"Expected response to mention school name '{other_school_name}', got: {detail}"
+    assert "already belongs" in detail.lower() or "belongs to" in detail.lower()
+
+
+@pytest.mark.asyncio
 async def test_get_classroom_teachers_returns_assigned_teachers(
     async_client: AsyncClient,
     api_base: str,

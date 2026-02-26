@@ -12,13 +12,13 @@ from app.services.user_service import UserService
 from app.models.user import User
 from app.models.enums import UserRole
 
-# Security scheme for bearer token
-security = HTTPBearer()
+# Security scheme for bearer token (auto_error=False so we can return 401 for missing auth)
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> User:
     """
     Get current authenticated user from JWT token.
@@ -31,8 +31,14 @@ async def get_current_user(
         Current user
 
     Raises:
-        HTTPException: If token is invalid or user not found
+        HTTPException: If token is missing, invalid or user not found
     """
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     token = credentials.credentials
 
     # Decode token

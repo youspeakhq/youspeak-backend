@@ -169,12 +169,12 @@ async def add_student_to_classroom(
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """Add student to classroom. Admin only."""
-    success = await ClassroomService.add_student_to_classroom(
+    success, other_school_name = await ClassroomService.add_student_to_classroom(
         db, classroom_id, body.student_id, current_user.school_id
     )
     if not success:
-        raise HTTPException(
-            status_code=400,
-            detail="Could not add student. Student may not exist or already assigned.",
-        )
+        detail = "Could not add student. Student may not exist or already assigned."
+        if other_school_name:
+            detail = f"Student already belongs to school '{other_school_name}'."
+        raise HTTPException(status_code=400, detail=detail)
     return SuccessResponse(data={}, message="Student added to classroom")

@@ -1,6 +1,6 @@
 """Classroom Service - Admin-created organizational units"""
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
 from sqlalchemy import select, and_, insert, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from app.models.user import User
 from app.models.enums import UserRole
 from app.schemas.academic import ClassroomCreate
 from app.services.user_service import UserService
+from app.services.school_service import SchoolService
 
 
 class ClassroomService:
@@ -131,13 +132,20 @@ class ClassroomService:
         classroom_id: UUID,
         student_id: UUID,
         school_id: UUID,
-    ) -> bool:
+    ) -> Tuple[bool, Optional[str]]:
+        """Returns (success, other_school_name). other_school_name is set when student belongs to another school."""
         classroom = await ClassroomService.get_classroom_by_id(db, classroom_id, school_id)
         if not classroom:
-            return False
+            return False, None
         user = await UserService.get_user_by_id(db, student_id)
-        if not user or user.school_id != school_id or user.role != UserRole.STUDENT:
-            return False
+        if not user:
+            return False, None
+        if user.role != UserRole.STUDENT:
+            return False, None
+        if user.school_id != school_id:
+            other_school = await SchoolService.get_school_by_id(db, user.school_id)
+            other_name = other_school.name if other_school else None
+            return False, other_name
         existing = await db.execute(
             select(classroom_students).where(
                 and_(
@@ -147,7 +155,7 @@ class ClassroomService:
             )
         )
         if existing.first():
-            return False
+            return False, None
         await db.execute(
             insert(classroom_students).values(
                 classroom_id=classroom_id,
@@ -155,7 +163,7 @@ class ClassroomService:
             )
         )
         await db.commit()
-        return True
+        return True, None
 
     @staticmethod
     async def get_classroom_students(
