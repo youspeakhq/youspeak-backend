@@ -44,6 +44,7 @@ jobs:
               - 'Dockerfile'
               - '.aws/task-definition.json'
               - '.aws/task-definition-migration.json'
+              - '.github/**'
             curriculum:
               - 'services/curriculum/**'
 
