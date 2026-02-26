@@ -1,6 +1,7 @@
-"""Curriculum service FastAPI app."""
+"""Curriculum service FastAPI app.
 
-# CI: changes here trigger curriculum image build (linux/amd64) and push to ECR
+CI: any change under services/curriculum/** triggers Build and push curriculum image (linux/amd64).
+"""
 
 from contextlib import asynccontextmanager
 from sqlalchemy import text
@@ -20,7 +21,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    version="1.0.1",
+    version="1.0.2",
     lifespan=lifespan,
 )
 
