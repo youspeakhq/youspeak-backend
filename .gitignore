@@ -139,6 +139,9 @@ cython_debug/
 .vscode/
 .idea/
 
+# Figma cache (exports, assets)
+figma-cache/
+
 # Global Cursor config (rules/workflows live in ~/.cursor)
 .cursor/
 _agents/
