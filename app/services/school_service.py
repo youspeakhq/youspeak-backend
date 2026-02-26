@@ -182,7 +182,7 @@ class SchoolService:
             return False
 
         school.languages = list(languages)
-        await db.commit()
+        await db.flush()
         return True
 
     @staticmethod
@@ -208,7 +208,7 @@ class SchoolService:
             return False
 
         school.languages = [l for l in school.languages if l.code != language_code]
-        await db.commit()
+        await db.flush()
         return True
 
     @staticmethod

@@ -29,6 +29,8 @@ All paths are relative to **`/api/v1`**. Use **Bearer token** (admin or current 
 | Save languages offered | `PUT` | `/schools/program` | Admin | `{ "languages": ["en", "es", "fr"] }` | `{ "data": { "languages": ["en", "es", "fr"] }, "message": "..." }` |
 | Remove a language | `DELETE` | `/schools/program/{language_code}` | Admin | — (code in path, e.g. `fr`) | `{ "data": { "languages": [...] }, "message": "Language removed successfully" }` |
 
+**Note:** Use the **same admin token** for both `PUT /schools/program` and `GET /schools/profile`. After a successful PUT, the next GET returns the updated `data.languages`. Send `"languages": ["en", "es", "fr"]` (or other valid codes from `GET /references/languages`); invalid codes return 400; an empty array clears the list.
+
 ---
 
 ## 3. Account tab
