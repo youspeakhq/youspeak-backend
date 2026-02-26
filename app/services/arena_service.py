@@ -115,7 +115,7 @@ class ArenaService:
         return arena
 
     @staticmethod
-    async def update_arena(
+    async def update_arena(  # noqa: C901
         db: AsyncSession,
         arena_id: UUID,
         teacher_id: UUID,

@@ -6,7 +6,6 @@ All routes require teacher auth and operate on the current teacher's data.
 from typing import Any, List, Optional
 from uuid import UUID
 
-import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +34,18 @@ from app.services.assessment_service import AssessmentService
 router = APIRouter()
 
 
-def _assignment_to_list_row(a, class_name: Optional[str] = None, active_students: Optional[int] = None, average_score: Optional[float] = None) -> dict:
+def _detail_from_response(r) -> str:
+    if r.headers.get("content-type", "").startswith("application/json"):
+        return r.json().get("detail", r.text)
+    return r.text
+
+
+def _assignment_to_list_row(
+    a,
+    class_name: Optional[str] = None,
+    active_students: Optional[int] = None,
+    average_score: Optional[float] = None,
+) -> dict:
     return {
         "id": a.id,
         "title": a.title,
@@ -146,8 +156,7 @@ async def upload_questions_file(
         headers=_curriculum_headers(current_user),
     )
     if r_parse.status_code >= 400:
-        detail = r_parse.json().get("detail", r_parse.text) if r_parse.headers.get("content-type", "").startswith("application/json") else r_parse.text
-        raise HTTPException(status_code=r_parse.status_code, detail=detail)
+        raise HTTPException(status_code=r_parse.status_code, detail=_detail_from_response(r_parse))
     markdown = r_parse.json().get("data", {}).get("markdown", "")
     r_extract = await client.post(
         "/curriculums/extract-questions",
@@ -155,15 +164,18 @@ async def upload_questions_file(
         headers=_curriculum_headers(current_user),
     )
     if r_extract.status_code >= 400:
-        detail = r_extract.json().get("detail", r_extract.text) if r_extract.headers.get("content-type", "").startswith("application/json") else r_extract.text
-        raise HTTPException(status_code=r_extract.status_code, detail=detail)
+        raise HTTPException(status_code=r_extract.status_code, detail=_detail_from_response(r_extract))
     questions_data = r_extract.json().get("data", {}).get("questions", [])
     questions = [GeneratedQuestion(**q) for q in questions_data]
     question_ids: List[UUID] = []
     if save_to_bank:
         from app.models.enums import QuestionType
         for gq in questions:
-            qt = QuestionType(gq.type) if gq.type in ("multiple_choice", "open_text", "oral") else QuestionType.OPEN_TEXT
+            qt = (
+                QuestionType(gq.type)
+                if gq.type in ("multiple_choice", "open_text", "oral")
+                else QuestionType.OPEN_TEXT
+            )
             q = await AssessmentService.create_question(
                 db, current_user.id,
                 QuestionBase(question_text=gq.question_text, type=qt, correct_answer=gq.correct_answer, options=gq.options),
@@ -202,8 +214,7 @@ async def upload_marking_scheme_file(
         headers=_curriculum_headers(current_user),
     )
     if r_parse.status_code >= 400:
-        detail = r_parse.json().get("detail", r_parse.text) if r_parse.headers.get("content-type", "").startswith("application/json") else r_parse.text
-        raise HTTPException(status_code=r_parse.status_code, detail=detail)
+        raise HTTPException(status_code=r_parse.status_code, detail=_detail_from_response(r_parse))
     markdown = r_parse.json().get("data", {}).get("markdown", "")
     r_extract = await client.post(
         "/curriculums/extract-marking-scheme",
@@ -211,8 +222,7 @@ async def upload_marking_scheme_file(
         headers=_curriculum_headers(current_user),
     )
     if r_extract.status_code >= 400:
-        detail = r_extract.json().get("detail", r_extract.text) if r_extract.headers.get("content-type", "").startswith("application/json") else r_extract.text
-        raise HTTPException(status_code=r_extract.status_code, detail=detail)
+        raise HTTPException(status_code=r_extract.status_code, detail=_detail_from_response(r_extract))
     criteria_data = r_extract.json().get("data", {}).get("criteria", [])
     criteria = [MarkingCriterionItem(**c) for c in criteria_data]
     return SuccessResponse(
@@ -397,7 +407,11 @@ async def list_submissions(
     )
     items = []
     for sub, student_name in rows:
-        score_pct = float(sub.grade_score or sub.ai_score or 0) if (sub.grade_score is not None or sub.ai_score is not None) else None
+        score_pct = (
+            float(sub.grade_score or sub.ai_score or 0)
+            if (sub.grade_score is not None or sub.ai_score is not None)
+            else None
+        )
         items.append(
             SubmissionRow(
                 id=sub.id,
@@ -498,8 +512,7 @@ async def grade_submission_with_ai(
         headers=headers,
     )
     if r_parse.status_code >= 400:
-        detail = r_parse.json().get("detail", r_parse.text) if r_parse.headers.get("content-type", "").startswith("application/json") else r_parse.text
-        raise HTTPException(status_code=r_parse.status_code, detail=detail)
+        raise HTTPException(status_code=r_parse.status_code, detail=_detail_from_response(r_parse))
     parsed = r_parse.json()
     submission_markdown = parsed.get("data", {}).get("markdown", "")
 
@@ -518,8 +531,7 @@ async def grade_submission_with_ai(
         headers=headers,
     )
     if r_eval.status_code >= 400:
-        detail = r_eval.json().get("detail", r_eval.text) if r_eval.headers.get("content-type", "").startswith("application/json") else r_eval.text
-        raise HTTPException(status_code=r_eval.status_code, detail=detail)
+        raise HTTPException(status_code=r_eval.status_code, detail=_detail_from_response(r_eval))
     eval_data = r_eval.json().get("data", {})
     score = float(eval_data.get("score", 0))
 

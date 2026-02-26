@@ -82,7 +82,7 @@ async def update_school_programs(
     school = await SchoolService.get_school_with_languages(db, current_user.school_id)
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
-    codes = [l.code for l in school.languages]
+    codes = [lang.code for lang in school.languages]
     return SuccessResponse(
         data=SchoolProgramsResponse(languages=codes),
         message="School programs updated successfully",
@@ -109,7 +109,7 @@ async def remove_school_program(
     school = await SchoolService.get_school_with_languages(db, current_user.school_id)
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
-    codes = [l.code for l in school.languages]
+    codes = [lang.code for lang in school.languages]
     return SuccessResponse(
         data=SchoolProgramsResponse(languages=codes),
         message="Language removed successfully",

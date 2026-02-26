@@ -13,7 +13,6 @@ from app.models.user import User
 from app.services import storage_service as storage
 from app.config import settings
 from app.schemas.content import (
-    CurriculumCreate,
     CurriculumUpdate,
     CurriculumMergeProposeRequest,
     CurriculumMergeConfirmRequest,
@@ -48,7 +47,12 @@ def _proxy_error_response(r: httpx.Response) -> JSONResponse:
         raw = r.json()
         if isinstance(raw, dict) and "detail" in raw:
             detail = raw["detail"]
-            message = detail if isinstance(detail, str) else "; ".join(str(x) for x in detail) if isinstance(detail, list) else str(detail)
+            if isinstance(detail, str):
+                message = detail
+            elif isinstance(detail, list):
+                message = "; ".join(str(x) for x in detail)
+            else:
+                message = str(detail)
         else:
             message = str(raw) if raw is not None else (r.text or r.reason_phrase or "Upstream error")
     except Exception:

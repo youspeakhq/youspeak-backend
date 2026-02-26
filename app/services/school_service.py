@@ -187,7 +187,8 @@ class SchoolService:
 
     @staticmethod
     async def remove_program(db: AsyncSession, school_id: UUID, language_code: str) -> bool:
-        """Remove one language from the school's offered languages. Returns False if language not in DB or not offered by school."""
+        """Remove one language from school's offered languages.
+        Returns False if language not in DB or not offered by school."""
         lang_stmt = select(Language).where(Language.code == language_code)
         lang_result = await db.execute(lang_stmt)
         language = lang_result.scalar_one_or_none()
@@ -207,14 +208,18 @@ class SchoolService:
         if language not in school.languages:
             return False
 
-        school.languages = [l for l in school.languages if l.code != language_code]
+        school.languages = [lang for lang in school.languages if lang.code != language_code]
         await db.flush()
         return True
 
     @staticmethod
     async def get_semesters(db: AsyncSession, school_id: UUID) -> List[Semester]:
         """Get all semesters for school"""
-        stmt = select(Semester).where(Semester.school_id == school_id).order_by(desc(Semester.start_date))
+        stmt = (
+            select(Semester)
+            .where(Semester.school_id == school_id)
+            .order_by(desc(Semester.start_date))
+        )
         result = await db.execute(stmt)
         return list(result.scalars().all())
 

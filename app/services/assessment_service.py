@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Optional, List, Tuple
 from uuid import UUID
 
-from sqlalchemy import select, and_, delete, insert, func
+from sqlalchemy import select, delete, insert, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,7 +18,6 @@ from app.models.assessment import (
     assignment_classes,
     assignment_questions,
 )
-from app.models.academic import Class, class_enrollments
 from app.models.enums import AssignmentStatus, SubmissionStatus
 from app.schemas.content import (
     AssessmentCreate,
@@ -330,12 +329,6 @@ class AssessmentService:
         total_assessments = total_assignments  # same set in our model
 
         # Completion: submissions / expected (students in assigned classes). Simplified: use submission count.
-        subq = (
-            select(StudentSubmission.assignment_id, func.count(StudentSubmission.id).label("c"))
-            .join(Assignment, Assignment.id == StudentSubmission.assignment_id)
-            .where(Assignment.teacher_id == teacher_id)
-            .group_by(StudentSubmission.assignment_id)
-        )
         # For average completion rate we'd need expected count per assignment; placeholder.
         average_completion_rate = None
 
