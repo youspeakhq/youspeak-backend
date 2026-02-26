@@ -162,6 +162,7 @@ class SchoolService:
     async def update_programs(db: AsyncSession, school_id: UUID, language_codes: List[str]) -> bool:
         """Update languages offered by school.
         Uses selectinload to avoid async lazy-load when assigning many-to-many.
+        Returns False if school not found or any language code is not in the languages table.
         """
         stmt = (
             select(School)
@@ -176,6 +177,9 @@ class SchoolService:
         stmt = select(Language).where(Language.code.in_(language_codes))
         result = await db.execute(stmt)
         languages = result.scalars().all()
+        found_codes = {lang.code for lang in languages}
+        if found_codes != set(language_codes):
+            return False
 
         school.languages = list(languages)
         await db.commit()

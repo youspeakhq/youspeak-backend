@@ -26,6 +26,7 @@ async def get_school_profile(
 ) -> Any:
     """
     Fetch school details including languages offered. Admin only.
+    Languages are updated via PUT /schools/program; this endpoint returns the current list.
     """
     school = await SchoolService.get_school_with_languages(db, current_user.school_id)
     if not school:
@@ -64,7 +65,8 @@ async def update_school_programs(
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
-    Update languages offered.
+    Update languages offered by the school. This is the only endpoint that changes
+    profile languages; GET /schools/profile then returns the updated data.languages.
     """
     success = await SchoolService.update_programs(
         db,
@@ -72,10 +74,17 @@ async def update_school_programs(
         program_in.languages,
     )
     if not success:
-        raise HTTPException(status_code=400, detail="Failed to update programs")
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to update programs (school not found or one or more language codes invalid)",
+        )
 
+    school = await SchoolService.get_school_with_languages(db, current_user.school_id)
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+    codes = [l.code for l in school.languages]
     return SuccessResponse(
-        data=SchoolProgramsResponse(languages=program_in.languages),
+        data=SchoolProgramsResponse(languages=codes),
         message="School programs updated successfully",
     )
 
