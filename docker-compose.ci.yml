@@ -1,7 +1,13 @@
 # CI override: do not run create_all() so Alembic is the single source of schema.
 # Use: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
 # See GITHUB_ACTIONS.md / scripts/run-ci-local.sh.
+#
+# Curriculum: use minimal stub (no torch/docling) to avoid "No space left on device" on runner.
 services:
   api:
     environment:
       - ENVIRONMENT=test
+  curriculum:
+    build:
+      context: .
+      dockerfile: services/curriculum/Dockerfile.ci-stub
