@@ -43,7 +43,7 @@ provider "aws" {
 variable "aws_region" {
   description = "AWS region"
   type        = string
-  default     = "eu-north-1"
+  default     = "us-east-1"
 }
 
 variable "environment" {
@@ -878,7 +878,7 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "postgres" {
   identifier             = "${var.app_name}-db-${var.environment}"
   engine                 = "postgres"
-  engine_version         = "15.10"
+  engine_version         = "15.7"
   instance_class         = var.environment == "production" ? "db.t3.small" : "db.t3.micro"
   allocated_storage      = 20
   storage_encrypted      = true
@@ -1114,31 +1114,26 @@ output "secret_secret_key_arn" {
 output "secret_resend_api_key_arn" {
   description = "ARN of the Resend API key secret (empty if not configured)"
   value       = var.resend_api_key != "" ? aws_secretsmanager_secret.resend_api_key[0].arn : ""
-  sensitive   = true
 }
 
 output "secret_r2_account_id_arn" {
   description = "ARN of the R2 account ID secret (empty if R2 not configured)"
   value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_account_id[0].arn : ""
-  sensitive   = true
 }
 
 output "secret_r2_access_key_id_arn" {
   description = "ARN of the R2 access key ID secret (empty if R2 not configured)"
   value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_access_key_id[0].arn : ""
-  sensitive   = true
 }
 
 output "secret_r2_secret_access_key_arn" {
   description = "ARN of the R2 secret access key secret (empty if R2 not configured)"
   value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_secret_access_key[0].arn : ""
-  sensitive   = true
 }
 
 output "secret_r2_bucket_name_arn" {
   description = "ARN of the R2 bucket name secret (empty if R2 not configured)"
   value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_bucket_name[0].arn : ""
-  sensitive   = true
 }
 
 output "storage_public_base_url" {
