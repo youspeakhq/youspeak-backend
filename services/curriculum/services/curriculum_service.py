@@ -222,14 +222,17 @@ class CurriculumService:
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are an expert curriculum designer for {lang_name} language learning.",
+                    "content": (
+                        f"You are an expert curriculum designer for {lang_name} language learning. "
+                        "Output 3–6 topics only. Keep each topic's content to one sentence; 2–3 learning objectives per topic."
+                    ),
                 },
                 {
                     "role": "user",
                     "content": (
-                        f"Generate a detailed curriculum structure for: {prompt}. "
-                        "Each topic must include: title, a brief content description (2-4 sentences summarizing what the topic covers), "
-                        "learning objectives, and estimated duration_hours."
+                        f"Generate a curriculum structure for: {prompt}. "
+                        "For each topic provide: title, one-sentence content summary, 2–3 learning objectives, and duration_hours (e.g. 0.5–2). "
+                        "Return a JSON array only."
                     ),
                 },
             ],
