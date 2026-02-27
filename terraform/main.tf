@@ -1114,26 +1114,31 @@ output "secret_secret_key_arn" {
 output "secret_resend_api_key_arn" {
   description = "ARN of the Resend API key secret (empty if not configured)"
   value       = var.resend_api_key != "" ? aws_secretsmanager_secret.resend_api_key[0].arn : ""
+  sensitive   = true
 }
 
 output "secret_r2_account_id_arn" {
   description = "ARN of the R2 account ID secret (empty if R2 not configured)"
   value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_account_id[0].arn : ""
+  sensitive   = true
 }
 
 output "secret_r2_access_key_id_arn" {
   description = "ARN of the R2 access key ID secret (empty if R2 not configured)"
   value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_access_key_id[0].arn : ""
+  sensitive   = true
 }
 
 output "secret_r2_secret_access_key_arn" {
   description = "ARN of the R2 secret access key secret (empty if R2 not configured)"
   value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_secret_access_key[0].arn : ""
+  sensitive   = true
 }
 
 output "secret_r2_bucket_name_arn" {
   description = "ARN of the R2 bucket name secret (empty if R2 not configured)"
   value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_bucket_name[0].arn : ""
+  sensitive   = true
 }
 
 output "storage_public_base_url" {
