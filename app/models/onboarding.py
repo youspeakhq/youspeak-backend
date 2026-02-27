@@ -78,7 +78,7 @@ class School(BaseModel, StatusMixin):
         return f"<School {self.name}>"
 
 
-class Language(BaseModel):
+class Language(BaseModel, StatusMixin):
     """
     Global language reference table.
     Contains all languages available on the platform.

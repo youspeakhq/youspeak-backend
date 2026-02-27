@@ -67,6 +67,11 @@ class SchoolResponse(SchoolBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class LanguageCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100, description="Language name (e.g., 'German', 'Mandarin')")
+    code: str = Field(..., pattern=r"^[a-z]{2}$", description="ISO 639-1 two-letter lowercase code (e.g., 'de', 'zh')")
+
+
 class LanguageResponse(BaseModel):
     id: int
     name: str
