@@ -376,6 +376,7 @@ resource "aws_lb" "staging" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = aws_subnet.public[*].id
+  idle_timeout       = 180 # allow long-running requests (e.g. curriculum generate / Bedrock)
 }
 
 resource "aws_lb_target_group" "api_staging" {

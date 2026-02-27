@@ -10,6 +10,10 @@ from config import settings
 T = TypeVar("T")
 _bedrock: Any = None
 
+# Default max tokens for curriculum generate (smaller = faster). Other flows can override.
+DEFAULT_MAX_TOKENS = 2048
+BEDROCK_TIMEOUT_SECONDS = 75
+
 
 def _get_bedrock():
     global _bedrock
@@ -19,7 +23,7 @@ def _get_bedrock():
     return _bedrock
 
 
-def _converse_sync(model_id: str, system: str, messages: List[dict]) -> str:
+def _converse_sync(model_id: str, system: str, messages: List[dict], max_tokens: int = DEFAULT_MAX_TOKENS) -> str:
     """Sync Converse call. Returns assistant text content."""
     client = _get_bedrock()
     converse_messages = []
@@ -37,7 +41,7 @@ def _converse_sync(model_id: str, system: str, messages: List[dict]) -> str:
         modelId=model_id,
         messages=converse_messages,
         system=system_block if system_block else None,
-        inferenceConfig={"maxTokens": 4096, "temperature": 0.2},
+        inferenceConfig={"maxTokens": max_tokens, "temperature": 0.2},
     )
     output = response.get("output", {})
     message_list = output.get("message", {})
@@ -72,12 +76,16 @@ async def structured_completion(
     model_id: str,
     messages: List[dict],
     response_model: Type[T],
+    max_tokens: int = DEFAULT_MAX_TOKENS,
 ) -> T:
     """
     Call Bedrock Converse and return validated Pydantic model(s).
     messages: list of {"role": "system"|"user"|"assistant", "content": str or list of dicts}.
     response_model: TopicCreate, List[TopicCreate], EvaluateSubmissionResponse, etc.
+    max_tokens: cap on generated tokens (lower = faster; default 2048 for curriculum generate).
     """
+    from fastapi import HTTPException
+
     system_parts = []
     chat_messages = []
     for m in messages:
@@ -97,7 +105,16 @@ async def structured_completion(
     system = "\n\n".join(system_parts)
 
     loop = asyncio.get_event_loop()
-    text = await loop.run_in_executor(None, _converse_sync, model_id, system, chat_messages)
+    try:
+        text = await asyncio.wait_for(
+            loop.run_in_executor(None, _converse_sync, model_id, system, chat_messages, max_tokens),
+            timeout=BEDROCK_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=503,
+            detail="AI generation timed out; try a shorter prompt or retry.",
+        )
     text = _extract_json(text)
     raw = json.loads(text)
     return _parse_and_validate(raw, response_model)
@@ -115,8 +132,8 @@ class ChatCompletionsShim:
     def completions(self) -> "ChatCompletionsShim":
         return self
 
-    async def create(self, *, model: str, response_model: type, messages: List[dict], **kwargs: Any) -> Any:
-        return await structured_completion(model, messages, response_model)
+    async def create(self, *, model: str, response_model: type, messages: List[dict], max_tokens: int = DEFAULT_MAX_TOKENS, **kwargs: Any) -> Any:
+        return await structured_completion(model, messages, response_model, max_tokens=max_tokens)
 
 
 class BedrockStructuredClient:
