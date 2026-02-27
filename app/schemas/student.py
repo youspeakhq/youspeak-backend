@@ -13,6 +13,15 @@ class UserBase(BaseModel):
     is_active: bool = True
 
 
+class LanguageBrief(BaseModel):
+    """Minimal language info for embedding in user responses."""
+    id: int
+    name: str
+    code: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class StudentCreate(BaseModel):
     first_name: str
     last_name: str
@@ -45,6 +54,7 @@ class UserResponse(UserBase):
     school_id: UUID
     profile_picture_url: Optional[str] = None
     student_number: Optional[str] = None
+    language: Optional[LanguageBrief] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

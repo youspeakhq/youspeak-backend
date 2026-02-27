@@ -248,20 +248,41 @@ class AcademicService:
         school_id: UUID,
         existing_users: Dict[str, Any],
         seen_emails: set,
+        language_cache: Optional[Dict[str, int]] = None,
     ) -> Tuple[Optional[UUID], int, int, Optional[str]]:
         """
         Validate row, ensure unique email, get or create student.
         Returns (student_id, created_delta, skipped_delta, error_message).
         """
         from app.services.user_service import UserService
+        from app.models.onboarding import Language
 
         first_name = (mapped.get("first_name") or "").strip()
         last_name = (mapped.get("last_name") or "").strip()
         email = (mapped.get("email") or "").strip()
         student_number = (mapped.get("student_number") or "").strip() or None
+        language_code = (mapped.get("language_code") or "").strip().lower()
 
         if not first_name or not last_name:
             return None, 0, 0, f"Row {row_index + 2}: first_name and last_name required"
+
+        if not language_code:
+            return None, 0, 0, f"Row {row_index + 2}: language_code required"
+
+        # Look up language_id
+        language_id = None
+        if language_cache is not None and language_code in language_cache:
+            language_id = language_cache[language_code]
+        else:
+            result = await db.execute(select(Language).where(Language.code == language_code))
+            lang = result.scalar_one_or_none()
+            if lang:
+                language_id = lang.id
+                if language_cache is not None:
+                    language_cache[language_code] = language_id
+
+        if not language_id:
+            return None, 0, 0, f"Row {row_index + 2}: invalid language_code '{language_code}'"
 
         if not email:
             email = f"{first_name.lower()}.{last_name.lower()}.{secrets.token_hex(4)}@youspeak-dummy.com"
@@ -291,6 +312,7 @@ class AcademicService:
                 role=UserRole.STUDENT,
                 is_active=True,
                 student_number=student_number,
+                language_id=language_id,
                 auto_commit=False,
             )
             existing_users[email] = new_user
@@ -310,7 +332,7 @@ class AcademicService:
     ) -> Dict[str, Any]:
         """
         Bulk import students from CSV. Creates new students or enrolls existing ones.
-        CSV columns: first_name, last_name, email (optional), student_id (optional).
+        CSV columns: first_name, last_name, language_code (required), email (optional), student_id (optional).
         Returns created count, enrolled count, skipped, and errors.
         """
         from app.services.user_service import UserService
@@ -338,11 +360,12 @@ class AcademicService:
         skipped = 0
         errors: List[str] = []
         seen_emails: set = set()
+        language_cache: Dict[str, int] = {}
 
         for i, row in enumerate(rows):
             mapped = AcademicService._normalize_csv_headers(row)
             student_id, created_d, skipped_d, err = await AcademicService._resolve_or_create_student(
-                db, i, mapped, school_id, existing_users, seen_emails
+                db, i, mapped, school_id, existing_users, seen_emails, language_cache
             )
             if err:
                 errors.append(err)
@@ -393,7 +416,7 @@ class AcademicService:
     ) -> Dict[str, Any]:
         """
         School-level bulk import of students from CSV.
-        CSV columns: first_name, last_name, email (optional), student_id (optional), class_id (optional).
+        CSV columns: first_name, last_name, language_code (required), email (optional), student_id (optional), class_id (optional).
         Creates students at school. If class_id provided and valid, enrolls in that class.
         Returns created count, enrolled count, skipped count, and errors.
         """
@@ -419,11 +442,12 @@ class AcademicService:
         errors: List[str] = []
         seen_emails: set = set()
         class_cache: Dict[UUID, Optional[Class]] = {}
+        language_cache: Dict[str, int] = {}
 
         for i, row in enumerate(rows):
             mapped = AcademicService._normalize_csv_headers(row)
             student_id, created_d, skipped_d, err = await AcademicService._resolve_or_create_student(
-                db, i, mapped, school_id, existing_users, seen_emails
+                db, i, mapped, school_id, existing_users, seen_emails, language_cache
             )
             if err:
                 errors.append(err)

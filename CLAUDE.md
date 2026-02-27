@@ -21,3 +21,5 @@ Read this at session start for non-trivial work. After any correction, add a sho
 - Never X. Do Y instead.
 -->
 
+- **Never implement from Figma without successfully pulling design context first.** If Figma MCP fails or times out, STOP immediately and ask user for decision (retry, use cache, describe requirements, or skip Figma). Do not proceed based on assumptions or chat messages about what Figma shows.
+
