@@ -61,6 +61,7 @@ async def list_students(
             school_id=u.school_id,
             profile_picture_url=u.profile_picture_url,
             student_number=u.student_number,
+            language=u.language,
             is_verified=False,
             created_at=u.created_at,
             updated_at=u.updated_at,
@@ -119,6 +120,7 @@ async def create_student(
             role=UserRole.STUDENT,
             is_active=True,
             student_number=student_number,
+            language_id=student_in.lang_id,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -138,15 +140,16 @@ async def import_students_csv(
 ) -> Any:
     """
     Bulk import students from CSV.
-    Columns: first_name, last_name, email (optional), student_id (optional), class_id (optional).
+    Columns: first_name, last_name, language_code (required), email (optional), student_id (optional), class_id (optional).
     student_id: human-readable ID (e.g. 2025-001). Auto-generated if omitted.
+    language_code: ISO 639-1 two-letter code (e.g., 'en', 'fr', 'es').
     """
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(
             status_code=400,
             detail=(
-                "Only CSV files are supported. Use columns: first_name, last_name, "
-                "email, student_id (optional), class_id (optional)."
+                "Only CSV files are supported. Use columns: first_name, last_name, language_code (required), "
+                "email (optional), student_id (optional), class_id (optional)."
             ),
         )
     content = await file.read()

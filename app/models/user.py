@@ -1,6 +1,6 @@
 """Domain 2: User & Authentication Model"""
 
-from sqlalchemy import Column, String, Boolean
+from sqlalchemy import Column, String, Boolean, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.orm import relationship
 
@@ -25,6 +25,9 @@ class User(BaseModel, SchoolScopedMixin, SoftDeleteMixin):
     profile_picture_url = Column(String(500), nullable=True)
     student_number = Column(String(20), nullable=True)
 
+    # Language (for students)
+    language_id = Column(Integer, ForeignKey("languages.id", ondelete="RESTRICT"), nullable=True, index=True)
+
     # Role & Permissions (RBAC)
     role = Column(ENUM(UserRole, name="user_role"), nullable=False, index=True)
 
@@ -34,6 +37,7 @@ class User(BaseModel, SchoolScopedMixin, SoftDeleteMixin):
 
     # Relationships
     school = relationship("School", back_populates="users")
+    language = relationship("Language", foreign_keys=[language_id])
 
     # Teacher relationships
     taught_classes = relationship(

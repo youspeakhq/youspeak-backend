@@ -9,10 +9,10 @@ from sqlalchemy import select, func, desc, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.onboarding import School, Language
+from app.models.onboarding import School, Language, school_languages
 from app.models.user import User
 from app.models.enums import UserRole, ClassStatus
-from app.models.academic import Class, Semester
+from app.models.academic import Class, Semester, Classroom
 from app.models.arena import Arena, ArenaPerformer
 from app.schemas.school import SchoolCreate, SchoolUpdate
 from app.schemas.admin import (
@@ -354,3 +354,90 @@ class SchoolService:
             top_classes=top_classes,
             timeframe=timeframe,
         )
+
+    @staticmethod
+    async def create_language(db: AsyncSession, name: str, code: str) -> Optional[Language]:
+        """
+        Create a new global language.
+        Returns None if a language with the same name or code already exists.
+        """
+        # Check for duplicate name or code
+        existing_stmt = select(Language).where(
+            (Language.name == name) | (Language.code == code)
+        )
+        result = await db.execute(existing_stmt)
+        existing = result.scalar_one_or_none()
+        
+        if existing:
+            return None
+        
+        # Create new language
+        language = Language(
+            name=name,
+            code=code,
+            is_active=True
+        )
+        db.add(language)
+        await db.flush()
+        await db.refresh(language)
+        return language
+
+    @staticmethod
+    async def delete_language(db: AsyncSession, language_id: int) -> Dict[str, Any]:
+        """
+        Soft delete a language (set is_active=False).
+        Returns dict with:
+        - 'found': bool - whether language exists
+        - 'in_use': bool - whether language is in use
+        - 'schools_count': int - number of schools using it
+        - 'classes_count': int - number of classes using it
+        - 'classrooms_count': int - number of classrooms using it
+        """
+        # Check if language exists
+        lang_stmt = select(Language).where(Language.id == language_id)
+        result = await db.execute(lang_stmt)
+        language = result.scalar_one_or_none()
+        
+        if not language:
+            return {"found": False}
+        
+        # Check usage in school_languages junction table
+        schools_count_stmt = select(func.count()).select_from(school_languages).where(
+            school_languages.c.language_id == language_id
+        )
+        schools_count = await db.scalar(schools_count_stmt) or 0
+        
+        # Check usage in classes table
+        classes_count_stmt = select(func.count()).select_from(Class).where(
+            Class.language_id == language_id
+        )
+        classes_count = await db.scalar(classes_count_stmt) or 0
+        
+        # Check usage in classrooms table
+        classrooms_count_stmt = select(func.count()).select_from(Classroom).where(
+            Classroom.language_id == language_id
+        )
+        classrooms_count = await db.scalar(classrooms_count_stmt) or 0
+        
+        total_usage = schools_count + classes_count + classrooms_count
+        
+        if total_usage > 0:
+            return {
+                "found": True,
+                "in_use": True,
+                "schools_count": schools_count,
+                "classes_count": classes_count,
+                "classrooms_count": classrooms_count
+            }
+        
+        # No usage, safe to soft delete
+        language.is_active = False
+        await db.flush()
+        
+        return {
+            "found": True,
+            "in_use": False,
+            "schools_count": 0,
+            "classes_count": 0,
+            "classrooms_count": 0
+        }

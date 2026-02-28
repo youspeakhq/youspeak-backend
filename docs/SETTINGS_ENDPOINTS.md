@@ -25,11 +25,17 @@ All paths are relative to **`/api/v1`**. Use **Bearer token** (admin or current 
 | Action | Method | Path | Auth | Request | Response |
 |--------|--------|------|------|---------|----------|
 | Get available languages (for "Add Language" dropdown) | `GET` | `/references/languages` | Any (optional) | — | `{ "data": [ { "id", "name", "code" }, ... ] }` |
+| Add new global language | `POST` | `/references/languages` | Admin | `{ "name": "German", "code": "de" }` | `{ "data": { "id", "name", "code" }, "message": "Language created successfully" }` |
+| Delete global language | `DELETE` | `/references/languages/{id}` | Admin | — (id in path) | `{ "success": true, "message": "Language deleted successfully" }` or 400 if in use |
 | Load current school languages | — | Use `GET /schools/profile` | Admin | — | `data.languages` is the list of codes |
 | Save languages offered | `PUT` | `/schools/program` | Admin | `{ "languages": ["en", "es", "fr"] }` | `{ "data": { "languages": ["en", "es", "fr"] }, "message": "..." }` |
 | Remove a language | `DELETE` | `/schools/program/{language_code}` | Admin | — (code in path, e.g. `fr`) | `{ "data": { "languages": [...] }, "message": "Language removed successfully" }` |
 
 **Note:** Use the **same admin token** for both `PUT /schools/program` and `GET /schools/profile`. After a successful PUT, the next GET returns the updated `data.languages`. Send `"languages": ["en", "es", "fr"]` (or other valid codes from `GET /references/languages`); invalid codes return 400; an empty array clears the list.
+
+**Language Management (Admin Only):**
+- `POST /references/languages`: Add a new language to the global list. Requires `name` (e.g., "German") and `code` (ISO 639-1 two-letter lowercase, e.g., "de"). Returns 400 if name or code already exists.
+- `DELETE /references/languages/{id}`: Soft delete a language (sets `is_active=False`). Blocked if the language is in use by any school, class, or classroom. Returns 400 with usage counts if blocked, 404 if language not found.
 
 ---
 

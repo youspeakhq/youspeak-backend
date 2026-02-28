@@ -60,6 +60,7 @@ class UserService:
         role: UserRole = UserRole.STUDENT,
         is_active: bool = True,
         student_number: Optional[str] = None,
+        language_id: Optional[int] = None,
         auto_commit: bool = True,
     ) -> User:
         """
@@ -67,6 +68,8 @@ class UserService:
         When auto_commit=False, uses flush instead of commit (for batch imports).
         """
         if role == UserRole.STUDENT:
+            if language_id is None:
+                raise ValueError("language_id is required for students")
             if student_number is None:
                 student_number = await UserService.generate_next_student_number(db, school_id)
             else:
@@ -85,6 +88,7 @@ class UserService:
             role=role,
             is_active=is_active,
             student_number=student_number if role == UserRole.STUDENT else None,
+            language_id=language_id if role == UserRole.STUDENT else None,
         )
 
         db.add(db_user)
@@ -603,7 +607,10 @@ class UserService:
             query = (
                 select(User)
                 .where(User.school_id == school_id)
-                .options(selectinload(User.enrolled_classrooms))
+                .options(
+                    selectinload(User.enrolled_classrooms),
+                    selectinload(User.language)
+                )
             )
 
         if role:

@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 from app.models.enums import UserRole
 from app.schemas.academic import ClassroomBrief
+from app.schemas.student import LanguageBrief
 
 
 # Base User Schema
@@ -49,6 +50,7 @@ class User(UserBase):
     school_id: Optional[UUID] = None
     profile_picture_url: Optional[str] = None
     student_number: Optional[str] = None
+    language: Optional[LanguageBrief] = None
     is_verified: bool = False
     created_at: datetime
     updated_at: datetime
