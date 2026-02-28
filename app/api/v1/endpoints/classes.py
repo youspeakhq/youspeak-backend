@@ -30,6 +30,41 @@ router = APIRouter()
 VALID_LEADERBOARD_TIMEFRAMES = {"week", "month", "all"}
 
 
+async def _parse_multipart_class_request(form: Any) -> Tuple[ClassCreate, Optional[bytes]]:
+    """Parse multipart form: required 'data' (class JSON), optional 'file' (CSV)."""
+    data_value = form.get("data")
+    if data_value is None or (isinstance(data_value, str) and not data_value.strip()):
+        raise HTTPException(
+            status_code=400,
+            detail="Multipart requests must include a 'data' field with class JSON.",
+        )
+    if isinstance(data_value, str):
+        data_str = data_value
+    elif hasattr(data_value, "read"):
+        data_str = (await data_value.read()).decode("utf-8")
+    else:
+        data_str = getattr(data_value, "value", data_value)
+    if not isinstance(data_str, str):
+        raise HTTPException(status_code=400, detail="Field 'data' must be a JSON string.")
+    try:
+        class_data = ClassCreate.model_validate(json.loads(data_str))
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON in 'data': {e}") from e
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    roster_bytes: Optional[bytes] = None
+    file_part = form.get("file")
+    if file_part is not None and getattr(file_part, "filename", None):
+        if not str(file_part.filename).lower().endswith(".csv"):
+            raise HTTPException(
+                status_code=400,
+                detail="Only CSV files are supported for roster import.",
+            )
+        roster_bytes = await file_part.read()
+    return class_data, roster_bytes
+
+
 async def parse_create_class_request(request: Request) -> Tuple[ClassCreate, Optional[bytes]]:
     """Parse create-class body: JSON (ClassCreate only) or multipart (data + optional CSV file)."""
     ct = request.headers.get("content-type", "")
@@ -38,37 +73,7 @@ async def parse_create_class_request(request: Request) -> Tuple[ClassCreate, Opt
         return ClassCreate.model_validate(body), None
     if "multipart/form-data" in ct:
         form = await request.form()
-        data_value = form.get("data")
-        if data_value is None or (isinstance(data_value, str) and not data_value.strip()):
-            raise HTTPException(
-                status_code=400,
-                detail="Multipart requests must include a 'data' field with class JSON.",
-            )
-        if isinstance(data_value, str):
-            data_str = data_value
-        elif hasattr(data_value, "read"):
-            data_str = (await data_value.read()).decode("utf-8")
-        else:
-            data_str = getattr(data_value, "value", data_value)
-        if not isinstance(data_str, str):
-            raise HTTPException(status_code=400, detail="Field 'data' must be a JSON string.")
-        try:
-            class_data = ClassCreate.model_validate(json.loads(data_str))
-        except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON in 'data': {e}") from e
-        except Exception as e:
-            raise HTTPException(status_code=422, detail=str(e)) from e
-
-        file_part = form.get("file")
-        roster_bytes: Optional[bytes] = None
-        if file_part is not None and hasattr(file_part, "filename") and file_part.filename:
-            if not file_part.filename.lower().endswith(".csv"):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Only CSV files are supported for roster import.",
-                )
-            roster_bytes = await file_part.read()
-        return class_data, roster_bytes
+        return await _parse_multipart_class_request(form)
     raise HTTPException(
         status_code=400,
         detail="Use Content-Type: application/json or multipart/form-data.",

@@ -33,11 +33,11 @@ async def create_language(
 ) -> Any:
     """
     Create a new global language (admin only).
-    
+
     Requires:
     - name: Language name (e.g., "German", "Mandarin")
     - code: ISO 639-1 two-letter lowercase code (e.g., "de", "zh")
-    
+
     Returns 400 if a language with the same name or code already exists.
     """
     language = await SchoolService.create_language(
@@ -45,13 +45,13 @@ async def create_language(
         name=language_in.name,
         code=language_in.code
     )
-    
+
     if not language:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Language with name '{language_in.name}' or code '{language_in.code}' already exists"
         )
-    
+
     await db.commit()
     return SuccessResponse(
         data=LanguageResponse.model_validate(language),
@@ -67,23 +67,23 @@ async def delete_language(
 ) -> Any:
     """
     Soft delete a language by setting is_active=False (admin only).
-    
+
     Deletion is blocked if the language is currently in use by any:
     - Schools (in school_languages)
     - Classes
     - Classrooms
-    
+
     Returns 404 if language not found.
     Returns 400 with usage counts if language is in use.
     """
     result = await SchoolService.delete_language(db, language_id)
-    
+
     if not result["found"]:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Language with id {language_id} not found"
         )
-    
+
     if result["in_use"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -94,7 +94,7 @@ async def delete_language(
                 f"and {result['classrooms_count']} classroom(s)"
             )
         )
-    
+
     await db.commit()
     return SuccessResponse(
         data=None,
