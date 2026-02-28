@@ -147,6 +147,126 @@ async def test_create_assessment_invalid_type_returns_422(
 
 
 @pytest.mark.asyncio
+async def test_create_assessment_with_questions(
+    async_client: AsyncClient, api_base: str, teacher_with_class: dict, unique_suffix: str
+):
+    """Create assessment with optional questions; GET assignment questions returns them with points."""
+    headers = teacher_with_class["headers"]
+    q_resp = await async_client.post(
+        f"{api_base}/assessments/questions/bank",
+        headers=headers,
+        json={
+            "question_text": f"What is 2+2? {unique_suffix}",
+            "type": "multiple_choice",
+            "correct_answer": "4",
+        },
+    )
+    assert q_resp.status_code == 200, q_resp.text
+    question_id = q_resp.json()["data"]["id"]
+    create = await async_client.post(
+        f"{api_base}/assessments",
+        headers=headers,
+        json={
+            "title": f"Quiz with Q {unique_suffix}",
+            "type": "written",
+            "class_ids": [teacher_with_class["class_id"]],
+            "questions": [{"question_id": question_id, "points": 3}],
+        },
+    )
+    assert create.status_code == 200, create.text
+    assignment_id = create.json()["data"]["id"]
+    list_q = await async_client.get(
+        f"{api_base}/assessments/{assignment_id}/questions",
+        headers=headers,
+    )
+    assert list_q.status_code == 200, list_q.text
+    items = list_q.json()["data"]
+    assert len(items) == 1
+    assert items[0]["question"]["id"] == question_id
+    assert items[0]["points"] == 3
+
+
+@pytest.mark.asyncio
+async def test_create_assessment_invalid_question_ids_returns_400(
+    async_client: AsyncClient, api_base: str, teacher_with_class: dict
+):
+    """Create assessment with non-owned/invalid question_ids returns 400."""
+    resp = await async_client.post(
+        f"{api_base}/assessments",
+        headers=teacher_with_class["headers"],
+        json={
+            "title": "Bad questions",
+            "type": "written",
+            "class_ids": [],
+            "questions": [
+                {"question_id": "00000000-0000-0000-0000-000000000001", "points": 1}
+            ],
+        },
+    )
+    assert resp.status_code == 400
+    assert "question" in resp.json().get("detail", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_create_assessment_with_empty_questions(
+    async_client: AsyncClient, api_base: str, teacher_with_class: dict, unique_suffix: str
+):
+    """Create assessment with questions: [] succeeds; GET questions returns empty list."""
+    create = await async_client.post(
+        f"{api_base}/assessments",
+        headers=teacher_with_class["headers"],
+        json={
+            "title": f"Empty Q {unique_suffix}",
+            "type": "written",
+            "class_ids": [],
+            "questions": [],
+        },
+    )
+    assert create.status_code == 200, create.text
+    assignment_id = create.json()["data"]["id"]
+    list_q = await async_client.get(
+        f"{api_base}/assessments/{assignment_id}/questions",
+        headers=teacher_with_class["headers"],
+    )
+    assert list_q.status_code == 200
+    assert list_q.json()["data"] == []
+
+
+@pytest.mark.asyncio
+async def test_create_assessment_duplicate_question_ids_returns_400(
+    async_client: AsyncClient, api_base: str, teacher_with_class: dict, unique_suffix: str
+):
+    """Create assessment with duplicate question_id in questions list returns 400."""
+    headers = teacher_with_class["headers"]
+    q_resp = await async_client.post(
+        f"{api_base}/assessments/questions/bank",
+        headers=headers,
+        json={
+            "question_text": f"Duplicate Q {unique_suffix}",
+            "type": "multiple_choice",
+            "correct_answer": "A",
+        },
+    )
+    assert q_resp.status_code == 200
+    question_id = q_resp.json()["data"]["id"]
+    resp = await async_client.post(
+        f"{api_base}/assessments",
+        headers=headers,
+        json={
+            "title": "Dup",
+            "type": "written",
+            "class_ids": [],
+            "questions": [
+                {"question_id": question_id, "points": 1},
+                {"question_id": question_id, "points": 2},
+            ],
+        },
+    )
+    assert resp.status_code == 400
+    assert "duplicate" in resp.json().get("detail", "").lower()
+
+
+@pytest.mark.asyncio
 async def test_get_assessment_success(
     async_client: AsyncClient, api_base: str, teacher_with_class: dict, unique_suffix: str
 ):

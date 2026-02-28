@@ -416,7 +416,8 @@ class AcademicService:
     ) -> Dict[str, Any]:
         """
         School-level bulk import of students from CSV.
-        CSV columns: first_name, last_name, language_code (required), email (optional), student_id (optional), class_id (optional).
+        CSV columns: first_name, last_name, language_code (required), email (optional),
+        student_id (optional), class_id (optional).
         Creates students at school. If class_id provided and valid, enrolls in that class.
         Returns created count, enrolled count, skipped count, and errors.
         """

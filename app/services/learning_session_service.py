@@ -1,12 +1,14 @@
 """Learning session (room) service for starting/ending and listing sessions."""
 
-from typing import List, Optional, Tuple
+from datetime import timedelta
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.analytics import LearningSession
+from app.models.assessment import Assignment, StudentSubmission, assignment_classes
 from app.models.enums import SessionStatus, SessionType
 from app.utils.time import get_utc_now
 
@@ -80,6 +82,167 @@ class LearningSessionService:
             stmt = stmt.where(LearningSession.class_id == class_id)
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_monitor_stats(
+        db: AsyncSession,
+        teacher_id: UUID,
+        timeframe: str,
+    ) -> Tuple[int, int, Optional[float]]:
+        """
+        Return (total_sessions, active_students, avg_session_duration_minutes) for teacher's classes.
+        timeframe: week | month | all.
+        """
+        teacher_classes = await AcademicService.get_teacher_classes(db, teacher_id)
+        class_ids = [c.id for c in teacher_classes]
+        if not class_ids:
+            return 0, 0, None
+
+        now = get_utc_now()
+        if timeframe == "week":
+            since = now - timedelta(days=7)
+        elif timeframe == "month":
+            since = now - timedelta(days=30)
+        else:
+            since = None
+
+        total_sessions = 0
+        sum_duration_seconds = 0.0
+        count_with_duration = 0
+
+        stmt = (
+            select(LearningSession)
+            .where(
+                LearningSession.class_id.in_(class_ids),
+                LearningSession.status == SessionStatus.COMPLETED,
+                LearningSession.ended_at.isnot(None),
+            )
+        )
+        if since is not None:
+            stmt = stmt.where(LearningSession.ended_at >= since)
+        result = await db.execute(stmt)
+        sessions = list(result.scalars().all())
+        total_sessions = len(sessions)
+        for s in sessions:
+            if s.ended_at and s.started_at:
+                delta = (s.ended_at - s.started_at).total_seconds()
+                if delta >= 0:
+                    sum_duration_seconds += delta
+                    count_with_duration += 1
+        avg_session_duration_minutes = (
+            (sum_duration_seconds / 60.0) / count_with_duration if count_with_duration else None
+        )
+
+        active_students = 0
+        if since is not None:
+            subq = (
+                select(StudentSubmission.student_id)
+                .join(Assignment, StudentSubmission.assignment_id == Assignment.id)
+                .join(assignment_classes, assignment_classes.c.assignment_id == Assignment.id)
+                .where(
+                    assignment_classes.c.class_id.in_(class_ids),
+                    StudentSubmission.submitted_at >= since,
+                    StudentSubmission.submitted_at <= now,
+                )
+                .distinct()
+            )
+            r = await db.execute(select(func.count()).select_from(subq.subquery()))
+            active_students = r.scalar() or 0
+        else:
+            subq = (
+                select(StudentSubmission.student_id)
+                .join(Assignment, StudentSubmission.assignment_id == Assignment.id)
+                .join(assignment_classes, assignment_classes.c.assignment_id == Assignment.id)
+                .where(assignment_classes.c.class_id.in_(class_ids))
+                .distinct()
+            )
+            r = await db.execute(select(func.count()).select_from(subq.subquery()))
+            active_students = r.scalar() or 0
+
+        return total_sessions, active_students, avg_session_duration_minutes
+
+    @staticmethod
+    async def list_class_performance_summary_rows(
+        db: AsyncSession,
+        teacher_id: UUID,
+    ) -> List[Tuple[Optional[LearningSession], Dict[str, Any]]]:
+        """
+        Return list of (active_session_or_none, row_dict) for each class the teacher teaches.
+        row_dict: class_id, class_name, student_count, module_progress_pct, module_progress_label,
+        avg_quiz_score_pct, time_spent_minutes_per_student, last_activity_at.
+        """
+        teacher_classes = await AcademicService.get_teacher_classes(db, teacher_id)
+        rows: List[Tuple[Optional[LearningSession], Dict[str, Any]]] = []
+
+        for cls in teacher_classes:
+            roster = await AcademicService.get_class_roster(db, cls.id)
+            student_count = len(roster)
+            active = await LearningSessionService.get_active_session(db, cls.id)
+
+            completed_sessions = (
+                select(LearningSession)
+                .where(
+                    LearningSession.class_id == cls.id,
+                    LearningSession.status == SessionStatus.COMPLETED,
+                    LearningSession.ended_at.isnot(None),
+                )
+            )
+            res = await db.execute(completed_sessions)
+            sessions = list(res.scalars().all())
+            total_minutes = 0.0
+            last_session_end = None
+            for s in sessions:
+                if s.ended_at and s.started_at:
+                    total_minutes += (s.ended_at - s.started_at).total_seconds() / 60.0
+                if s.ended_at and (last_session_end is None or s.ended_at > last_session_end):
+                    last_session_end = s.ended_at
+
+            time_spent_minutes_per_student = (
+                total_minutes / student_count if student_count else None
+            )
+
+            avg_score_subq = (
+                select(func.avg(StudentSubmission.grade_score))
+                .join(Assignment, StudentSubmission.assignment_id == Assignment.id)
+                .join(assignment_classes, assignment_classes.c.assignment_id == Assignment.id)
+                .where(
+                    assignment_classes.c.class_id == cls.id,
+                    StudentSubmission.grade_score.isnot(None),
+                )
+            )
+            r = await db.execute(avg_score_subq)
+            avg_score = r.scalar()
+            avg_quiz_score_pct = float(avg_score) if avg_score is not None else None
+            if avg_quiz_score_pct is not None and avg_quiz_score_pct <= 1.0:
+                avg_quiz_score_pct = avg_quiz_score_pct * 100.0
+
+            last_sub_q = (
+                select(func.max(StudentSubmission.submitted_at))
+                .join(Assignment, StudentSubmission.assignment_id == Assignment.id)
+                .join(assignment_classes, assignment_classes.c.assignment_id == Assignment.id)
+                .where(assignment_classes.c.class_id == cls.id)
+            )
+            r = await db.execute(last_sub_q)
+            last_sub = r.scalar()
+            last_activity_at = last_session_end
+            if last_sub and (last_activity_at is None or last_sub > last_activity_at):
+                last_activity_at = last_sub
+
+            row = {
+                "class_id": cls.id,
+                "class_name": cls.name,
+                "student_count": student_count,
+                "module_progress_pct": None,
+                "module_progress_label": None,
+                "avg_quiz_score_pct": round(avg_quiz_score_pct, 1) if avg_quiz_score_pct is not None else None,
+                "time_spent_minutes_per_student": round(time_spent_minutes_per_student, 1)
+                if time_spent_minutes_per_student is not None
+                else None,
+                "last_activity_at": last_activity_at,
+            }
+            rows.append((active, row))
+
+        return rows
 
     @staticmethod
     async def start_session(

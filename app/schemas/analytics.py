@@ -50,3 +50,23 @@ class RoomMonitorResponse(BaseModel):
     student_count: int
     active_session: Optional[LearningSessionOut] = None
     performance_summary: Optional[ClassPerformanceSummary] = None
+
+
+class RoomMonitorStats(BaseModel):
+    """KPI stats for Room Monitor top row (Figma: Total Learning Sessions, Active Students, Avg. Session Duration)."""
+    total_sessions: int = 0
+    active_students: int = 0
+    avg_session_duration_minutes: Optional[float] = None
+
+
+class ClassPerformanceSummaryRow(BaseModel):
+    """One row in the Class Performance Summary table (Figma)."""
+    class_id: UUID
+    class_name: str
+    student_count: int
+    module_progress_pct: Optional[int] = None
+    module_progress_label: Optional[str] = None
+    avg_quiz_score_pct: Optional[float] = None
+    time_spent_minutes_per_student: Optional[float] = None
+    last_activity_at: Optional[datetime] = None
+    active_session: Optional[LearningSessionOut] = None

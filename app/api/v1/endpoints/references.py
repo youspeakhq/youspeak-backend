@@ -20,7 +20,7 @@ async def get_global_languages(
     """
     Get all active languages available on the platform.
     """
-    result = await db.execute(select(Language).where(Language.is_active == True))
+    result = await db.execute(select(Language).where(Language.is_active.is_(True)))
     languages = result.scalars().all()
     return SuccessResponse(data=languages)
 

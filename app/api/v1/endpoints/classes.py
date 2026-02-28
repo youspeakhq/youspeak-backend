@@ -1,5 +1,6 @@
-from typing import Any, List, Optional
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+import json
+from typing import Any, List, Optional, Tuple
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -10,10 +11,12 @@ from app.schemas.academic import ClassResponse, ClassCreate, RosterUpdate
 from app.schemas.admin import LeaderboardResponse
 from app.schemas.analytics import (
     ClassPerformanceSummary,
+    ClassPerformanceSummaryRow,
     LearningSessionCreate,
     LearningSessionOut,
     RoomMonitorCard,
     RoomMonitorResponse,
+    RoomMonitorStats,
 )
 from app.schemas.award import AwardCreate, AwardOut
 from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
@@ -25,6 +28,51 @@ from app.services.school_service import SchoolService
 router = APIRouter()
 
 VALID_LEADERBOARD_TIMEFRAMES = {"week", "month", "all"}
+
+
+async def parse_create_class_request(request: Request) -> Tuple[ClassCreate, Optional[bytes]]:
+    """Parse create-class body: JSON (ClassCreate only) or multipart (data + optional CSV file)."""
+    ct = request.headers.get("content-type", "")
+    if "application/json" in ct:
+        body = await request.json()
+        return ClassCreate.model_validate(body), None
+    if "multipart/form-data" in ct:
+        form = await request.form()
+        data_value = form.get("data")
+        if data_value is None or (isinstance(data_value, str) and not data_value.strip()):
+            raise HTTPException(
+                status_code=400,
+                detail="Multipart requests must include a 'data' field with class JSON.",
+            )
+        if isinstance(data_value, str):
+            data_str = data_value
+        elif hasattr(data_value, "read"):
+            data_str = (await data_value.read()).decode("utf-8")
+        else:
+            data_str = getattr(data_value, "value", data_value)
+        if not isinstance(data_str, str):
+            raise HTTPException(status_code=400, detail="Field 'data' must be a JSON string.")
+        try:
+            class_data = ClassCreate.model_validate(json.loads(data_str))
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON in 'data': {e}") from e
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+        file_part = form.get("file")
+        roster_bytes: Optional[bytes] = None
+        if file_part is not None and hasattr(file_part, "filename") and file_part.filename:
+            if not file_part.filename.lower().endswith(".csv"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Only CSV files are supported for roster import.",
+                )
+            roster_bytes = await file_part.read()
+        return class_data, roster_bytes
+    raise HTTPException(
+        status_code=400,
+        detail="Use Content-Type: application/json or multipart/form-data.",
+    )
 
 
 @router.get("", response_model=SuccessResponse[List[ClassResponse]])
@@ -113,15 +161,18 @@ async def create_awards(
     return SuccessResponse(data=out, message=f"{len(out)} award(s) created successfully")
 
 
-@router.post("", response_model=SuccessResponse[ClassResponse])
+@router.post("", response_model=SuccessResponse[Any])
 async def create_class(
-    class_in: ClassCreate,
+    parsed: Tuple[ClassCreate, Optional[bytes]] = Depends(parse_create_class_request),
     current_user: User = Depends(deps.require_teacher),
-    db: AsyncSession = Depends(deps.get_db)
+    db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """
-    Create new class.
+    Create new class. Accepts application/json (ClassCreate) or multipart/form-data
+    with required 'data' (class JSON) and optional 'file' (CSV roster). If file is
+    provided, students are created/enrolled from the CSV after the class is created.
     """
+    class_in, roster_file = parsed
     try:
         new_class = await AcademicService.create_class(
             db,
@@ -129,9 +180,73 @@ async def create_class(
             class_in,
             teacher_id=current_user.id,
         )
-        return SuccessResponse(data=new_class, message="Class created successfully")
     except IntegrityError:
         raise HTTPException(status_code=400, detail="Invalid data provided, e.g., nonexistent semester_id or language_id.")
+
+    data: Any = ClassResponse.model_validate(new_class).model_dump()
+    if roster_file is not None:
+        result = await AcademicService.import_roster_from_csv(
+            db,
+            new_class.id,
+            roster_file,
+            current_user.school_id,
+            new_class.language_id,
+        )
+        data["roster_import"] = result
+    return SuccessResponse(data=data, message="Class created successfully")
+
+
+@router.get("/monitor/stats", response_model=SuccessResponse[RoomMonitorStats])
+async def get_room_monitor_stats(
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+    timeframe: str = Query("week", description="week | month | all"),
+) -> Any:
+    """
+    Room monitor KPI stats (Figma: Total Learning Sessions, Active Students, Avg. Session Duration).
+    """
+    if timeframe not in VALID_LEADERBOARD_TIMEFRAMES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"timeframe must be one of: {', '.join(sorted(VALID_LEADERBOARD_TIMEFRAMES))}",
+        )
+    total_sessions, active_students, avg_mins = await LearningSessionService.get_monitor_stats(
+        db, current_user.id, timeframe
+    )
+    data = RoomMonitorStats(
+        total_sessions=total_sessions,
+        active_students=active_students,
+        avg_session_duration_minutes=avg_mins,
+    )
+    return SuccessResponse(data=data, message="Room monitor stats retrieved successfully")
+
+
+@router.get("/monitor/summary", response_model=SuccessResponse[List[ClassPerformanceSummaryRow]])
+async def get_room_monitor_summary(
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Class Performance Summary table (Figma: Class Name, Module Progress, Avg. Quiz Score, Time Spent, Last Activity).
+    """
+    rows_data = await LearningSessionService.list_class_performance_summary_rows(
+        db, current_user.id
+    )
+    data = [
+        ClassPerformanceSummaryRow(
+            class_id=row["class_id"],
+            class_name=row["class_name"],
+            student_count=row["student_count"],
+            module_progress_pct=row["module_progress_pct"],
+            module_progress_label=row["module_progress_label"],
+            avg_quiz_score_pct=row["avg_quiz_score_pct"],
+            time_spent_minutes_per_student=row["time_spent_minutes_per_student"],
+            last_activity_at=row["last_activity_at"],
+            active_session=LearningSessionOut.model_validate(active) if active else None,
+        )
+        for active, row in rows_data
+    ]
+    return SuccessResponse(data=data, message="Class performance summary retrieved successfully")
 
 
 @router.get("/monitor", response_model=SuccessResponse[List[RoomMonitorCard]])
@@ -296,38 +411,3 @@ async def add_student_to_roster(
         raise HTTPException(status_code=400, detail="Could not add student")
 
     return SuccessResponse(message="Student added to class")
-
-
-@router.post("/{class_id}/roster/import", response_model=SuccessResponse)
-async def import_class_roster(
-    class_id: UUID,
-    file: UploadFile = File(...),
-    current_user: User = Depends(deps.require_teacher),
-    db: AsyncSession = Depends(deps.get_db)
-) -> Any:
-    """
-    Bulk import students from CSV. Supports PDF, Docs, CSV per frontend.
-    Currently CSV only. Columns: first_name, last_name, email (optional).
-    Creates new students or enrolls existing ones in the class.
-    """
-    if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(
-            status_code=400,
-            detail="Only CSV files are supported. Use columns: first_name, last_name, email."
-        )
-    content = await file.read()
-    cls = await AcademicService.get_class_by_id(db, class_id)
-    if not cls:
-        raise HTTPException(status_code=404, detail="Class not found")
-    teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
-    if not any(c.id == class_id for c in teacher_classes):
-        raise HTTPException(status_code=404, detail="Class not found")
-    result = await AcademicService.import_roster_from_csv(
-        db, class_id, content, current_user.school_id, cls.language_id
-    )
-    msg = f"Imported: {result['enrolled']} enrolled, {result['created']} created, {result['skipped']} skipped."
-    if result["errors"]:
-        msg += f" Errors: {'; '.join(result['errors'][:5])}"
-        if len(result["errors"]) > 5:
-            msg += f" (+{len(result['errors']) - 5} more)"
-    return SuccessResponse(data=result, message=msg)
