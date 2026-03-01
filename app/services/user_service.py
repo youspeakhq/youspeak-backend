@@ -103,7 +103,7 @@ class UserService:
     @staticmethod
     async def get_user_by_id(db: AsyncSession, user_id: UUID) -> Optional[User]:
         """
-        Get user by ID.
+        Get user by ID with language relationship loaded.
 
         Args:
             db: Database session
@@ -112,13 +112,17 @@ class UserService:
         Returns:
             User or None if not found
         """
-        result = await db.execute(select(User).where(User.id == user_id))
+        result = await db.execute(
+            select(User)
+            .where(User.id == user_id)
+            .options(selectinload(User.language))
+        )
         return result.scalar_one_or_none()
 
     @staticmethod
     async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
         """
-        Get user by email.
+        Get user by email with language relationship loaded.
 
         Args:
             db: Database session
@@ -127,7 +131,11 @@ class UserService:
         Returns:
             User or None if not found
         """
-        result = await db.execute(select(User).where(User.email == email))
+        result = await db.execute(
+            select(User)
+            .where(User.email == email)
+            .options(selectinload(User.language))
+        )
         return result.scalar_one_or_none()
 
     @staticmethod
@@ -143,19 +151,25 @@ class UserService:
         """Return dict of email -> User for existing users. One query for bulk lookup."""
         if not emails:
             return {}
-        result = await db.execute(select(User).where(User.email.in_(emails)))
+        result = await db.execute(
+            select(User)
+            .where(User.email.in_(emails))
+            .options(selectinload(User.language))
+        )
         return {u.email: u for u in result.scalars().all()}
 
     @staticmethod
     async def get_user_by_student_number(
         db: AsyncSession, school_id: UUID, student_number: str
     ) -> Optional[User]:
-        """Get user by student_number within a school."""
+        """Get user by student_number within a school with language relationship loaded."""
         result = await db.execute(
-            select(User).where(
+            select(User)
+            .where(
                 User.school_id == school_id,
                 User.student_number == student_number,
             )
+            .options(selectinload(User.language))
         )
         return result.scalar_one_or_none()
 
@@ -166,7 +180,7 @@ class UserService:
         limit: int = 100
     ) -> tuple[List[User], int]:
         """
-        Get paginated list of users.
+        Get paginated list of users with relationships loaded.
 
         Args:
             db: Database session
@@ -185,7 +199,8 @@ class UserService:
             select(User)
             .options(
                 selectinload(User.enrolled_classrooms),
-                selectinload(User.taught_classrooms)
+                selectinload(User.taught_classrooms),
+                selectinload(User.language)
             )
             .offset(skip)
             .limit(limit)
@@ -282,6 +297,7 @@ class UserService:
         # Update last login
         user.last_login = get_utc_now()
         await db.commit()
+        await db.refresh(user)
 
         return user
 
@@ -596,12 +612,14 @@ class UserService:
         role: Optional[UserRole] = None,
         status: str = "active"
     ) -> List[User]:
-        """Get users by school and role, filtering by status (active or deleted)"""
+        """Get users by school and role, filtering by status (active or deleted) with relationships loaded."""
         if role == UserRole.TEACHER:
             query = (
                 select(User)
                 .where(User.school_id == school_id)
-                .options(selectinload(User.taught_classrooms))
+                .options(
+                    selectinload(User.taught_classrooms)
+                )
             )
         else:
             query = (
@@ -645,7 +663,11 @@ class UserService:
     @staticmethod
     async def restore_user(db: AsyncSession, user_id: UUID) -> bool:
         """Restore soft-deleted user and remove from trash"""
-        result = await db.execute(select(User).where(User.id == user_id))
+        result = await db.execute(
+            select(User)
+            .where(User.id == user_id)
+            .options(selectinload(User.language))
+        )
         user = result.scalar_one_or_none()
         if not user or not user.is_deleted:
             return False

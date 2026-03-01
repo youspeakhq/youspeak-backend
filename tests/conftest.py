@@ -4,10 +4,13 @@ import os
 import uuid
 import pytest
 
-# Load .env so DATABASE_URL, SECRET_KEY available for requires_db check
+# Load .env.test or .env so DATABASE_URL, SECRET_KEY available for requires_db check
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    if os.path.exists(".env.test"):
+        load_dotenv(".env.test", override=True)
+    else:
+        load_dotenv()
 except ImportError:
     pass
 from httpx import ASGITransport, AsyncClient

@@ -12,11 +12,11 @@ down_revision = "8ad49556d467"
 branch_labels = None
 depends_on = None
 
+# Disable transaction for this migration to allow ALTER TYPE
+disable_transaction = True
 
 def upgrade() -> None:
-    conn = op.get_bind()
-    conn.execute(text("ALTER TYPE school_type ADD VALUE IF NOT EXISTS 'mixed'"))
-    conn.commit()
+    op.execute("ALTER TYPE school_type ADD VALUE IF NOT EXISTS 'mixed'")
 
 
 def downgrade() -> None:

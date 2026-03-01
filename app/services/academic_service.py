@@ -249,6 +249,7 @@ class AcademicService:
         existing_users: Dict[str, Any],
         seen_emails: set,
         language_cache: Optional[Dict[str, int]] = None,
+        default_language_id: Optional[int] = None,
     ) -> Tuple[Optional[UUID], int, int, Optional[str]]:
         """
         Validate row, ensure unique email, get or create student.
@@ -266,22 +267,23 @@ class AcademicService:
         if not first_name or not last_name:
             return None, 0, 0, f"Row {row_index + 2}: first_name and last_name required"
 
-        if not language_code:
+        if not language_code and not default_language_id:
             return None, 0, 0, f"Row {row_index + 2}: language_code required"
 
         # Look up language_id
-        language_id = None
-        if language_cache is not None and language_code in language_cache:
-            language_id = language_cache[language_code]
-        else:
-            result = await db.execute(select(Language).where(Language.code == language_code))
-            lang = result.scalar_one_or_none()
-            if lang:
-                language_id = lang.id
-                if language_cache is not None:
-                    language_cache[language_code] = language_id
+        resolved_language_id = default_language_id
+        if language_code:
+            if language_cache is not None and language_code in language_cache:
+                resolved_language_id = language_cache[language_code]
+            else:
+                result = await db.execute(select(Language).where(Language.code == language_code))
+                lang = result.scalar_one_or_none()
+                if lang:
+                    resolved_language_id = lang.id
+                    if language_cache is not None:
+                        language_cache[language_code] = resolved_language_id
 
-        if not language_id:
+        if not resolved_language_id:
             return None, 0, 0, f"Row {row_index + 2}: invalid language_code '{language_code}'"
 
         if not email:
@@ -312,7 +314,7 @@ class AcademicService:
                 role=UserRole.STUDENT,
                 is_active=True,
                 student_number=student_number,
-                language_id=language_id,
+                language_id=resolved_language_id,
                 auto_commit=False,
             )
             existing_users[email] = new_user
@@ -365,7 +367,7 @@ class AcademicService:
         for i, row in enumerate(rows):
             mapped = AcademicService._normalize_csv_headers(row)
             student_id, created_d, skipped_d, err = await AcademicService._resolve_or_create_student(
-                db, i, mapped, school_id, existing_users, seen_emails, language_cache
+                db, i, mapped, school_id, existing_users, seen_emails, language_cache, default_language_id=language_id
             )
             if err:
                 errors.append(err)

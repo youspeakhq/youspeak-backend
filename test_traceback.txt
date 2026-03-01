@@ -1,0 +1,1136 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-7.4.4, pluggy-1.6.0 -- /home/simon/Documents/Local/startup/youspeak-backend/.venv/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /home/simon/Documents/Local/startup/youspeak-backend
+configfile: pytest.ini
+plugins: anyio-4.12.1, cov-4.1.0, asyncio-0.23.3
+asyncio: mode=Mode.AUTO
+collecting ... collected 1 item
+
+tests/integration/test_curriculums.py::test_curriculum_not_found_scenarios ERROR [100%]
+
+==================================== ERRORS ====================================
+____________ ERROR at setup of test_curriculum_not_found_scenarios _____________
+  + Exception Group Traceback (most recent call last):
+  |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 81, in collapse_excgroups
+  |     yield
+  |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 192, in __call__
+  |     async with anyio.create_task_group() as task_group:
+  |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/anyio/_backends/_asyncio.py", line 783, in __aexit__
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/runner.py", line 341, in from_call
+    |     result: Optional[TResult] = func()
+    |                                 ^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/runner.py", line 262, in <lambda>
+    |     lambda: ihook(item=item, **kwds), when=when, reraise=reraise
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_hooks.py", line 512, in __call__
+    |     return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    |     return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 167, in _multicall
+    |     raise exception
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    |     return result.get_result()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    |     raise exc.with_traceback(tb)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    |     res = yield
+    |           ^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    |     return result.get_result()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    |     raise exc.with_traceback(tb)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    |     res = yield
+    |           ^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    |     return result.get_result()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    |     raise exc.with_traceback(tb)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    |     res = yield
+    |           ^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    |     return result.get_result()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    |     raise exc.with_traceback(tb)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    |     res = yield
+    |           ^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 121, in _multicall
+    |     res = hook_impl.function(*args)
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/runner.py", line 157, in pytest_runtest_setup
+    |     item.session._setupstate.setup(item)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/runner.py", line 497, in setup
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/runner.py", line 494, in setup
+    |     col.setup()
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/python.py", line 1795, in setup
+    |     self._request._fillfixtures()
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 566, in _fillfixtures
+    |     item.funcargs[argname] = self.getfixturevalue(argname)
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 585, in getfixturevalue
+    |     fixturedef = self._get_active_fixturedef(argname)
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 607, in _get_active_fixturedef
+    |     self._compute_fixture_value(fixturedef)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 693, in _compute_fixture_value
+    |     fixturedef.execute(request=subrequest)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 1069, in execute
+    |     result = ihook.pytest_fixture_setup(fixturedef=self, request=request)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_hooks.py", line 512, in __call__
+    |     return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    |     return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 167, in _multicall
+    |     raise exception
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    |     return result.get_result()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    |     raise exc.with_traceback(tb)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    |     res = yield
+    |           ^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    |     return result.get_result()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    |     raise exc.with_traceback(tb)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    |     res = yield
+    |           ^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    |     return result.get_result()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    |     raise exc.with_traceback(tb)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    |     res = yield
+    |           ^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 121, in _multicall
+    |     res = hook_impl.function(*args)
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 1123, in pytest_fixture_setup
+    |     result = call_fixture_func(fixturefunc, request, kwargs)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 902, in call_fixture_func
+    |     fixture_result = fixturefunc(**kwargs)
+    |                      ^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pytest_asyncio/plugin.py", line 360, in _async_fixture_wrapper
+    |     return event_loop.run_until_complete(setup())
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/usr/lib64/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    |     return future.result()
+    |            ^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pytest_asyncio/plugin.py", line 355, in setup
+    |     res = await func(
+    |           ^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/tests/conftest.py", line 68, in registered_school
+    |     resp = await async_client.post(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1877, in post
+    |     return await self.request(
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1559, in request
+    |     return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1646, in send
+    |     response = await self._send_handling_auth(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1674, in _send_handling_auth
+    |     response = await self._send_handling_redirects(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1711, in _send_handling_redirects
+    |     response = await self._send_single_request(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1748, in _send_single_request
+    |     response = await transport.handle_async_request(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_transports/asgi.py", line 162, in handle_async_request
+    |     await self.app(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/applications.py", line 1160, in __call__
+    |     await super().__call__(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/applications.py", line 107, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    |     await self.app(scope, receive, _send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    |     with recv_stream, send_stream, collapse_excgroups():
+    |   File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(typ, value, traceback)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 21, in dispatch
+    |     response = await call_next(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    |     raise app_exc from app_exc.__cause__ or app_exc.__context__
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    |     with recv_stream, send_stream, collapse_excgroups():
+    |   File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(typ, value, traceback)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 33, in dispatch
+    |     response = await call_next(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    |     raise app_exc from app_exc.__cause__ or app_exc.__context__
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    |     with recv_stream, send_stream, collapse_excgroups():
+    |   File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(typ, value, traceback)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 57, in dispatch
+    |     response = await call_next(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    |     raise app_exc from app_exc.__cause__ or app_exc.__context__
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/cors.py", line 87, in __call__
+    |     await self.app(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    |     await self.app(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 716, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 736, in app
+    |     await route.handle(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 290, in handle
+    |     await self.app(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 119, in app
+    |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 105, in app
+    |     response = await f(request)
+    |                ^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 431, in app
+    |     raw_response = await run_endpoint_function(
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 313, in run_endpoint_function
+    |     return await dependant.call(**values)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/app/api/v1/endpoints/auth.py", line 100, in register_school
+    |     user = await UserService.get_user_by_email(db, email=school_in.email)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/app/services/user_service.py", line 134, in get_user_by_email
+    |     result = await db.execute(
+    |              ^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/ext/asyncio/session.py", line 455, in execute
+    |     result = await greenlet_spawn(
+    |              ^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 200, in greenlet_spawn
+    |     result = context.throw(*sys.exc_info())
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2308, in execute
+    |     return self._execute_internal(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2180, in _execute_internal
+    |     conn = self._connection_for_bind(bind)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2047, in _connection_for_bind
+    |     return trans._connection_for_bind(engine, execution_options)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "<string>", line 2, in _connection_for_bind
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    |     ret_value = fn(self, *arg, **kw)
+    |                 ^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 1143, in _connection_for_bind
+    |     conn = bind.connect()
+    |            ^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 3269, in connect
+    |     return self._connection_cls(self)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+    |     self._dbapi_connection = engine.raw_connection()
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 3293, in raw_connection
+    |     return self.pool.connect()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 452, in connect
+    |     return _ConnectionFairy._checkout(self)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 1269, in _checkout
+    |     fairy = _ConnectionRecord.checkout(pool)
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 716, in checkout
+    |     rec = pool._do_get()
+    |           ^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/impl.py", line 284, in _do_get
+    |     return self._create_connection()
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 393, in _create_connection
+    |     return _ConnectionRecord(self)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 678, in __init__
+    |     self.__connect()
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 902, in __connect
+    |     with util.safe_reraise():
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 146, in __exit__
+    |     raise exc_value.with_traceback(exc_tb)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 898, in __connect
+    |     self.dbapi_connection = connection = pool._invoke_creator(self)
+    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/create.py", line 645, in connect
+    |     return dialect.connect(*cargs, **cparams)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/default.py", line 616, in connect
+    |     return self.loaded_dbapi.connect(*cargs, **cparams)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 941, in connect
+    |     await_only(creator_fn(*arg, **kw)),
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 130, in await_only
+    |     return current.driver.switch(awaitable)  # type: ignore[no-any-return]
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 195, in greenlet_spawn
+    |     value = await result
+    |             ^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connection.py", line 2329, in connect
+    |     return await connect_utils._connect(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 1017, in _connect
+    |     raise last_error or exceptions.TargetServerAttributeNotMatched(
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 991, in _connect
+    |     conn = await _connect_addr(
+    |            ^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 828, in _connect_addr
+    |     return await __connect_addr(params, True, *args)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 873, in __connect_addr
+    |     tr, pr = await connector
+    |              ^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 744, in _create_ssl_connection
+    |     tr, pr = await loop.create_connection(
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/usr/lib64/python3.11/asyncio/base_events.py", line 1046, in create_connection
+    |     infos = await self._ensure_resolved(
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/usr/lib64/python3.11/asyncio/base_events.py", line 1420, in _ensure_resolved
+    |     return await loop.getaddrinfo(host, port, family=family, type=type,
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/usr/lib64/python3.11/asyncio/base_events.py", line 868, in getaddrinfo
+    |     return await self.run_in_executor(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/usr/lib64/python3.11/concurrent/futures/thread.py", line 58, in run
+    |     result = self.fn(*self.args, **self.kwargs)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/usr/lib64/python3.11/socket.py", line 974, in getaddrinfo
+    |     for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    | socket.gaierror: [Errno -2] Name or service not known
+    +------------------------------------
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/runner.py", line 341, in from_call
+    result: Optional[TResult] = func()
+                                ^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/runner.py", line 262, in <lambda>
+    lambda: ihook(item=item, **kwds), when=when, reraise=reraise
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 167, in _multicall
+    raise exception
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    return result.get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    raise exc.with_traceback(tb)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    res = yield
+          ^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    return result.get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    raise exc.with_traceback(tb)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    res = yield
+          ^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    return result.get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    raise exc.with_traceback(tb)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    res = yield
+          ^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    return result.get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    raise exc.with_traceback(tb)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    res = yield
+          ^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/runner.py", line 157, in pytest_runtest_setup
+    item.session._setupstate.setup(item)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/runner.py", line 497, in setup
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/runner.py", line 494, in setup
+    col.setup()
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/python.py", line 1795, in setup
+    self._request._fillfixtures()
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 566, in _fillfixtures
+    item.funcargs[argname] = self.getfixturevalue(argname)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 585, in getfixturevalue
+    fixturedef = self._get_active_fixturedef(argname)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 607, in _get_active_fixturedef
+    self._compute_fixture_value(fixturedef)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 693, in _compute_fixture_value
+    fixturedef.execute(request=subrequest)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 1069, in execute
+    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 167, in _multicall
+    raise exception
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    return result.get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    raise exc.with_traceback(tb)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    res = yield
+          ^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    return result.get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    raise exc.with_traceback(tb)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    res = yield
+          ^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    return result.get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_result.py", line 103, in get_result
+    raise exc.with_traceback(tb)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    res = yield
+          ^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 1123, in pytest_fixture_setup
+    result = call_fixture_func(fixturefunc, request, kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/_pytest/fixtures.py", line 902, in call_fixture_func
+    fixture_result = fixturefunc(**kwargs)
+                     ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pytest_asyncio/plugin.py", line 360, in _async_fixture_wrapper
+    return event_loop.run_until_complete(setup())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/pytest_asyncio/plugin.py", line 355, in setup
+    res = await func(
+          ^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/tests/conftest.py", line 68, in registered_school
+    resp = await async_client.post(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1877, in post
+    return await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1559, in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1646, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1674, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1711, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_client.py", line 1748, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/httpx/_transports/asgi.py", line 162, in handle_async_request
+    await self.app(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/applications.py", line 1160, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 21, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 33, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 57, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/cors.py", line 87, in __call__
+    await self.app(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 119, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 105, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 431, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 313, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/app/api/v1/endpoints/auth.py", line 100, in register_school
+    user = await UserService.get_user_by_email(db, email=school_in.email)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/app/services/user_service.py", line 134, in get_user_by_email
+    result = await db.execute(
+             ^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/ext/asyncio/session.py", line 455, in execute
+    result = await greenlet_spawn(
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 200, in greenlet_spawn
+    result = context.throw(*sys.exc_info())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2308, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2180, in _execute_internal
+    conn = self._connection_for_bind(bind)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2047, in _connection_for_bind
+    return trans._connection_for_bind(engine, execution_options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in _connection_for_bind
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 1143, in _connection_for_bind
+    conn = bind.connect()
+           ^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 3269, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 3293, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 452, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 1269, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 716, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/impl.py", line 284, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 393, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 678, in __init__
+    self.__connect()
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 902, in __connect
+    with util.safe_reraise():
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 898, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/create.py", line 645, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/default.py", line 616, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 941, in connect
+    await_only(creator_fn(*arg, **kw)),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 130, in await_only
+    return current.driver.switch(awaitable)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 195, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connection.py", line 2329, in connect
+    return await connect_utils._connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 1017, in _connect
+    raise last_error or exceptions.TargetServerAttributeNotMatched(
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 991, in _connect
+    conn = await _connect_addr(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 828, in _connect_addr
+    return await __connect_addr(params, True, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 873, in __connect_addr
+    tr, pr = await connector
+             ^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 744, in _create_ssl_connection
+    tr, pr = await loop.create_connection(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/asyncio/base_events.py", line 1046, in create_connection
+    infos = await self._ensure_resolved(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/asyncio/base_events.py", line 1420, in _ensure_resolved
+    return await loop.getaddrinfo(host, port, family=family, type=type,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/asyncio/base_events.py", line 868, in getaddrinfo
+    return await self.run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/socket.py", line 974, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno -2] Name or service not known
+---------------------------- Captured stdout setup -----------------------------
+{"asctime": "2026-03-01 02:42:20", "level": "ERROR", "name": "app.main", "message": "Unhandled exception: [Errno -2] Name or service not known", "exc_info": "  + Exception Group Traceback (most recent call last):\n  |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py\", line 81, in collapse_excgroups\n  |     yield\n  |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 192, in __call__\n  |     async with anyio.create_task_group() as task_group:\n  |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/anyio/_backends/_asyncio.py\", line 783, in __aexit__\n  |     raise BaseExceptionGroup(\n  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)\n  +-+---------------- 1 ----------------\n    | Traceback (most recent call last):\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/errors.py\", line 164, in __call__\n    |     await self.app(scope, receive, _send)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 191, in __call__\n    |     with recv_stream, send_stream, collapse_excgroups():\n    |   File \"/usr/lib64/python3.11/contextlib.py\", line 158, in __exit__\n    |     self.gen.throw(typ, value, traceback)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py\", line 87, in collapse_excgroups\n    |     raise exc\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 193, in __call__\n    |     response = await self.dispatch_func(request, call_next)\n    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py\", line 21, in dispatch\n    |     response = await call_next(request)\n    |                ^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 168, in call_next\n    |     raise app_exc from app_exc.__cause__ or app_exc.__context__\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 144, in coro\n    |     await self.app(scope, receive_or_disconnect, send_no_error)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 191, in __call__\n    |     with recv_stream, send_stream, collapse_excgroups():\n    |   File \"/usr/lib64/python3.11/contextlib.py\", line 158, in __exit__\n    |     self.gen.throw(typ, value, traceback)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py\", line 87, in collapse_excgroups\n    |     raise exc\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 193, in __call__\n    |     response = await self.dispatch_func(request, call_next)\n    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py\", line 33, in dispatch\n    |     response = await call_next(request)\n    |                ^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 168, in call_next\n    |     raise app_exc from app_exc.__cause__ or app_exc.__context__\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 144, in coro\n    |     await self.app(scope, receive_or_disconnect, send_no_error)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 191, in __call__\n    |     with recv_stream, send_stream, collapse_excgroups():\n    |   File \"/usr/lib64/python3.11/contextlib.py\", line 158, in __exit__\n    |     self.gen.throw(typ, value, traceback)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py\", line 87, in collapse_excgroups\n    |     raise exc\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 193, in __call__\n    |     response = await self.dispatch_func(request, call_next)\n    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py\", line 57, in dispatch\n    |     response = await call_next(request)\n    |                ^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 168, in call_next\n    |     raise app_exc from app_exc.__cause__ or app_exc.__context__\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 144, in coro\n    |     await self.app(scope, receive_or_disconnect, send_no_error)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/cors.py\", line 87, in __call__\n    |     await self.app(scope, receive, send)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/exceptions.py\", line 63, in __call__\n    |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    |     raise exc\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    |     await app(scope, receive, sender)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/middleware/asyncexitstack.py\", line 18, in __call__\n    |     await self.app(scope, receive, send)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py\", line 716, in __call__\n    |     await self.middleware_stack(scope, receive, send)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py\", line 736, in app\n    |     await route.handle(scope, receive, send)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py\", line 290, in handle\n    |     await self.app(scope, receive, send)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py\", line 119, in app\n    |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    |     raise exc\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    |     await app(scope, receive, sender)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py\", line 105, in app\n    |     response = await f(request)\n    |                ^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py\", line 431, in app\n    |     raw_response = await run_endpoint_function(\n    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py\", line 313, in run_endpoint_function\n    |     return await dependant.call(**values)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/app/api/v1/endpoints/auth.py\", line 100, in register_school\n    |     user = await UserService.get_user_by_email(db, email=school_in.email)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/app/services/user_service.py\", line 134, in get_user_by_email\n    |     result = await db.execute(\n    |              ^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/ext/asyncio/session.py\", line 455, in execute\n    |     result = await greenlet_spawn(\n    |              ^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 200, in greenlet_spawn\n    |     result = context.throw(*sys.exc_info())\n    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py\", line 2308, in execute\n    |     return self._execute_internal(\n    |            ^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py\", line 2180, in _execute_internal\n    |     conn = self._connection_for_bind(bind)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py\", line 2047, in _connection_for_bind\n    |     return trans._connection_for_bind(engine, execution_options)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"<string>\", line 2, in _connection_for_bind\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/state_changes.py\", line 139, in _go\n    |     ret_value = fn(self, *arg, **kw)\n    |                 ^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py\", line 1143, in _connection_for_bind\n    |     conn = bind.connect()\n    |            ^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py\", line 3269, in connect\n    |     return self._connection_cls(self)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py\", line 145, in __init__\n    |     self._dbapi_connection = engine.raw_connection()\n    |                              ^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py\", line 3293, in raw_connection\n    |     return self.pool.connect()\n    |            ^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 452, in connect\n    |     return _ConnectionFairy._checkout(self)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 1269, in _checkout\n    |     fairy = _ConnectionRecord.checkout(pool)\n    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 716, in checkout\n    |     rec = pool._do_get()\n    |           ^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/impl.py\", line 284, in _do_get\n    |     return self._create_connection()\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 393, in _create_connection\n    |     return _ConnectionRecord(self)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 678, in __init__\n    |     self.__connect()\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 902, in __connect\n    |     with util.safe_reraise():\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/langhelpers.py\", line 146, in __exit__\n    |     raise exc_value.with_traceback(exc_tb)\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 898, in __connect\n    |     self.dbapi_connection = connection = pool._invoke_creator(self)\n    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/create.py\", line 645, in connect\n    |     return dialect.connect(*cargs, **cparams)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/default.py\", line 616, in connect\n    |     return self.loaded_dbapi.connect(*cargs, **cparams)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 941, in connect\n    |     await_only(creator_fn(*arg, **kw)),\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 130, in await_only\n    |     return current.driver.switch(awaitable)  # type: ignore[no-any-return]\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 195, in greenlet_spawn\n    |     value = await result\n    |             ^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connection.py\", line 2329, in connect\n    |     return await connect_utils._connect(\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py\", line 1017, in _connect\n    |     raise last_error or exceptions.TargetServerAttributeNotMatched(\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py\", line 991, in _connect\n    |     conn = await _connect_addr(\n    |            ^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py\", line 828, in _connect_addr\n    |     return await __connect_addr(params, True, *args)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py\", line 873, in __connect_addr\n    |     tr, pr = await connector\n    |              ^^^^^^^^^^^^^^^\n    |   File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py\", line 744, in _create_ssl_connection\n    |     tr, pr = await loop.create_connection(\n    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/usr/lib64/python3.11/asyncio/base_events.py\", line 1046, in create_connection\n    |     infos = await self._ensure_resolved(\n    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/usr/lib64/python3.11/asyncio/base_events.py\", line 1420, in _ensure_resolved\n    |     return await loop.getaddrinfo(host, port, family=family, type=type,\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/usr/lib64/python3.11/asyncio/base_events.py\", line 868, in getaddrinfo\n    |     return await self.run_in_executor(\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/usr/lib64/python3.11/concurrent/futures/thread.py\", line 58, in run\n    |     result = self.fn(*self.args, **self.kwargs)\n    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/usr/lib64/python3.11/socket.py\", line 974, in getaddrinfo\n    |     for res in _socket.getaddrinfo(host, port, family, type, proto, flags):\n    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    | socket.gaierror: [Errno -2] Name or service not known\n    +------------------------------------\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/errors.py\", line 164, in __call__\n    await self.app(scope, receive, _send)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 191, in __call__\n    with recv_stream, send_stream, collapse_excgroups():\n  File \"/usr/lib64/python3.11/contextlib.py\", line 158, in __exit__\n    self.gen.throw(typ, value, traceback)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py\", line 87, in collapse_excgroups\n    raise exc\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 193, in __call__\n    response = await self.dispatch_func(request, call_next)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py\", line 21, in dispatch\n    response = await call_next(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 168, in call_next\n    raise app_exc from app_exc.__cause__ or app_exc.__context__\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 144, in coro\n    await self.app(scope, receive_or_disconnect, send_no_error)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 191, in __call__\n    with recv_stream, send_stream, collapse_excgroups():\n  File \"/usr/lib64/python3.11/contextlib.py\", line 158, in __exit__\n    self.gen.throw(typ, value, traceback)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py\", line 87, in collapse_excgroups\n    raise exc\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 193, in __call__\n    response = await self.dispatch_func(request, call_next)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py\", line 33, in dispatch\n    response = await call_next(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 168, in call_next\n    raise app_exc from app_exc.__cause__ or app_exc.__context__\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 144, in coro\n    await self.app(scope, receive_or_disconnect, send_no_error)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 191, in __call__\n    with recv_stream, send_stream, collapse_excgroups():\n  File \"/usr/lib64/python3.11/contextlib.py\", line 158, in __exit__\n    self.gen.throw(typ, value, traceback)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py\", line 87, in collapse_excgroups\n    raise exc\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 193, in __call__\n    response = await self.dispatch_func(request, call_next)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py\", line 57, in dispatch\n    response = await call_next(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 168, in call_next\n    raise app_exc from app_exc.__cause__ or app_exc.__context__\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py\", line 144, in coro\n    await self.app(scope, receive_or_disconnect, send_no_error)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/cors.py\", line 87, in __call__\n    await self.app(scope, receive, send)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/exceptions.py\", line 63, in __call__\n    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/middleware/asyncexitstack.py\", line 18, in __call__\n    await self.app(scope, receive, send)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py\", line 716, in __call__\n    await self.middleware_stack(scope, receive, send)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py\", line 736, in app\n    await route.handle(scope, receive, send)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py\", line 290, in handle\n    await self.app(scope, receive, send)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py\", line 119, in app\n    await wrap_app_handling_exceptions(app, request)(scope, receive, send)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py\", line 105, in app\n    response = await f(request)\n               ^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py\", line 431, in app\n    raw_response = await run_endpoint_function(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py\", line 313, in run_endpoint_function\n    return await dependant.call(**values)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/app/api/v1/endpoints/auth.py\", line 100, in register_school\n    user = await UserService.get_user_by_email(db, email=school_in.email)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/app/services/user_service.py\", line 134, in get_user_by_email\n    result = await db.execute(\n             ^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/ext/asyncio/session.py\", line 455, in execute\n    result = await greenlet_spawn(\n             ^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 200, in greenlet_spawn\n    result = context.throw(*sys.exc_info())\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py\", line 2308, in execute\n    return self._execute_internal(\n           ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py\", line 2180, in _execute_internal\n    conn = self._connection_for_bind(bind)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py\", line 2047, in _connection_for_bind\n    return trans._connection_for_bind(engine, execution_options)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<string>\", line 2, in _connection_for_bind\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/state_changes.py\", line 139, in _go\n    ret_value = fn(self, *arg, **kw)\n                ^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py\", line 1143, in _connection_for_bind\n    conn = bind.connect()\n           ^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py\", line 3269, in connect\n    return self._connection_cls(self)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py\", line 145, in __init__\n    self._dbapi_connection = engine.raw_connection()\n                             ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py\", line 3293, in raw_connection\n    return self.pool.connect()\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 452, in connect\n    return _ConnectionFairy._checkout(self)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 1269, in _checkout\n    fairy = _ConnectionRecord.checkout(pool)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 716, in checkout\n    rec = pool._do_get()\n          ^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/impl.py\", line 284, in _do_get\n    return self._create_connection()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 393, in _create_connection\n    return _ConnectionRecord(self)\n           ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 678, in __init__\n    self.__connect()\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 902, in __connect\n    with util.safe_reraise():\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/langhelpers.py\", line 146, in __exit__\n    raise exc_value.with_traceback(exc_tb)\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py\", line 898, in __connect\n    self.dbapi_connection = connection = pool._invoke_creator(self)\n                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/create.py\", line 645, in connect\n    return dialect.connect(*cargs, **cparams)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/default.py\", line 616, in connect\n    return self.loaded_dbapi.connect(*cargs, **cparams)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 941, in connect\n    await_only(creator_fn(*arg, **kw)),\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 130, in await_only\n    return current.driver.switch(awaitable)  # type: ignore[no-any-return]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 195, in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connection.py\", line 2329, in connect\n    return await connect_utils._connect(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py\", line 1017, in _connect\n    raise last_error or exceptions.TargetServerAttributeNotMatched(\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py\", line 991, in _connect\n    conn = await _connect_addr(\n           ^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py\", line 828, in _connect_addr\n    return await __connect_addr(params, True, *args)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py\", line 873, in __connect_addr\n    tr, pr = await connector\n             ^^^^^^^^^^^^^^^\n  File \"/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py\", line 744, in _create_ssl_connection\n    tr, pr = await loop.create_connection(\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib64/python3.11/asyncio/base_events.py\", line 1046, in create_connection\n    infos = await self._ensure_resolved(\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib64/python3.11/asyncio/base_events.py\", line 1420, in _ensure_resolved\n    return await loop.getaddrinfo(host, port, family=family, type=type,\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib64/python3.11/asyncio/base_events.py\", line 868, in getaddrinfo\n    return await self.run_in_executor(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib64/python3.11/concurrent/futures/thread.py\", line 58, in run\n    result = self.fn(*self.args, **self.kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib64/python3.11/socket.py\", line 974, in getaddrinfo\n    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nsocket.gaierror: [Errno -2] Name or service not known", "path": "/api/v1/auth/register/school", "correlation_id": "8bc80b3e-67de-45db-b23d-6e97b5725baf", "logger": "app.main", "environment": "development", "app_name": "YouSpeak Backend"}
+------------------------------ Captured log setup ------------------------------
+ERROR    app.main:main.py:160 Unhandled exception: [Errno -2] Name or service not known
+  + Exception Group Traceback (most recent call last):
+  |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 81, in collapse_excgroups
+  |     yield
+  |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 192, in __call__
+  |     async with anyio.create_task_group() as task_group:
+  |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/anyio/_backends/_asyncio.py", line 783, in __aexit__
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    |     await self.app(scope, receive, _send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    |     with recv_stream, send_stream, collapse_excgroups():
+    |   File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(typ, value, traceback)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 21, in dispatch
+    |     response = await call_next(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    |     raise app_exc from app_exc.__cause__ or app_exc.__context__
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    |     with recv_stream, send_stream, collapse_excgroups():
+    |   File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(typ, value, traceback)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 33, in dispatch
+    |     response = await call_next(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    |     raise app_exc from app_exc.__cause__ or app_exc.__context__
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    |     with recv_stream, send_stream, collapse_excgroups():
+    |   File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(typ, value, traceback)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 57, in dispatch
+    |     response = await call_next(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    |     raise app_exc from app_exc.__cause__ or app_exc.__context__
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/cors.py", line 87, in __call__
+    |     await self.app(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    |     await self.app(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 716, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 736, in app
+    |     await route.handle(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 290, in handle
+    |     await self.app(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 119, in app
+    |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 105, in app
+    |     response = await f(request)
+    |                ^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 431, in app
+    |     raw_response = await run_endpoint_function(
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 313, in run_endpoint_function
+    |     return await dependant.call(**values)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/app/api/v1/endpoints/auth.py", line 100, in register_school
+    |     user = await UserService.get_user_by_email(db, email=school_in.email)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/app/services/user_service.py", line 134, in get_user_by_email
+    |     result = await db.execute(
+    |              ^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/ext/asyncio/session.py", line 455, in execute
+    |     result = await greenlet_spawn(
+    |              ^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 200, in greenlet_spawn
+    |     result = context.throw(*sys.exc_info())
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2308, in execute
+    |     return self._execute_internal(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2180, in _execute_internal
+    |     conn = self._connection_for_bind(bind)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2047, in _connection_for_bind
+    |     return trans._connection_for_bind(engine, execution_options)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "<string>", line 2, in _connection_for_bind
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    |     ret_value = fn(self, *arg, **kw)
+    |                 ^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 1143, in _connection_for_bind
+    |     conn = bind.connect()
+    |            ^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 3269, in connect
+    |     return self._connection_cls(self)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+    |     self._dbapi_connection = engine.raw_connection()
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 3293, in raw_connection
+    |     return self.pool.connect()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 452, in connect
+    |     return _ConnectionFairy._checkout(self)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 1269, in _checkout
+    |     fairy = _ConnectionRecord.checkout(pool)
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 716, in checkout
+    |     rec = pool._do_get()
+    |           ^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/impl.py", line 284, in _do_get
+    |     return self._create_connection()
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 393, in _create_connection
+    |     return _ConnectionRecord(self)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 678, in __init__
+    |     self.__connect()
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 902, in __connect
+    |     with util.safe_reraise():
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 146, in __exit__
+    |     raise exc_value.with_traceback(exc_tb)
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 898, in __connect
+    |     self.dbapi_connection = connection = pool._invoke_creator(self)
+    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/create.py", line 645, in connect
+    |     return dialect.connect(*cargs, **cparams)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/default.py", line 616, in connect
+    |     return self.loaded_dbapi.connect(*cargs, **cparams)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 941, in connect
+    |     await_only(creator_fn(*arg, **kw)),
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 130, in await_only
+    |     return current.driver.switch(awaitable)  # type: ignore[no-any-return]
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 195, in greenlet_spawn
+    |     value = await result
+    |             ^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connection.py", line 2329, in connect
+    |     return await connect_utils._connect(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 1017, in _connect
+    |     raise last_error or exceptions.TargetServerAttributeNotMatched(
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 991, in _connect
+    |     conn = await _connect_addr(
+    |            ^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 828, in _connect_addr
+    |     return await __connect_addr(params, True, *args)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 873, in __connect_addr
+    |     tr, pr = await connector
+    |              ^^^^^^^^^^^^^^^
+    |   File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 744, in _create_ssl_connection
+    |     tr, pr = await loop.create_connection(
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/usr/lib64/python3.11/asyncio/base_events.py", line 1046, in create_connection
+    |     infos = await self._ensure_resolved(
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/usr/lib64/python3.11/asyncio/base_events.py", line 1420, in _ensure_resolved
+    |     return await loop.getaddrinfo(host, port, family=family, type=type,
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/usr/lib64/python3.11/asyncio/base_events.py", line 868, in getaddrinfo
+    |     return await self.run_in_executor(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/usr/lib64/python3.11/concurrent/futures/thread.py", line 58, in run
+    |     result = self.fn(*self.args, **self.kwargs)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/usr/lib64/python3.11/socket.py", line 974, in getaddrinfo
+    |     for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    | socket.gaierror: [Errno -2] Name or service not known
+    +------------------------------------
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 21, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 33, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/lib64/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/app/core/middleware.py", line 57, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/cors.py", line 87, in __call__
+    await self.app(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 119, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 105, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 431, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/fastapi/routing.py", line 313, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/app/api/v1/endpoints/auth.py", line 100, in register_school
+    user = await UserService.get_user_by_email(db, email=school_in.email)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/app/services/user_service.py", line 134, in get_user_by_email
+    result = await db.execute(
+             ^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/ext/asyncio/session.py", line 455, in execute
+    result = await greenlet_spawn(
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 200, in greenlet_spawn
+    result = context.throw(*sys.exc_info())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2308, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2180, in _execute_internal
+    conn = self._connection_for_bind(bind)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 2047, in _connection_for_bind
+    return trans._connection_for_bind(engine, execution_options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in _connection_for_bind
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/orm/session.py", line 1143, in _connection_for_bind
+    conn = bind.connect()
+           ^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 3269, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/base.py", line 3293, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 452, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 1269, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 716, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/impl.py", line 284, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 393, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 678, in __init__
+    self.__connect()
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 902, in __connect
+    with util.safe_reraise():
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/pool/base.py", line 898, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/create.py", line 645, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/engine/default.py", line 616, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 941, in connect
+    await_only(creator_fn(*arg, **kw)),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 130, in await_only
+    return current.driver.switch(awaitable)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 195, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connection.py", line 2329, in connect
+    return await connect_utils._connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 1017, in _connect
+    raise last_error or exceptions.TargetServerAttributeNotMatched(
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 991, in _connect
+    conn = await _connect_addr(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 828, in _connect_addr
+    return await __connect_addr(params, True, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 873, in __connect_addr
+    tr, pr = await connector
+             ^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/Local/startup/youspeak-backend/.venv/lib64/python3.11/site-packages/asyncpg/connect_utils.py", line 744, in _create_ssl_connection
+    tr, pr = await loop.create_connection(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/asyncio/base_events.py", line 1046, in create_connection
+    infos = await self._ensure_resolved(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/asyncio/base_events.py", line 1420, in _ensure_resolved
+    return await loop.getaddrinfo(host, port, family=family, type=type,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/asyncio/base_events.py", line 868, in getaddrinfo
+    return await self.run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/socket.py", line 974, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno -2] Name or service not known
+=========================== short test summary info ============================
+ERROR tests/integration/test_curriculums.py::test_curriculum_not_found_scenarios
+=============================== 1 error in 1.26s ===============================

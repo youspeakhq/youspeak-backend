@@ -129,7 +129,10 @@ async def create_student(
     if student_in.class_id:
         await AcademicService.add_student_to_class(db, student_in.class_id, user.id)
 
-    return SuccessResponse(data=UserResponse.model_validate(user), message="Student created successfully")
+    # Reload user to ensure relationships (like language) are loaded for Pydantic response
+    user_with_relations = await UserService.get_user_by_id(db, user.id)
+
+    return SuccessResponse(data=UserResponse.model_validate(user_with_relations), message="Student created successfully")
 
 
 @router.post("/import", response_model=SuccessResponse)
