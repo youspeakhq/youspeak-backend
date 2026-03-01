@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.academic import Class, ClassSchedule, class_enrollments, teacher_assignments
 from app.models.enums import StudentRole, ClassStatus, UserRole
+from app.models.onboarding import Language
 from app.schemas.academic import ClassCreate
 from app.services.school_service import SchoolService
 
