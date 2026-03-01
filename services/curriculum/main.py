@@ -1,6 +1,7 @@
 """Curriculum service FastAPI app.
 
 CI: any change under services/curriculum/** triggers Build and push curriculum image (linux/amd64).
+Deployment: Supports staging and production environments.
 """
 
 from contextlib import asynccontextmanager

@@ -1,1 +1,1 @@
-"""YouSpeak Backend Application Package"""
+"""YouSpeak Backend Application Package - Core API"""
