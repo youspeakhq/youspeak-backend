@@ -1,7 +1,11 @@
 """Shared pytest fixtures for E2E and integration tests."""
 
 import os
+import subprocess
+import sys
 import uuid
+from pathlib import Path
+
 import pytest
 
 # Load .env.test or .env so DATABASE_URL, SECRET_KEY available for requires_db check
@@ -23,6 +27,31 @@ requires_db = pytest.mark.skipif(
     not os.getenv("DATABASE_URL") or not os.getenv("SECRET_KEY"),
     reason="DATABASE_URL and SECRET_KEY must be set",
 )
+
+
+def _ensure_migrations_applied() -> None:
+    """Run alembic upgrade head once per process when DATABASE_URL is set.
+    Ensures the DB has the current schema (e.g. users.language_id) so integration
+    tests do not fail with UndefinedColumnError when run locally without a prior
+    manual 'alembic upgrade head'. Idempotent in CI where migrations already ran.
+    """
+    if not os.getenv("DATABASE_URL"):
+        return
+    root = Path(__file__).resolve().parent.parent
+    if not (root / "alembic.ini").exists():
+        return
+    subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+    )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _apply_migrations_if_db_set():
+    """Apply Alembic migrations before any test when DATABASE_URL is set."""
+    _ensure_migrations_applied()
 
 
 def _get_api_base() -> str:

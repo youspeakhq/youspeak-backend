@@ -60,8 +60,9 @@ pytest tests/unit/ -v
 
 **Run:**
 ```bash
-# Requires DATABASE_URL and SECRET_KEY in .env; run migrations first
-alembic upgrade head
+# Requires DATABASE_URL and SECRET_KEY in .env.
+# Conftest runs `alembic upgrade head` once when DATABASE_URL is set (idempotent).
+# You can still run migrations manually first: alembic upgrade head
 pytest tests/integration/ -v
 ```
 

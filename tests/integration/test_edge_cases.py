@@ -315,31 +315,30 @@ async def test_teacher_cannot_create_classroom(
 
 
 @pytest.mark.asyncio
-async def test_roster_import_rejects_non_csv(
+async def test_create_class_rejects_non_csv_roster_file(
     async_client: AsyncClient,
     api_base: str,
     teacher_headers: dict,
     unique_suffix: str,
 ):
+    """Create class with multipart and a non-CSV file for roster returns 400."""
+    import json
     resp = await async_client.get(f"{api_base}/schools/semesters", headers=teacher_headers)
     semester_id = resp.json()["data"][0]["id"]
+    class_payload = {
+        "name": f"Import Reject {unique_suffix}",
+        "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
+        "language_id": 1,
+        "semester_id": semester_id,
+    }
     resp = await async_client.post(
         f"{api_base}/my-classes",
         headers=teacher_headers,
-        json={
-            "name": f"Import Reject {unique_suffix}",
-            "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
-            "language_id": 1,
-            "semester_id": semester_id,
-        },
-    )
-    class_id = resp.json()["data"]["id"]
-    resp = await async_client.post(
-        f"{api_base}/my-classes/{class_id}/roster/import",
-        headers=teacher_headers,
+        data={"data": json.dumps(class_payload)},
         files={"file": ("data.pdf", b"binary content", "application/pdf")},
     )
     assert resp.status_code == 400
+    assert "csv" in resp.json().get("detail", "").lower()
 
 
 @pytest.fixture

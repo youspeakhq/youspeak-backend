@@ -1,5 +1,6 @@
 """Integration tests: My-classes endpoints (teacher)."""
 
+import json
 import pytest
 from tests.conftest import requires_db
 
@@ -157,43 +158,105 @@ async def classroom_id(async_client, api_base, registered_school, unique_suffix)
 
 
 @pytest.mark.asyncio
-async def test_import_roster_csv(
+async def test_create_class_with_roster_csv(
     async_client: AsyncClient,
     api_base: str,
     teacher_headers: dict,
     unique_suffix: str,
 ):
+    """Create class with optional CSV roster in one request; response includes roster_import."""
     resp = await async_client.get(
         f"{api_base}/schools/semesters",
         headers=teacher_headers,
     )
     assert resp.status_code == 200
     semester_id = resp.json()["data"][0]["id"]
+    class_payload = {
+        "name": f"Import Test {unique_suffix}",
+        "schedule": [
+            {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
+        ],
+        "language_id": 1,
+        "semester_id": semester_id,
+    }
+    csv_content = (
+        b"first_name,last_name,email\nAlice,Smith,alice."
+        + unique_suffix.encode()
+        + b"@test.com\nBob,Jones,\n"
+    )
     resp = await async_client.post(
         f"{api_base}/my-classes",
         headers=teacher_headers,
-        json={
-            "name": f"Import Test {unique_suffix}",
-            "schedule": [
-                {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
-            ],
-            "language_id": 1,
-            "semester_id": semester_id,
-        },
-    )
-    assert resp.status_code == 200
-    class_id = resp.json()["data"]["id"]
-    csv_content = b"first_name,last_name,email\nAlice,Smith,alice." + unique_suffix.encode() + b"@test.com\nBob,Jones,\n"
-    resp = await async_client.post(
-        f"{api_base}/my-classes/{class_id}/roster/import",
-        headers=teacher_headers,
+        data={"data": json.dumps(class_payload)},
         files={"file": ("roster.csv", csv_content, "text/csv")},
     )
     assert resp.status_code == 200
     data = resp.json()["data"]
-    assert "enrolled" in data
-    assert "created" in data
-    assert data["enrolled"] >= 1
+    assert "id" in data
+    assert data["name"] == f"Import Test {unique_suffix}"
+    assert "roster_import" in data
+    ri = data["roster_import"]
+    assert "enrolled" in ri
+    assert "created" in ri
+    assert ri["enrolled"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_create_class_multipart_without_file(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict, unique_suffix: str
+):
+    """Create class with multipart 'data' only (no file) succeeds; no roster_import in response."""
+    resp = await async_client.get(
+        f"{api_base}/schools/semesters",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    semester_id = resp.json()["data"][0]["id"]
+    class_payload = {
+        "name": f"Multipart No File {unique_suffix}",
+        "schedule": [
+            {"day_of_week": "Tue", "start_time": "10:00:00", "end_time": "11:00:00"}
+        ],
+        "language_id": 1,
+        "semester_id": semester_id,
+    }
+    resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        files={"data": (None, json.dumps(class_payload).encode())},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["name"] == f"Multipart No File {unique_suffix}"
+    assert "id" in data
+    assert "roster_import" not in data
+
+
+@pytest.mark.asyncio
+async def test_create_class_multipart_missing_data_returns_400(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict,
+):
+    """Create class with multipart but no 'data' field returns 400."""
+    resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        files={"other": (None, b"x")},
+    )
+    assert resp.status_code == 400
+    assert "data" in resp.json().get("detail", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_create_class_multipart_invalid_json_returns_400(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict,
+):
+    """Create class with multipart 'data' that is not valid JSON returns 400."""
+    resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        files={"data": (None, b"not valid json")},
+    )
+    assert resp.status_code == 400
 
 
 @pytest.mark.asyncio
@@ -291,28 +354,24 @@ async def test_create_award(
     )
     assert resp.status_code == 200
     semester_id = resp.json()["data"][0]["id"]
-    resp = await async_client.post(
-        f"{api_base}/my-classes",
-        headers=teacher_headers,
-        json={
-            "name": f"Award Class {unique_suffix}",
-            "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
-            "language_id": 1,
-            "semester_id": semester_id,
-        },
-    )
-    assert resp.status_code == 200
-    class_id = resp.json()["data"]["id"]
+    class_payload = {
+        "name": f"Award Class {unique_suffix}",
+        "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
+        "language_id": 1,
+        "semester_id": semester_id,
+    }
     csv_content = (
         b"first_name,last_name,email\n"
         + f"Awardee,One,awardee.{unique_suffix}@test.com\n".encode()
     )
     resp = await async_client.post(
-        f"{api_base}/my-classes/{class_id}/roster/import",
+        f"{api_base}/my-classes",
         headers=teacher_headers,
+        data={"data": json.dumps(class_payload)},
         files={"file": ("roster.csv", csv_content, "text/csv")},
     )
     assert resp.status_code == 200
+    class_id = resp.json()["data"]["id"]
     # Get student_id from roster
     resp = await async_client.get(
         f"{api_base}/my-classes/{class_id}/roster",

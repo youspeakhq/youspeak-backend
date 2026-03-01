@@ -122,6 +122,7 @@ class AssessmentCreate(BaseModel):
     due_date: Optional[datetime] = None
     class_ids: List[UUID] = []
     enable_ai_marking: bool = False
+    questions: Optional[List["AssignmentQuestionItem"]] = None
 
 
 class AssessmentUpdate(BaseModel):
@@ -223,3 +224,7 @@ class MarkingCriterionItem(BaseModel):
     criterion: str
     max_points: int
     description: Optional[str] = None
+
+
+# Resolve forward reference in AssessmentCreate.questions
+AssessmentCreate.model_rebuild()

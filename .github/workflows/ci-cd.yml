@@ -111,7 +111,25 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: |
           alembic upgrade head
-      
+
+      - name: Verify schema (users.language_id)
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        run: |
+          python -c "
+          import os
+          from sqlalchemy import create_engine, text
+          url = os.environ.get('DATABASE_URL', '')
+          if url.startswith('postgresql+asyncpg'):
+              url = url.replace('postgresql+asyncpg://', 'postgresql://', 1)
+          e = create_engine(url)
+          with e.connect() as c:
+              r = c.execute(text(\"SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='users' AND column_name='language_id'\"))
+              row = r.fetchone()
+          assert row is not None, 'Schema check failed: users.language_id missing. Ensure alembic merge is applied and upgrade head runs both branches.'
+          print('Schema OK: users.language_id present')
+          "
+
       - name: Start curriculum service (for proxy tests)
         if: needs.paths.outputs.core == 'true' || needs.paths.outputs.curriculum == 'true'
         env:

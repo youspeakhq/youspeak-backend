@@ -241,6 +241,42 @@ class AcademicService:
         return rows, None
 
     @staticmethod
+    async def _get_language_id_for_csv_row(
+        db: AsyncSession,
+        language_code: str,
+        language_cache: Optional[Dict[str, int]],
+    ) -> Optional[int]:
+        """Resolve language_code to language_id; update cache if provided."""
+        from app.models.onboarding import Language
+
+        if language_cache is not None and language_code in language_cache:
+            return language_cache[language_code]
+        result = await db.execute(select(Language).where(Language.code == language_code))
+        lang = result.scalar_one_or_none()
+        if not lang:
+            return None
+        if language_cache is not None:
+            language_cache[language_code] = lang.id
+        return lang.id
+
+    @staticmethod
+    async def _existing_student_result(
+        db: AsyncSession,
+        existing: Any,
+        school_id: UUID,
+        email: str,
+        row_index: int,
+    ) -> Tuple[Optional[UUID], int, int, Optional[str]]:
+        """Return (student_id, created, skipped, error) for existing user; error if wrong school/role."""
+        if existing.school_id != school_id:
+            other_school = await SchoolService.get_school_by_id(db, existing.school_id)
+            school_name = other_school.name if other_school else "another school"
+            return None, 0, 0, f"Row {row_index + 2}: {email} already belongs to school '{school_name}'"
+        if existing.role != UserRole.STUDENT:
+            return None, 0, 0, f"Row {row_index + 2}: {email} is not a student"
+        return existing.id, 0, 0, None
+
+    @staticmethod
     async def _resolve_or_create_student(
         db: AsyncSession,
         row_index: int,
@@ -256,7 +292,6 @@ class AcademicService:
         Returns (student_id, created_delta, skipped_delta, error_message).
         """
         from app.services.user_service import UserService
-        from app.models.onboarding import Language
 
         first_name = (mapped.get("first_name") or "").strip()
         last_name = (mapped.get("last_name") or "").strip()
@@ -288,20 +323,15 @@ class AcademicService:
 
         if not email:
             email = f"{first_name.lower()}.{last_name.lower()}.{secrets.token_hex(4)}@youspeak-dummy.com"
-
         if email in seen_emails:
-            return None, 0, 1, None  # skipped duplicate
-
+            return None, 0, 1, None
         seen_emails.add(email)
+
         existing = existing_users.get(email)
         if existing:
-            if existing.school_id != school_id:
-                other_school = await SchoolService.get_school_by_id(db, existing.school_id)
-                school_name = other_school.name if other_school else "another school"
-                return None, 0, 0, f"Row {row_index + 2}: {email} already belongs to school '{school_name}'"
-            if existing.role != UserRole.STUDENT:
-                return None, 0, 0, f"Row {row_index + 2}: {email} is not a student"
-            return existing.id, 0, 0, None
+            return await AcademicService._existing_student_result(
+                db, existing, school_id, email, row_index
+            )
 
         try:
             new_user = await UserService.create_user(
@@ -418,7 +448,8 @@ class AcademicService:
     ) -> Dict[str, Any]:
         """
         School-level bulk import of students from CSV.
-        CSV columns: first_name, last_name, language_code (required), email (optional), student_id (optional), class_id (optional).
+        CSV columns: first_name, last_name, language_code (required), email (optional),
+        student_id (optional), class_id (optional).
         Creates students at school. If class_id provided and valid, enrolls in that class.
         Returns created count, enrolled count, skipped count, and errors.
         """

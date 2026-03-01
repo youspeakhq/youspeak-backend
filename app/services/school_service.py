@@ -367,10 +367,10 @@ class SchoolService:
         )
         result = await db.execute(existing_stmt)
         existing = result.scalar_one_or_none()
-        
+
         if existing:
             return None
-        
+
         # Create new language
         language = Language(
             name=name,
@@ -397,30 +397,30 @@ class SchoolService:
         lang_stmt = select(Language).where(Language.id == language_id)
         result = await db.execute(lang_stmt)
         language = result.scalar_one_or_none()
-        
+
         if not language:
             return {"found": False}
-        
+
         # Check usage in school_languages junction table
         schools_count_stmt = select(func.count()).select_from(school_languages).where(
             school_languages.c.language_id == language_id
         )
         schools_count = await db.scalar(schools_count_stmt) or 0
-        
+
         # Check usage in classes table
         classes_count_stmt = select(func.count()).select_from(Class).where(
             Class.language_id == language_id
         )
         classes_count = await db.scalar(classes_count_stmt) or 0
-        
+
         # Check usage in classrooms table
         classrooms_count_stmt = select(func.count()).select_from(Classroom).where(
             Classroom.language_id == language_id
         )
         classrooms_count = await db.scalar(classrooms_count_stmt) or 0
-        
+
         total_usage = schools_count + classes_count + classrooms_count
-        
+
         if total_usage > 0:
             return {
                 "found": True,
@@ -429,11 +429,11 @@ class SchoolService:
                 "classes_count": classes_count,
                 "classrooms_count": classrooms_count
             }
-        
+
         # No usage, safe to soft delete
         language.is_active = False
         await db.flush()
-        
+
         return {
             "found": True,
             "in_use": False,

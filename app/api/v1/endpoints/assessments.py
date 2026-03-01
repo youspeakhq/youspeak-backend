@@ -306,8 +306,11 @@ async def create_assessment(
     current_user: User = Depends(deps.require_teacher),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
-    """Create a new assessment (draft). Teacher console."""
-    assignment = await AssessmentService.create_assignment(db, current_user.id, body)
+    """Create a new assessment (draft). Teacher console. Optional questions (question_id, points) are linked if provided."""
+    try:
+        assignment = await AssessmentService.create_assignment(db, current_user.id, body)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return SuccessResponse(
         data=AssessmentResponse.model_validate(assignment),
         message="Assessment created successfully",

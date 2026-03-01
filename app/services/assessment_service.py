@@ -105,6 +105,30 @@ class AssessmentService:
                     class_id=cid,
                 )
             )
+        questions = getattr(data, "questions", None) or []
+        if questions:
+            question_ids = [it.question_id for it in questions]
+            if len(set(question_ids)) != len(question_ids):
+                raise ValueError("Duplicate question_ids in questions list.")
+            result = await db.execute(
+                select(Question.id).where(
+                    Question.id.in_(question_ids),
+                    Question.teacher_id == teacher_id,
+                )
+            )
+            found_ids = {row[0] for row in result.all()}
+            if len(found_ids) != len(question_ids):
+                raise ValueError(
+                    "One or more question_ids are invalid or do not belong to you."
+                )
+            for it in questions:
+                await db.execute(
+                    insert(assignment_questions).values(
+                        assignment_id=a.id,
+                        question_id=it.question_id,
+                        points=it.points,
+                    )
+                )
         await db.commit()
         await db.refresh(a)
         return a

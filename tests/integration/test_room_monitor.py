@@ -79,6 +79,68 @@ async def test_list_room_monitor_cards(
 
 
 @pytest.mark.asyncio
+async def test_get_room_monitor_stats(
+    async_client: AsyncClient, api_base: str, teacher_with_class: dict
+):
+    """GET /my-classes/monitor/stats returns KPIs (total_sessions, active_students, avg_session_duration_minutes)."""
+    headers = teacher_with_class["headers"]
+    resp = await async_client.get(
+        f"{api_base}/my-classes/monitor/stats",
+        headers=headers,
+        params={"timeframe": "week"},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data.get("success") is True
+    s = data["data"]
+    assert "total_sessions" in s
+    assert "active_students" in s
+    assert "avg_session_duration_minutes" in s
+    assert isinstance(s["total_sessions"], int)
+    assert isinstance(s["active_students"], int)
+    resp_all = await async_client.get(
+        f"{api_base}/my-classes/monitor/stats",
+        headers=headers,
+        params={"timeframe": "all"},
+    )
+    assert resp_all.status_code == 200, resp_all.text
+    resp_bad = await async_client.get(
+        f"{api_base}/my-classes/monitor/stats",
+        headers=headers,
+        params={"timeframe": "invalid"},
+    )
+    assert resp_bad.status_code == 400, resp_bad.text
+
+
+@pytest.mark.asyncio
+async def test_get_room_monitor_summary(
+    async_client: AsyncClient, api_base: str, teacher_with_class: dict
+):
+    """GET /my-classes/monitor/summary returns Class Performance Summary rows (Figma table)."""
+    headers = teacher_with_class["headers"]
+    class_id = teacher_with_class["class_id"]
+    resp = await async_client.get(
+        f"{api_base}/my-classes/monitor/summary",
+        headers=headers,
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data.get("success") is True
+    rows = data["data"]
+    assert isinstance(rows, list)
+    assert len(rows) >= 1
+    our = next((r for r in rows if r["class_id"] == class_id), None)
+    assert our is not None
+    assert our["class_name"]
+    assert "student_count" in our
+    assert "module_progress_pct" in our
+    assert "avg_quiz_score_pct" in our
+    assert "time_spent_minutes_per_student" in our
+    assert "last_activity_at" in our
+    assert "active_session" in our
+
+
+@pytest.mark.asyncio
 async def test_get_room_monitor_success(
     async_client: AsyncClient, api_base: str, teacher_with_class: dict
 ):

@@ -22,4 +22,5 @@ Read this at session start for non-trivial work. After any correction, add a sho
 -->
 
 - **Never implement from Figma without successfully pulling design context first.** If Figma MCP fails or times out, STOP immediately and ask user for decision (retry, use cache, describe requirements, or skip Figma). Do not proceed based on assumptions or chat messages about what Figma shows.
+- **Never implement (code, docs, or features) when Figma MCP has timed out.** Do not go ahead with implementation; stop and ask for user decision (e.g. retry Figma, provide node ID, or describe requirements) until design context is available or the user explicitly opts out of Figma.
 
