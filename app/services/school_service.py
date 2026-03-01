@@ -181,7 +181,12 @@ class SchoolService:
         if found_codes != set(language_codes):
             return False
 
-        school.languages = list(languages)
+        # Preserve caller-specified order (tests and clients expect
+        # GET /schools/profile languages to match the input order).
+        lang_by_code = {lang.code: lang for lang in languages}
+        ordered_languages = [lang_by_code[code] for code in language_codes]
+
+        school.languages = ordered_languages
         await db.flush()
         return True
 
@@ -361,14 +366,14 @@ class SchoolService:
         Create a new global language.
         Returns None if a language with the same name or code already exists.
         """
-        # Check for duplicate name or code
+        # Check for duplicate name or code (use first() to avoid MultipleResultsFound when many exist)
         existing_stmt = select(Language).where(
             (Language.name == name) | (Language.code == code)
         )
         result = await db.execute(existing_stmt)
-        existing = result.scalar_one_or_none()
+        existing = result.scalars().first()
 
-        if existing:
+        if existing is not None:
             return None
 
         # Create new language

@@ -1,9 +1,9 @@
 """User Pydantic Schemas"""
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Any
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator
 
 from app.models.enums import UserRole
 from app.schemas.academic import ClassroomBrief
@@ -50,6 +50,7 @@ class User(UserBase):
     school_id: Optional[UUID] = None
     profile_picture_url: Optional[str] = None
     student_number: Optional[str] = None
+    language_id: Optional[int] = None
     language: Optional[LanguageBrief] = None
     is_verified: bool = False
     created_at: datetime
@@ -58,6 +59,35 @@ class User(UserBase):
     classrooms: List[ClassroomBrief] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def orm_safe_language(cls, v: Any) -> Any:
+        """When building from an ORM User, do not access the language relationship
+        (avoids MissingGreenlet from lazy load). Use language_id only; callers that
+        need nested language should pass it explicitly after eager load.
+        """
+        if hasattr(v, "__tablename__") and getattr(v, "__tablename__", None) == "users":
+            return {
+                "id": v.id,
+                "email": v.email,
+                "full_name": getattr(v, "full_name", None)
+                or (f"{getattr(v, 'first_name', '')} {getattr(v, 'last_name', '')}".strip() or None),
+                "is_active": v.is_active,
+                "is_superuser": getattr(v, "is_superuser", False),
+                "role": v.role,
+                "school_id": getattr(v, "school_id", None),
+                "profile_picture_url": getattr(v, "profile_picture_url", None),
+                "student_number": getattr(v, "student_number", None),
+                "language_id": getattr(v, "language_id", None),
+                "language": None,
+                "is_verified": getattr(v, "is_verified", False),
+                "created_at": v.created_at,
+                "updated_at": v.updated_at,
+                "last_login": getattr(v, "last_login", None),
+                "classrooms": [],
+            }
+        return v
 
 
 UserResponse = User

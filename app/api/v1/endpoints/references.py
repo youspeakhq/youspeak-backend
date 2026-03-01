@@ -52,11 +52,9 @@ async def create_language(
             detail=f"Language with name '{language_in.name}' or code '{language_in.code}' already exists"
         )
 
+    data = LanguageResponse.model_validate(language)
     await db.commit()
-    return SuccessResponse(
-        data=LanguageResponse.model_validate(language),
-        message="Language created successfully"
-    )
+    return SuccessResponse(data=data, message="Language created successfully")
 
 
 @router.delete("/languages/{language_id}", response_model=SuccessResponse)

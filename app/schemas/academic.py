@@ -53,6 +53,8 @@ class ScheduleBase(BaseModel):
     start_time: time
     end_time: time
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class ClassBase(BaseModel):
     name: str

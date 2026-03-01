@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -133,7 +134,28 @@ async def root():
     return RedirectResponse(url="/docs")
 
 
-# Exception handlers
+# Exception handlers: return standardized error envelope for integration tests / clients
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Return { success: false, error: { code, message } } so clients can use error.message."""
+    detail = exc.detail
+    if isinstance(detail, dict):
+        message = detail.get("message", detail.get("detail", str(detail)))
+    else:
+        message = str(detail)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            # Keep legacy 'detail' key so existing tests and clients that
+            # inspect response["detail"] continue to work, while also
+            # providing a structured error envelope.
+            "detail": message,
+            "error": {"code": f"HTTP_{exc.status_code}", "message": message},
+        },
+    )
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle validation errors"""
