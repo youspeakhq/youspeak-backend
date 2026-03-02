@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="YouSpeak Platform API",
-    version="1.0.1",
+    version="1.0.2",
     description="Backend API for YouSpeak Education Platform",
     docs_url="/docs",
     redoc_url="/redoc",

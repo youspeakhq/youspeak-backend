@@ -1,6 +1,15 @@
-# Lessons (codebase-specific)
+# Lessons Learned - YouSpeak Backend
 
-- **Never commit ECS/task definition files that contain hardcoded AWS resource identifiers** (account IDs, IAM role ARNs, Secrets Manager ARNs, internal ALB URLs). Either generate them dynamically in CI from a template + Terraform outputs or GitHub variables, or use placeholders and substitute at deploy time. Do not add environment-specific task definition files (e.g. staging) to version control with real credentials/ARNs.
-- **Curriculum image for ECS Fargate must be linux/amd64.** Local `docker build` on Apple Silicon produces arm64; ECS fails with "image Manifest does not contain descriptor matching platform 'linux/amd64'". Use `docker buildx build --platform linux/amd64 ... --push` for manual pushes, or rely on CI (which runs on linux/amd64).
-- **Dependency split: core vs curriculum.** Curriculum uses boto3 Converse only for LLM structured outputs (no instructor/openai). Document parsing: pymupdf4llm/docx2txt (no torch/docling). Do not add curriculum-only deps to root `requirements.txt`. See `docs/DEPENDENCIES.md` if present.
-- **CI path filters:** `core` must include `.github/**` so workflow-only pushes run test and deploy. `curriculum` is `services/curriculum/**`. Test job runs when core OR curriculum changes (so curriculum-only pushes build and deploy curriculum image).
+## Git Commits
+- ❌ Never include `Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>` in commit messages
+- ✅ Keep commit messages clean and professional
+
+## Infrastructure & Secrets
+- Always verify secrets have AWSCURRENT version after restoration
+- IAM policies need wildcard matching for secret suffixes (e.g., `secret-name-*`)
+- Both execution role AND task role need proper permissions
+
+## Deployment
+- Force new ECS deployment after fixing secrets (they cache metadata)
+- Check both staging AND production when deploying infrastructure changes
+
