@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.analytics import LearningSession
 from app.models.assessment import Assignment, StudentSubmission, assignment_classes
-from app.models.enums import SessionStatus, SessionType
+from app.models.enums import SessionStatus, SessionType, UserRole
+from app.models.user import User
 from app.utils.time import get_utc_now
 
 from app.services.academic_service import AcademicService
@@ -17,22 +18,38 @@ from app.services.academic_service import AcademicService
 
 class LearningSessionService:
     @staticmethod
+    async def _get_user_classes(db: AsyncSession, user: User) -> List:
+        """Get classes for user based on their role (teacher or admin)"""
+        if user.role == UserRole.SCHOOL_ADMIN:
+            return await AcademicService.get_school_classes(db, user.school_id)
+        elif user.role == UserRole.TEACHER:
+            return await AcademicService.get_teacher_classes(db, user.id)
+        return []
+
+    @staticmethod
+    async def _user_has_class_access(db: AsyncSession, user: User, class_id: UUID) -> bool:
+        """Check if user (teacher or admin) has access to a class"""
+        user_classes = await LearningSessionService._get_user_classes(db, user)
+        return any(c.id == class_id for c in user_classes)
+
+    @staticmethod
     async def _teacher_teaches_class(db: AsyncSession, teacher_id: UUID, class_id: UUID) -> bool:
+        """Deprecated: Use _user_has_class_access instead"""
         teacher_classes = await AcademicService.get_teacher_classes(db, teacher_id)
         return any(c.id == class_id for c in teacher_classes)
 
     @staticmethod
     async def list_monitor_cards_for_teacher(
         db: AsyncSession,
-        teacher_id: UUID,
+        user: User,
     ) -> List[Tuple[UUID, str, int, Optional[LearningSession]]]:
         """
         Return (class_id, class_name, student_count, active_session) for each
-        class the teacher teaches. For Figma Room Monitor row of class cards.
+        class the user has access to (teacher or admin). For Figma Room Monitor row of class cards.
         """
-        teacher_classes = await AcademicService.get_teacher_classes(db, teacher_id)
+        user_classes = await LearningSessionService._get_user_classes(db, user)
         out: List[Tuple[UUID, str, int, Optional[LearningSession]]] = []
-        for cls in teacher_classes:
+        for cls in user_classes:
             roster = await AcademicService.get_class_roster(db, cls.id)
             active = await LearningSessionService.get_active_session(db, cls.id)
             out.append((cls.id, cls.name, len(roster), active))
@@ -42,10 +59,10 @@ class LearningSessionService:
     async def list_sessions_for_class(
         db: AsyncSession,
         class_id: UUID,
-        teacher_id: UUID,
+        user: User,
         limit: int = 50,
     ) -> List[LearningSession]:
-        if not await LearningSessionService._teacher_teaches_class(db, teacher_id, class_id):
+        if not await LearningSessionService._user_has_class_access(db, user, class_id):
             return []
         stmt = (
             select(LearningSession)
@@ -86,15 +103,15 @@ class LearningSessionService:
     @staticmethod
     async def get_monitor_stats(
         db: AsyncSession,
-        teacher_id: UUID,
+        user: User,
         timeframe: str,
     ) -> Tuple[int, int, Optional[float]]:
         """
-        Return (total_sessions, active_students, avg_session_duration_minutes) for teacher's classes.
+        Return (total_sessions, active_students, avg_session_duration_minutes) for user's classes.
         timeframe: week | month | all.
         """
-        teacher_classes = await AcademicService.get_teacher_classes(db, teacher_id)
-        class_ids = [c.id for c in teacher_classes]
+        user_classes = await LearningSessionService._get_user_classes(db, user)
+        class_ids = [c.id for c in user_classes]
         if not class_ids:
             return 0, 0, None
 
@@ -164,17 +181,17 @@ class LearningSessionService:
     @staticmethod
     async def list_class_performance_summary_rows(
         db: AsyncSession,
-        teacher_id: UUID,
+        user: User,
     ) -> List[Tuple[Optional[LearningSession], Dict[str, Any]]]:
         """
-        Return list of (active_session_or_none, row_dict) for each class the teacher teaches.
+        Return list of (active_session_or_none, row_dict) for each class the user has access to.
         row_dict: class_id, class_name, student_count, module_progress_pct, module_progress_label,
         avg_quiz_score_pct, time_spent_minutes_per_student, last_activity_at.
         """
-        teacher_classes = await AcademicService.get_teacher_classes(db, teacher_id)
+        user_classes = await LearningSessionService._get_user_classes(db, user)
         rows: List[Tuple[Optional[LearningSession], Dict[str, Any]]] = []
 
-        for cls in teacher_classes:
+        for cls in user_classes:
             roster = await AcademicService.get_class_roster(db, cls.id)
             student_count = len(roster)
             active = await LearningSessionService.get_active_session(db, cls.id)
@@ -248,10 +265,10 @@ class LearningSessionService:
     async def start_session(
         db: AsyncSession,
         class_id: UUID,
-        teacher_id: UUID,
+        user: User,
         session_type: SessionType,
     ) -> Optional[LearningSession]:
-        if not await LearningSessionService._teacher_teaches_class(db, teacher_id, class_id):
+        if not await LearningSessionService._user_has_class_access(db, user, class_id):
             return None
         active = await LearningSessionService.get_active_session(db, class_id)
         if active:
@@ -259,7 +276,7 @@ class LearningSessionService:
         now = get_utc_now()
         session = LearningSession(
             class_id=class_id,
-            started_by_user_id=teacher_id,
+            started_by_user_id=user.id,
             session_type=session_type,
             started_at=now,
             status=SessionStatus.IN_PROGRESS,
@@ -274,9 +291,9 @@ class LearningSessionService:
         db: AsyncSession,
         session_id: UUID,
         class_id: UUID,
-        teacher_id: UUID,
+        user: User,
     ) -> bool:
-        if not await LearningSessionService._teacher_teaches_class(db, teacher_id, class_id):
+        if not await LearningSessionService._user_has_class_access(db, user, class_id):
             return False
         session = await LearningSessionService.get_session_by_id(db, session_id, class_id=class_id)
         if not session or session.status != SessionStatus.IN_PROGRESS:

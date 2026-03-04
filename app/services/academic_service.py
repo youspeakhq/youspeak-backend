@@ -129,6 +129,17 @@ class AcademicService:
         return list(result.scalars().all())
 
     @staticmethod
+    async def get_school_classes(db: AsyncSession, school_id: UUID) -> List[Class]:
+        """Get all classes in a school (for school admins)"""
+        stmt = (
+            select(Class)
+            .where(Class.school_id == school_id)
+            .options(selectinload(Class.schedules))
+        )
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
+    @staticmethod
     async def add_student_to_class(
         db: AsyncSession,
         class_id: UUID,

@@ -203,7 +203,7 @@ async def create_class(
 
 @router.get("/monitor/stats", response_model=SuccessResponse[RoomMonitorStats])
 async def get_room_monitor_stats(
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db),
     timeframe: str = Query("week", description="week | month | all"),
 ) -> Any:
@@ -216,7 +216,7 @@ async def get_room_monitor_stats(
             detail=f"timeframe must be one of: {', '.join(sorted(VALID_LEADERBOARD_TIMEFRAMES))}",
         )
     total_sessions, active_students, avg_mins = await LearningSessionService.get_monitor_stats(
-        db, current_user.id, timeframe
+        db, current_user, timeframe
     )
     data = RoomMonitorStats(
         total_sessions=total_sessions,
@@ -228,14 +228,14 @@ async def get_room_monitor_stats(
 
 @router.get("/monitor/summary", response_model=SuccessResponse[List[ClassPerformanceSummaryRow]])
 async def get_room_monitor_summary(
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """
     Class Performance Summary table (Figma: Class Name, Module Progress, Avg. Quiz Score, Time Spent, Last Activity).
     """
     rows_data = await LearningSessionService.list_class_performance_summary_rows(
-        db, current_user.id
+        db, current_user
     )
     data = [
         ClassPerformanceSummaryRow(
@@ -256,13 +256,13 @@ async def get_room_monitor_summary(
 
 @router.get("/monitor", response_model=SuccessResponse[List[RoomMonitorCard]])
 async def list_room_monitor_cards(
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """
-    Room monitor dashboard: one card per class the teacher teaches (Figma: row of class cards).
+    Room monitor dashboard: one card per class the user has access to (Figma: row of class cards).
     """
-    cards_data = await LearningSessionService.list_monitor_cards_for_teacher(db, current_user.id)
+    cards_data = await LearningSessionService.list_monitor_cards_for_teacher(db, current_user)
     data = [
         RoomMonitorCard(
             class_id=cid,
@@ -278,7 +278,7 @@ async def list_room_monitor_cards(
 @router.get("/{class_id}/monitor", response_model=SuccessResponse[RoomMonitorResponse])
 async def get_room_monitor(
     class_id: UUID,
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """
@@ -287,13 +287,16 @@ async def get_room_monitor(
     cls = await AcademicService.get_class_by_id(db, class_id)
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
-    teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
-    if not any(c.id == class_id for c in teacher_classes):
+
+    # Check if user has access to this class
+    has_access = await LearningSessionService._user_has_class_access(db, current_user, class_id)
+    if not has_access:
         raise HTTPException(status_code=404, detail="Class not found")
+
     roster = await AcademicService.get_class_roster(db, class_id)
     active = await LearningSessionService.get_active_session(db, class_id)
     recent_sessions = await LearningSessionService.list_sessions_for_class(
-        db, class_id, current_user.id, limit=5
+        db, class_id, current_user, limit=5
     )
     performance_summary = ClassPerformanceSummary(
         recent_sessions_count=len(recent_sessions),
@@ -312,7 +315,7 @@ async def get_room_monitor(
 @router.get("/{class_id}/sessions", response_model=SuccessResponse[List[LearningSessionOut]])
 async def list_class_sessions(
     class_id: UUID,
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db),
     limit: int = Query(50, ge=1, le=100),
 ) -> Any:
@@ -323,7 +326,7 @@ async def list_class_sessions(
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
     sessions = await LearningSessionService.list_sessions_for_class(
-        db, class_id, current_user.id, limit=limit
+        db, class_id, current_user, limit=limit
     )
     return SuccessResponse(
         data=[LearningSessionOut.model_validate(s) for s in sessions],
@@ -335,7 +338,7 @@ async def list_class_sessions(
 async def start_class_session(
     class_id: UUID,
     body: LearningSessionCreate,
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """
@@ -345,7 +348,7 @@ async def start_class_session(
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
     session = await LearningSessionService.start_session(
-        db, class_id, current_user.id, body.session_type
+        db, class_id, current_user, body.session_type
     )
     if not session:
         raise HTTPException(
@@ -362,7 +365,7 @@ async def start_class_session(
 async def end_class_session(
     class_id: UUID,
     session_id: UUID,
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """
@@ -371,7 +374,7 @@ async def end_class_session(
     cls = await AcademicService.get_class_by_id(db, class_id)
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
-    ok = await LearningSessionService.end_session(db, session_id, class_id, current_user.id)
+    ok = await LearningSessionService.end_session(db, session_id, class_id, current_user)
     if not ok:
         raise HTTPException(
             status_code=400,
