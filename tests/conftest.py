@@ -156,20 +156,20 @@ async def class_id_for_student(
     )
     token = resp.json()["data"]["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
-    # Get semesters
-    resp = await async_client.get(f"{api_base}/schools/semesters", headers=headers)
-    semesters = resp.json().get("data", [])
-    if not semesters:
+    # Get terms
+    resp = await async_client.get(f"{api_base}/schools/terms", headers=headers)
+    terms = resp.json().get("data", [])
+    if not terms:
         # Create one if missing
         await async_client.post(
-            f"{api_base}/classrooms", # Admin can create semesters/classrooms or just mock one
+            f"{api_base}/classrooms", # Admin can create terms/classrooms or just mock one
             headers=registered_school["headers"], # Actually fallback to registered_school to ensure semester exists or just assume it exists
             json={"name": f"Dummy_{unique_suffix}", "language_id": 1, "level": "a1"}
         )
-        resp = await async_client.get(f"{api_base}/schools/semesters", headers=headers)
-        semesters = resp.json().get("data", [])
+        resp = await async_client.get(f"{api_base}/schools/terms", headers=headers)
+        terms = resp.json().get("data", [])
         
-    semester_id = semesters[0]["id"]
+    term_id = terms[0]["id"]
     # Create class
     resp = await async_client.post(
         f"{api_base}/my-classes",
@@ -180,7 +180,7 @@ async def class_id_for_student(
                 {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
             ],
             "language_id": 1,
-            "semester_id": semester_id,
+            "term_id": term_id,
         },
     )
     assert resp.status_code == 200, resp.text

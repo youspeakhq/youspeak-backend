@@ -77,7 +77,7 @@ class ClassCreate(ClassBase):
     level: Optional[str] = None
     schedule: List[ScheduleBase]
     language_id: int
-    semester_id: UUID
+    term_id: UUID
     classroom_id: Optional[UUID] = None
 
     model_config = ConfigDict(
@@ -100,7 +100,7 @@ class ClassCreate(ClassBase):
                         }
                     ],
                     "language_id": 1,
-                    "semester_id": "123e4567-e89b-12d3-a456-426614174000",
+                    "term_id": "123e4567-e89b-12d3-a456-426614174000",
                     "status": "active"
                 }
             ]
@@ -122,7 +122,7 @@ class RosterUpdate(BaseModel):
 class ClassResponse(ClassBase):
     id: UUID
     school_id: UUID
-    semester_id: UUID
+    term_id: UUID
     language_id: int
     classroom_id: Optional[UUID] = None
     schedules: List[ScheduleBase] = []

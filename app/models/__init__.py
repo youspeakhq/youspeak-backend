@@ -5,7 +5,7 @@ from app.models.onboarding import ContactInquiry, School, Language, school_langu
 from app.models.user import User
 from app.models.academic import (
     Classroom,
-    Semester,
+    Term,
     Class,
     ClassSchedule,
     class_enrollments,
@@ -44,7 +44,7 @@ __all__ = [
 
     # Academic
     "Classroom",
-    "Semester",
+    "Term",
     "Class",
     "ClassSchedule",
     "class_enrollments",

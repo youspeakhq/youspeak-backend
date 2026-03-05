@@ -36,10 +36,10 @@ async def teacher_with_class(
     )
     assert resp.status_code == 200, resp.text
     headers = {"Authorization": f"Bearer {resp.json()['data']['access_token']}"}
-    resp = await async_client.get(f"{api_base}/schools/semesters", headers=headers)
-    semesters = resp.json().get("data", [])
-    assert semesters, "Need at least one semester"
-    semester_id = semesters[0]["id"]
+    resp = await async_client.get(f"{api_base}/schools/terms", headers=headers)
+    terms = resp.json().get("data", [])
+    assert terms, "Need at least one semester"
+    term_id = terms[0]["id"]
     resp = await async_client.post(
         f"{api_base}/my-classes",
         headers=headers,
@@ -49,7 +49,7 @@ async def teacher_with_class(
                 {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
             ],
             "language_id": 1,
-            "semester_id": semester_id,
+            "term_id": term_id,
         },
     )
     assert resp.status_code == 200, resp.text

@@ -155,24 +155,24 @@ async def upload_school_logo(
     )
 
 
-@router.get("/semesters", response_model=SuccessResponse)
-async def get_semesters(
+@router.get("/terms", response_model=SuccessResponse)
+async def get_terms(
     current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
-    List all semesters for current school.
+    List all terms for current school.
     """
-    semesters = await SchoolService.get_semesters(db, current_user.school_id)
+    terms = await SchoolService.get_terms(db, current_user.school_id)
     data = [
         {
-            "id": str(s.id),
-            "name": s.name,
-            "start_date": s.start_date,
-            "end_date": s.end_date,
-            "is_active": s.is_active
+            "id": str(t.id),
+            "name": t.name,
+            "start_date": t.start_date,
+            "end_date": t.end_date,
+            "is_active": t.is_active
         }
-        for s in semesters
+        for t in terms
     ]
     return SuccessResponse(data=data)
 

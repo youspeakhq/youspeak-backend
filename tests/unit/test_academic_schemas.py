@@ -61,7 +61,7 @@ def test_class_create_with_classroom_id():
             ScheduleBase(day_of_week=DayOfWeek.MONDAY, start_time="09:00:00", end_time="10:00:00")
         ],
         language_id=1,
-        semester_id=sem_id,
+        term_id=sem_id,
         classroom_id=uuid4(),
     )
     assert data.classroom_id is not None
@@ -75,7 +75,7 @@ def test_class_create_without_classroom_id():
             ScheduleBase(day_of_week=DayOfWeek.MONDAY, start_time="09:00:00", end_time="10:00:00")
         ],
         language_id=1,
-        semester_id=sem_id,
+        term_id=sem_id,
     )
     assert data.classroom_id is None
 

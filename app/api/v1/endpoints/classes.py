@@ -191,7 +191,7 @@ async def create_class(
         }
       ],
       "language_id": 1,
-      "semester_id": "123e4567-e89b-12d3-a456-426614174000"
+      "term_id": "123e4567-e89b-12d3-a456-426614174000"
     }
     ```
 
@@ -199,7 +199,7 @@ async def create_class(
     - `name`: Class name (string)
     - `schedule`: Array of schedule objects with day_of_week, start_time, end_time
     - `language_id`: Language ID (integer, e.g., 1 for French, 2 for Spanish)
-    - `semester_id`: Semester UUID (get from GET /api/v1/schools/semesters)
+    - `term_id`: Term UUID (get from GET /api/v1/schools/terms)
 
     **Optional Fields:**
     - `description`: Class description (string)
@@ -226,7 +226,7 @@ async def create_class(
             teacher_id=current_user.id,
         )
     except IntegrityError:
-        raise HTTPException(status_code=400, detail="Invalid data provided, e.g., nonexistent semester_id or language_id.")
+        raise HTTPException(status_code=400, detail="Invalid data provided, e.g., nonexistent term_id or language_id.")
 
     data: Any = ClassResponse.model_validate(new_class).model_dump()
     if roster_file is not None:

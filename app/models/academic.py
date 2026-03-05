@@ -9,7 +9,7 @@ from app.models.enums import DayOfWeek, ClassStatus, ProficiencyLevel, StudentRo
 class Classroom(BaseModel, SchoolScopedMixin):
     """
     Admin-created organizational unit. Defines a learning track (language + level).
-    Container for teachers and students. Semester-agnostic.
+    Container for teachers and students. Term-agnostic.
     """
     __tablename__ = "classrooms"
 
@@ -39,35 +39,35 @@ class Classroom(BaseModel, SchoolScopedMixin):
         return f"<Classroom {self.name}>"
 
 
-class Semester(BaseModel, SchoolScopedMixin):
+class Term(BaseModel, SchoolScopedMixin):
     """
-    Academic semester/term management.
+    Academic term management (e.g., First Term, Second Term, Third Term).
     Defines the time period for classes.
     """
-    __tablename__ = "semesters"
+    __tablename__ = "terms"
 
-    name = Column(String(100), nullable=False)  # e.g., "Fall 2026"
+    name = Column(String(100), nullable=False)  # e.g., "First Term 2026"
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
 
     # Relationships
-    school = relationship("School", back_populates="semesters")
-    classes = relationship("Class", back_populates="semester", cascade="all, delete-orphan")
+    school = relationship("School", back_populates="terms")
+    classes = relationship("Class", back_populates="term", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
-        return f"<Semester {self.name}>"
+        return f"<Term {self.name}>"
 
 
 class Class(BaseModel, SchoolScopedMixin):
     """
     Class/Course section. Teacher-created scheduled offering.
-    Represents a specific class taught in a semester. Optional link to Classroom.
+    Represents a specific class taught in a term. Optional link to Classroom.
     """
     __tablename__ = "classes"
 
     # Foreign Keys
-    semester_id = Column(UUID(as_uuid=True), ForeignKey("semesters.id", ondelete="CASCADE"), nullable=False, index=True)
+    term_id = Column(UUID(as_uuid=True), ForeignKey("terms.id", ondelete="CASCADE"), nullable=False, index=True)
     language_id = Column(ForeignKey("languages.id", ondelete="RESTRICT"), nullable=False, index=True)
     classroom_id = Column(UUID(as_uuid=True), ForeignKey("classrooms.id", ondelete="SET NULL"), nullable=True, index=True)
 
@@ -80,7 +80,7 @@ class Class(BaseModel, SchoolScopedMixin):
 
     # Relationships
     school = relationship("School", back_populates="classes")
-    semester = relationship("Semester", back_populates="classes")
+    term = relationship("Term", back_populates="classes")
     language = relationship("Language", back_populates="classes")
     classroom = relationship("Classroom", back_populates="classes")
 

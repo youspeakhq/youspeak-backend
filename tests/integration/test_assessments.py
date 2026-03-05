@@ -21,13 +21,13 @@ async def teacher_with_class(
 ):
     """Teacher auth headers and a class_id for associating assessments."""
     resp = await async_client.get(
-        f"{api_base}/schools/semesters",
+        f"{api_base}/schools/terms",
         headers=teacher_headers,
     )
     assert resp.status_code == 200, resp.text
-    semesters = resp.json().get("data", [])
-    assert semesters, "Need at least one semester"
-    semester_id = semesters[0]["id"]
+    terms = resp.json().get("data", [])
+    assert terms, "Need at least one semester"
+    term_id = terms[0]["id"]
     resp = await async_client.post(
         f"{api_base}/my-classes",
         headers=teacher_headers,
@@ -35,7 +35,7 @@ async def teacher_with_class(
             "name": f"Assessment Class {unique_suffix}",
             "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
             "language_id": 1,
-            "semester_id": semester_id,
+            "term_id": term_id,
         },
     )
     assert resp.status_code == 200, resp.text

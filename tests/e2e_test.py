@@ -90,16 +90,16 @@ async def main():
         
         # [7] Create Class
         print(f"\n--- [7] Create Class ---")
-        # Get Semesters
-        resp = await client.get(f"{BASE_URL}/schools/semesters", headers=teacher_headers)
+        # Get Terms
+        resp = await client.get(f"{BASE_URL}/schools/terms", headers=teacher_headers)
         if resp.status_code != 200:
-             print(f"FAILED to get semesters: {resp.text}")
+             print(f"FAILED to get terms: {resp.text}")
              return
-        semesters = resp.json()["data"]
-        if not semesters:
-             print("FAILED: No semesters found")
+        terms = resp.json()["data"]
+        if not terms:
+             print("FAILED: No terms found")
              return
-        semester_id = semesters[0]["id"]
+        term_id = terms[0]["id"]
         
         # Create Class
         # Assumption: Language ID 1 exists (seeded)
@@ -107,7 +107,7 @@ async def main():
             "name": "Math 101",
             "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
             "language_id": 1, 
-            "semester_id": semester_id,
+            "term_id": term_id,
         }
         resp = await client.post(f"{BASE_URL}/my-classes", headers=teacher_headers, json=class_payload)
         

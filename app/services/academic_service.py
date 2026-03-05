@@ -8,7 +8,7 @@ from sqlalchemy import select, and_, delete, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.academic import Class, ClassSchedule, class_enrollments, teacher_assignments
+from app.models.academic import Class, ClassSchedule, class_enrollments, teacher_assignments, Term
 from app.models.enums import StudentRole, ClassStatus, UserRole
 from app.schemas.academic import ClassCreate
 from app.services.school_service import SchoolService
@@ -43,7 +43,7 @@ class AcademicService:
         # Create Class
         new_class = Class(
             school_id=school_id,
-            semester_id=class_data.semester_id,
+            term_id=class_data.term_id,
             language_id=class_data.language_id,
             name=class_data.name,
             sub_class=class_data.sub_class,

@@ -323,13 +323,13 @@ async def test_create_class_rejects_non_csv_roster_file(
 ):
     """Create class with multipart and a non-CSV file for roster returns 400."""
     import json
-    resp = await async_client.get(f"{api_base}/schools/semesters", headers=teacher_headers)
-    semester_id = resp.json()["data"][0]["id"]
+    resp = await async_client.get(f"{api_base}/schools/terms", headers=teacher_headers)
+    term_id = resp.json()["data"][0]["id"]
     class_payload = {
         "name": f"Import Reject {unique_suffix}",
         "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
         "language_id": 1,
-        "semester_id": semester_id,
+        "term_id": term_id,
     }
     resp = await async_client.post(
         f"{api_base}/my-classes",
@@ -344,8 +344,8 @@ async def test_create_class_rejects_non_csv_roster_file(
 @pytest.fixture
 async def student_auth(async_client, api_base, registered_school, teacher_headers, unique_suffix):
     """Create a student and return (headers, student_id)."""
-    resp = await async_client.get(f"{api_base}/schools/semesters", headers=registered_school["headers"])
-    semester_id = resp.json()["data"][0]["id"]
+    resp = await async_client.get(f"{api_base}/schools/terms", headers=registered_school["headers"])
+    term_id = resp.json()["data"][0]["id"]
     resp = await async_client.post(
         f"{api_base}/my-classes",
         headers=teacher_headers,
@@ -353,7 +353,7 @@ async def student_auth(async_client, api_base, registered_school, teacher_header
             "name": "RBAC Class",
             "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
             "language_id": 1,
-            "semester_id": semester_id,
+            "term_id": term_id,
         },
     )
     class_id = resp.json()["data"]["id"]
@@ -632,7 +632,7 @@ async def test_schools_logo_invalid_file_type(
 
 
 @pytest.mark.asyncio
-async def test_create_class_invalid_semester_id(
+async def test_create_class_invalid_term_id(
     async_client: AsyncClient, api_base: str, teacher_headers: dict
 ):
     fake_semester = str(uuid.uuid4())
@@ -643,7 +643,7 @@ async def test_create_class_invalid_semester_id(
             "name": "Bad Class",
             "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
             "language_id": 1,
-            "semester_id": fake_semester,
+            "term_id": fake_semester,
         },
     )
     assert resp.status_code in (400, 404, 422, 500)
@@ -707,8 +707,8 @@ async def test_delete_student_twice(
     unique_suffix: str,
 ):
     """Second delete of same student should 404."""
-    resp = await async_client.get(f"{api_base}/schools/semesters", headers=registered_school["headers"])
-    semester_id = resp.json()["data"][0]["id"]
+    resp = await async_client.get(f"{api_base}/schools/terms", headers=registered_school["headers"])
+    term_id = resp.json()["data"][0]["id"]
     resp = await async_client.post(
         f"{api_base}/my-classes",
         headers=teacher_headers,
@@ -716,7 +716,7 @@ async def test_delete_student_twice(
             "name": "Delete Twice",
             "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
             "language_id": 1,
-            "semester_id": semester_id,
+            "term_id": term_id,
         },
     )
     class_id = resp.json()["data"]["id"]
@@ -750,8 +750,8 @@ async def test_restore_student_not_deleted(
     teacher_headers: dict,
     unique_suffix: str,
 ):
-    resp = await async_client.get(f"{api_base}/schools/semesters", headers=registered_school["headers"])
-    semester_id = resp.json()["data"][0]["id"]
+    resp = await async_client.get(f"{api_base}/schools/terms", headers=registered_school["headers"])
+    term_id = resp.json()["data"][0]["id"]
     resp = await async_client.post(
         f"{api_base}/my-classes",
         headers=teacher_headers,
@@ -759,7 +759,7 @@ async def test_restore_student_not_deleted(
             "name": "Restore Test",
             "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
             "language_id": 1,
-            "semester_id": semester_id,
+            "term_id": term_id,
         },
     )
     class_id = resp.json()["data"]["id"]

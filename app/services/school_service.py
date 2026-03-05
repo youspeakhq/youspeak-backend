@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.models.onboarding import School, Language, school_languages
 from app.models.user import User
 from app.models.enums import UserRole, ClassStatus
-from app.models.academic import Class, Semester, Classroom
+from app.models.academic import Class, Term, Classroom
 from app.models.arena import Arena, ArenaPerformer
 from app.schemas.school import SchoolCreate, SchoolUpdate
 from app.schemas.admin import (
@@ -78,15 +78,31 @@ class SchoolService:
             school_id=school.id
         )
 
-        # Create Default Semester
-        default_semester = Semester(
-             school_id=school.id,
-             name="Term 1",
-             start_date=get_utc_now(),
-             end_date=get_utc_now() + timedelta(days=90),
-             is_active=True
-        )
-        db.add(default_semester)
+        # Create Default Terms
+        terms = [
+            Term(
+                school_id=school.id,
+                name="First Term",
+                start_date=get_utc_now(),
+                end_date=get_utc_now() + timedelta(days=90),
+                is_active=True
+            ),
+            Term(
+                school_id=school.id,
+                name="Second Term",
+                start_date=get_utc_now() + timedelta(days=91),
+                end_date=get_utc_now() + timedelta(days=180),
+                is_active=False
+            ),
+            Term(
+                school_id=school.id,
+                name="Third Term",
+                start_date=get_utc_now() + timedelta(days=181),
+                end_date=get_utc_now() + timedelta(days=270),
+                is_active=False
+            )
+        ]
+        db.add_all(terms)
 
         # Seed Languages if empty
         stmt = select(Language).limit(1)
@@ -218,12 +234,12 @@ class SchoolService:
         return True
 
     @staticmethod
-    async def get_semesters(db: AsyncSession, school_id: UUID) -> List[Semester]:
-        """Get all semesters for school"""
+    async def get_terms(db: AsyncSession, school_id: UUID) -> List[Term]:
+        """Get all terms for school"""
         stmt = (
-            select(Semester)
-            .where(Semester.school_id == school_id)
-            .order_by(desc(Semester.start_date))
+            select(Term)
+            .where(Term.school_id == school_id)
+            .order_by(desc(Term.start_date))
         )
         result = await db.execute(stmt)
         return list(result.scalars().all())

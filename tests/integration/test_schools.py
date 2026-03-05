@@ -152,11 +152,11 @@ async def test_update_school_programs(
 
 
 @pytest.mark.asyncio
-async def test_get_semesters(
+async def test_get_terms(
     async_client: AsyncClient, api_base: str, registered_school: dict
 ):
     resp = await async_client.get(
-        f"{api_base}/schools/semesters",
+        f"{api_base}/schools/terms",
         headers=registered_school["headers"],
     )
     assert resp.status_code == 200

@@ -54,11 +54,11 @@ async def test_create_class(
     async_client: AsyncClient, api_base: str, teacher_headers: dict
 ):
     resp = await async_client.get(
-        f"{api_base}/schools/semesters",
+        f"{api_base}/schools/terms",
         headers=teacher_headers,
     )
     assert resp.status_code == 200
-    semester_id = resp.json()["data"][0]["id"]
+    term_id = resp.json()["data"][0]["id"]
 
     resp = await async_client.post(
         f"{api_base}/my-classes",
@@ -69,7 +69,7 @@ async def test_create_class(
                 {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
             ],
             "language_id": 1,
-            "semester_id": semester_id,
+            "term_id": term_id,
         },
     )
     assert resp.status_code == 200
@@ -83,11 +83,11 @@ async def test_create_class_with_timeline(
     async_client: AsyncClient, api_base: str, teacher_headers: dict, unique_suffix: str
 ):
     resp = await async_client.get(
-        f"{api_base}/schools/semesters",
+        f"{api_base}/schools/terms",
         headers=teacher_headers,
     )
     assert resp.status_code == 200
-    semester_id = resp.json()["data"][0]["id"]
+    term_id = resp.json()["data"][0]["id"]
     resp = await async_client.post(
         f"{api_base}/my-classes",
         headers=teacher_headers,
@@ -99,7 +99,7 @@ async def test_create_class_with_timeline(
                 {"day_of_week": "Wed", "start_time": "10:00:00", "end_time": "11:00:00"}
             ],
             "language_id": 1,
-            "semester_id": semester_id,
+            "term_id": term_id,
         },
     )
     assert resp.status_code == 200
@@ -118,11 +118,11 @@ async def test_create_class_with_classroom_id(
     unique_suffix: str,
 ):
     resp = await async_client.get(
-        f"{api_base}/schools/semesters",
+        f"{api_base}/schools/terms",
         headers=teacher_headers,
     )
     assert resp.status_code == 200
-    semester_id = resp.json()["data"][0]["id"]
+    term_id = resp.json()["data"][0]["id"]
     resp = await async_client.post(
         f"{api_base}/my-classes",
         headers=teacher_headers,
@@ -132,7 +132,7 @@ async def test_create_class_with_classroom_id(
                 {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
             ],
             "language_id": 1,
-            "semester_id": semester_id,
+            "term_id": term_id,
             "classroom_id": classroom_id,
         },
     )
@@ -166,18 +166,18 @@ async def test_create_class_with_roster_csv(
 ):
     """Create class with optional CSV roster in one request; response includes roster_import."""
     resp = await async_client.get(
-        f"{api_base}/schools/semesters",
+        f"{api_base}/schools/terms",
         headers=teacher_headers,
     )
     assert resp.status_code == 200
-    semester_id = resp.json()["data"][0]["id"]
+    term_id = resp.json()["data"][0]["id"]
     class_payload = {
         "name": f"Import Test {unique_suffix}",
         "schedule": [
             {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
         ],
         "language_id": 1,
-        "semester_id": semester_id,
+        "term_id": term_id,
     }
     csv_content = (
         b"first_name,last_name,email\nAlice,Smith,alice."
@@ -207,18 +207,18 @@ async def test_create_class_multipart_without_file(
 ):
     """Create class with multipart 'data' only (no file) succeeds; no roster_import in response."""
     resp = await async_client.get(
-        f"{api_base}/schools/semesters",
+        f"{api_base}/schools/terms",
         headers=teacher_headers,
     )
     assert resp.status_code == 200
-    semester_id = resp.json()["data"][0]["id"]
+    term_id = resp.json()["data"][0]["id"]
     class_payload = {
         "name": f"Multipart No File {unique_suffix}",
         "schedule": [
             {"day_of_week": "Tue", "start_time": "10:00:00", "end_time": "11:00:00"}
         ],
         "language_id": 1,
-        "semester_id": semester_id,
+        "term_id": term_id,
     }
     resp = await async_client.post(
         f"{api_base}/my-classes",
@@ -349,16 +349,16 @@ async def test_create_award(
 ):
     """Create class, add student, create award (Figma: Create New Award)."""
     resp = await async_client.get(
-        f"{api_base}/schools/semesters",
+        f"{api_base}/schools/terms",
         headers=teacher_headers,
     )
     assert resp.status_code == 200
-    semester_id = resp.json()["data"][0]["id"]
+    term_id = resp.json()["data"][0]["id"]
     class_payload = {
         "name": f"Award Class {unique_suffix}",
         "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
         "language_id": 1,
-        "semester_id": semester_id,
+        "term_id": term_id,
     }
     csv_content = (
         b"first_name,last_name,email\n"

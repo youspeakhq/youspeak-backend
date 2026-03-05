@@ -60,7 +60,7 @@ class School(BaseModel, StatusMixin):
 
     # Relationships
     users = relationship("User", back_populates="school", cascade="all, delete-orphan")
-    semesters = relationship("Semester", back_populates="school", cascade="all, delete-orphan")
+    terms = relationship("Term", back_populates="school", cascade="all, delete-orphan")
     classes = relationship("Class", back_populates="school", cascade="all, delete-orphan")
     classrooms = relationship("Classroom", back_populates="school", cascade="all, delete-orphan")
     announcements = relationship("Announcement", back_populates="school", cascade="all, delete-orphan")

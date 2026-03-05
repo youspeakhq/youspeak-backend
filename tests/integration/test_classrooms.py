@@ -90,8 +90,8 @@ async def class_id_for_student(
     )
     token = resp.json()["data"]["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
-    resp = await async_client.get(f"{api_base}/schools/semesters", headers=headers)
-    semester_id = resp.json()["data"][0]["id"]
+    resp = await async_client.get(f"{api_base}/schools/terms", headers=headers)
+    term_id = resp.json()["data"][0]["id"]
     resp = await async_client.post(
         f"{api_base}/my-classes",
         headers=headers,
@@ -101,7 +101,7 @@ async def class_id_for_student(
                 {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
             ],
             "language_id": 1,
-            "semester_id": semester_id,
+            "term_id": term_id,
         },
     )
     assert resp.status_code == 200

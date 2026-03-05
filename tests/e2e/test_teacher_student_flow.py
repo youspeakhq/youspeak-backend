@@ -59,12 +59,12 @@ async def test_admin_invites_teacher_teacher_creates_class_admin_creates_student
     assert resp.status_code == 200
     teacher_headers = {"Authorization": f"Bearer {resp.json()['data']['access_token']}"}
 
-    # 5. Get semesters
-    resp = await async_client.get(f"{api_base}/schools/semesters", headers=teacher_headers)
+    # 5. Get terms
+    resp = await async_client.get(f"{api_base}/schools/terms", headers=teacher_headers)
     assert resp.status_code == 200
-    semesters = resp.json()["data"]
-    assert len(semesters) > 0
-    semester_id = semesters[0]["id"]
+    terms = resp.json()["data"]
+    assert len(terms) > 0
+    term_id = terms[0]["id"]
 
     # 6. Teacher creates class
     resp = await async_client.post(
@@ -76,7 +76,7 @@ async def test_admin_invites_teacher_teacher_creates_class_admin_creates_student
                 {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
             ],
             "language_id": 1,
-            "semester_id": semester_id,
+            "term_id": term_id,
         },
     )
     assert resp.status_code == 200
