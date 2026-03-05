@@ -306,7 +306,58 @@ async def create_assessment(
     current_user: User = Depends(deps.require_teacher),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
-    """Create a new assessment (draft). Teacher console. Optional questions (question_id, points) are linked if provided."""
+    """
+    Create a new assessment (draft). Teacher console. Optional questions (question_id, points) are linked if provided.
+
+    **IMPORTANT: "Assessment" = "Assignment" (same entity)**
+    - This endpoint creates what's stored as an "Assignment" in the database
+    - "Assessment" (API) and "Assignment" (Database) are interchangeable terms
+    - No separate "/assignments" endpoint exists
+
+    **Differentiation is by the `type` field:**
+    - `type: "oral"` → Oral assessments (speaking/listening exercises)
+    - `type: "written"` → Written assessments (essays, written tests)
+
+    **JSON Request Example:**
+    ```json
+    {
+      "title": "French Vocabulary Quiz",
+      "type": "written",
+      "instructions": "Complete all questions carefully",
+      "due_date": "2026-03-20T23:59:59Z",
+      "class_ids": ["c1fbfe2a-dc95-4627-b355-5abedc2f1184"],
+      "enable_ai_marking": true,
+      "questions": [
+        {
+          "question_id": "123e4567-e89b-12d3-a456-426614174000",
+          "points": 10
+        }
+      ]
+    }
+    ```
+
+    **Required Fields:**
+    - `title`: Assessment name (string)
+    - `type`: Assessment type - **"oral" or "written"**
+    - `class_ids`: Array of class UUIDs (at least one)
+
+    **Optional Fields:**
+    - `instructions`: Task instructions for students (string)
+    - `due_date`: Due date/time in ISO 8601 format (datetime)
+    - `enable_ai_marking`: Enable AI-powered grading (boolean, default: false)
+    - `questions`: Array of {question_id, points} from question bank
+
+    **Assessment Types:**
+    - **"oral"**: Speaking/listening assessments (audio recordings, presentations, pronunciation)
+    - **"written"**: Written assessments (essays, tests, comprehension, grammar exercises)
+
+    **Workflow:**
+    1. Create assessment (draft status) - students cannot see it yet
+    2. Optionally add/update questions
+    3. Publish assessment - makes it visible to students
+    4. Monitor submissions
+    5. Grade submissions (manual or AI)
+    """
     try:
         assignment = await AssessmentService.create_assignment(db, current_user.id, body)
     except ValueError as e:

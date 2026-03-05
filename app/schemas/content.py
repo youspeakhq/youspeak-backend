@@ -117,12 +117,41 @@ class QuestionBase(BaseModel):
 
 class AssessmentCreate(BaseModel):
     title: str
-    type: AssignmentType
+    type: AssignmentType  # "oral" or "written"
     instructions: Optional[str] = None
     due_date: Optional[datetime] = None
     class_ids: List[UUID] = []
     enable_ai_marking: bool = False
     questions: Optional[List["AssignmentQuestionItem"]] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "title": "French Vocabulary Quiz",
+                    "type": "written",
+                    "instructions": "Complete all questions carefully",
+                    "due_date": "2026-03-20T23:59:59Z",
+                    "class_ids": ["c1fbfe2a-dc95-4627-b355-5abedc2f1184"],
+                    "enable_ai_marking": True,
+                    "questions": [
+                        {
+                            "question_id": "123e4567-e89b-12d3-a456-426614174000",
+                            "points": 10
+                        }
+                    ]
+                },
+                {
+                    "title": "Oral Presentation",
+                    "type": "oral",
+                    "instructions": "Record a 5-minute presentation",
+                    "due_date": "2026-04-01T23:59:59Z",
+                    "class_ids": ["c1fbfe2a-dc95-4627-b355-5abedc2f1184"],
+                    "enable_ai_marking": False
+                }
+            ]
+        }
+    )
 
 
 class AssessmentUpdate(BaseModel):
