@@ -1,7 +1,7 @@
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models.enums import (
     TaskCategory, AssignmentType, AssignmentStatus, QuestionType, CurriculumSourceType,
@@ -138,6 +138,20 @@ class AssessmentCreate(BaseModel):
     rubric_data: Optional[List[MarkingCriterionItem]] = None
     questions: Optional[List["AssignmentQuestionItem"]] = None
 
+    @field_validator("due_date", mode="before")
+    @classmethod
+    def normalize_due_date(cls, v):
+        """Convert timezone-aware datetime to UTC naive datetime for PostgreSQL TIMESTAMP."""
+        if v is None:
+            return v
+        if isinstance(v, str):
+            # Parse ISO string (Pydantic will handle this, but we catch it here)
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if isinstance(v, datetime) and v.tzinfo is not None:
+            # Convert to UTC and remove timezone info
+            return v.astimezone(timezone.utc).replace(tzinfo=None)
+        return v
+
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
@@ -181,6 +195,18 @@ class AssessmentUpdate(BaseModel):
     topics: Optional[List[str]] = None
     rubric_url: Optional[str] = None
     rubric_data: Optional[List[MarkingCriterionItem]] = None
+
+    @field_validator("due_date", mode="before")
+    @classmethod
+    def normalize_due_date(cls, v):
+        """Convert timezone-aware datetime to UTC naive datetime for PostgreSQL TIMESTAMP."""
+        if v is None:
+            return v
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if isinstance(v, datetime) and v.tzinfo is not None:
+            return v.astimezone(timezone.utc).replace(tzinfo=None)
+        return v
 
 
 class AssessmentContentUpdate(BaseModel):
