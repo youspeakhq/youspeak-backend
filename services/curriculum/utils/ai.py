@@ -115,9 +115,7 @@ async def structured_completion(
             status_code=503,
             detail="AI generation timed out; try a shorter prompt or retry.",
         )
-    text = _extract_json(text)
-    raw = json.loads(text)
-    return _parse_and_validate(raw, response_model)
+
 
 
 def get_ai_client() -> "BedrockStructuredClient":
