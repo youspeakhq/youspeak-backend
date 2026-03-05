@@ -128,13 +128,13 @@ echo ""
 
 # Step 6: Create a class (needed for assessment)
 echo "[6/7] Creating a class for the assessment..."
-SEMESTERS_RESPONSE=$(curl -s -X GET "${API_BASE}/schools/semesters" \
+TERMS_RESPONSE=$(curl -s -X GET "${API_BASE}/schools/terms" \
   -H "Authorization: Bearer ${TEACHER_TOKEN}")
 
-SEMESTER_ID=$(echo "$SEMESTERS_RESPONSE" | python3 -c "import sys, json; data = json.load(sys.stdin)['data']; print(data[0]['id'] if data else '')" 2>/dev/null)
+TERM_ID=$(echo "$TERMS_RESPONSE" | python3 -c "import sys, json; data = json.load(sys.stdin)['data']; print(data[0]['id'] if data else '')" 2>/dev/null)
 
-if [ -z "$SEMESTER_ID" ]; then
-  echo "ERROR: No semesters found"
+if [ -z "$TERM_ID" ]; then
+  echo "ERROR: No terms found"
   exit 1
 fi
 
@@ -145,7 +145,7 @@ CREATE_CLASS_RESPONSE=$(curl -s -X POST "${API_BASE}/my-classes" \
     \"name\": \"Test Class for Assessment ${TIMESTAMP}\",
     \"schedule\": [{\"day_of_week\": \"Mon\", \"start_time\": \"09:00:00\", \"end_time\": \"10:00:00\"}],
     \"language_id\": 1,
-    \"semester_id\": \"${SEMESTER_ID}\"
+    \"term_id\": \"${TERM_ID}\"
   }")
 
 CLASS_ID=$(echo "$CREATE_CLASS_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
