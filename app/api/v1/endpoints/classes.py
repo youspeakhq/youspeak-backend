@@ -176,6 +176,46 @@ async def create_class(
     Create new class. Accepts application/json (ClassCreate) or multipart/form-data
     with required 'data' (class JSON) and optional 'file' (CSV roster). If file is
     provided, students are created/enrolled from the CSV after the class is created.
+
+    **JSON Request Example:**
+    ```json
+    {
+      "name": "French 101",
+      "description": "Beginner French class (optional)",
+      "timeline": "Spring 2026 (optional)",
+      "schedule": [
+        {
+          "day_of_week": "Mon",
+          "start_time": "09:00:00",
+          "end_time": "10:00:00"
+        }
+      ],
+      "language_id": 1,
+      "semester_id": "123e4567-e89b-12d3-a456-426614174000"
+    }
+    ```
+
+    **Required Fields:**
+    - `name`: Class name (string)
+    - `schedule`: Array of schedule objects with day_of_week, start_time, end_time
+    - `language_id`: Language ID (integer, e.g., 1 for French, 2 for Spanish)
+    - `semester_id`: Semester UUID (get from GET /api/v1/schools/semesters)
+
+    **Optional Fields:**
+    - `description`: Class description (string)
+    - `timeline`: Timeline text (string, e.g., "Jan 2026 - May 2026")
+    - `sub_class`: Sub-class name (string)
+    - `level`: Proficiency level (string)
+    - `classroom_id`: Physical classroom UUID (optional)
+    - `status`: "active" | "inactive" | "archived" (defaults to "active")
+
+    **Multipart Form-Data Alternative (for CSV roster upload):**
+    - `data`: JSON string with class data (same structure as above)
+    - `file`: CSV file with columns: first_name, last_name, email
+
+    **Day of Week Values:** "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"
+
+    **Time Format:** "HH:MM:SS" (24-hour format, e.g., "09:00:00", "14:30:00")
     """
     class_in, roster_file = parsed
     try:

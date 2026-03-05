@@ -53,7 +53,16 @@ class ScheduleBase(BaseModel):
     start_time: time
     end_time: time
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "day_of_week": "Mon",
+                "start_time": "09:00:00",
+                "end_time": "10:00:00"
+            }
+        }
+    )
 
 
 class ClassBase(BaseModel):
@@ -70,6 +79,33 @@ class ClassCreate(ClassBase):
     language_id: int
     semester_id: UUID
     classroom_id: Optional[UUID] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "name": "French 101",
+                    "description": "Beginner French class",
+                    "timeline": "Spring 2026",
+                    "schedule": [
+                        {
+                            "day_of_week": "Mon",
+                            "start_time": "09:00:00",
+                            "end_time": "10:00:00"
+                        },
+                        {
+                            "day_of_week": "Wed",
+                            "start_time": "09:00:00",
+                            "end_time": "10:00:00"
+                        }
+                    ],
+                    "language_id": 1,
+                    "semester_id": "123e4567-e89b-12d3-a456-426614174000",
+                    "status": "active"
+                }
+            ]
+        }
+    )
 
 
 class ClassUpdate(BaseModel):
