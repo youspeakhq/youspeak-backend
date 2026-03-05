@@ -76,7 +76,7 @@ async def list_curriculums(
     status: Optional[str] = Query(None),
     language_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
-    current_user: User = Depends(deps.require_admin),
+    current_user: User = Depends(deps.require_teacher_or_admin),
 ) -> Any:
     client = _get_curriculum_client(request)
     params = {"page": page, "page_size": page_size}
@@ -104,7 +104,7 @@ async def upload_curriculum(
     description: Optional[str] = Form(None),
     class_ids_json: Optional[str] = Form(None),
     file: UploadFile = File(...),
-    current_user: User = Depends(deps.require_admin),
+    current_user: User = Depends(deps.require_teacher_or_admin),
 ) -> Any:
     class_ids = []
     if class_ids_json:
@@ -198,7 +198,7 @@ async def update_topic(
 async def get_curriculum(
     request: Request,
     curriculum_id: UUID,
-    current_user: User = Depends(deps.require_admin),
+    current_user: User = Depends(deps.require_teacher_or_admin),
 ) -> Any:
     client = _get_curriculum_client(request)
     r = await client.get(
