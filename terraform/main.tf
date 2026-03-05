@@ -591,6 +591,7 @@ resource "aws_lb" "curriculum_internal_production" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.curriculum_alb_internal.id]
   subnets            = aws_subnet.private[*].id
+  idle_timeout       = 180 # allow long-running database queries and AI operations
 }
 
 resource "aws_lb_target_group" "curriculum_production" {
@@ -629,6 +630,7 @@ resource "aws_lb" "curriculum_internal_staging" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.curriculum_alb_internal.id]
   subnets            = aws_subnet.private[*].id
+  idle_timeout       = 180 # allow long-running database queries and AI operations
 }
 
 resource "aws_lb_target_group" "curriculum_staging" {

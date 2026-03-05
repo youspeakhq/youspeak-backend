@@ -46,7 +46,7 @@ class CurriculumService:
             .options(
                 selectinload(Curriculum.classes),
                 selectinload(Curriculum.language),
-                selectinload(Curriculum.topics),
+                # Don't load topics in list view for performance
             )
         )
         if status:
@@ -56,8 +56,16 @@ class CurriculumService:
         if search:
             query = query.where(Curriculum.title.ilike(f"%{search}%"))
 
-        count_stmt = select(func.count()).select_from(query.subquery())
-        total = (await db.execute(count_stmt)).scalar_one()
+        # Optimize: Build count query from base conditions without subquery
+        count_query = select(func.count()).select_from(Curriculum).where(Curriculum.school_id == school_id)
+        if status:
+            count_query = count_query.where(Curriculum.status == status)
+        if language_id:
+            count_query = count_query.where(Curriculum.language_id == language_id)
+        if search:
+            count_query = count_query.where(Curriculum.title.ilike(f"%{search}%"))
+
+        total = (await db.execute(count_query)).scalar_one()
         result = await db.execute(
             query.offset(skip).limit(limit).order_by(Curriculum.created_at.desc())
         )

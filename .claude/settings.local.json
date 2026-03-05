@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(terraform output:*)",
+      "Bash(./.aws/generate-task-definition.sh)",
+      "Bash(curl -sk https://api-staging.youspeakhq.com/)",
+      "Bash(__NEW_LINE_3a71f29e1b63fb46__ echo \"\")",
+      "Bash(curl -sk https://api.youspeakhq.com/)",
+      "Bash(__NEW_LINE_9822838c60549018__ echo \"\")",
+      "Bash(curl -sk -X GET https://api-staging.youspeakhq.com/health)",
+      "Bash(aws ec2 describe-network-acls --network-acl-ids acl-0c2b8c06115aa4bff --query 'NetworkAcls[0].Entries[]' --output table)",
+      "Bash(openssl s_client -connect api-staging.youspeakhq.com:443 -servername api-staging.youspeakhq.com)",
+      "Bash(curl -sk --http1.1 --max-time 10 https://api-staging.youspeakhq.com/)",
+      "Bash(__NEW_LINE_344f1a2ced0fe795__ echo \"\")",
+      "Bash(curl -skL --max-time 10 https://api-staging.youspeakhq.com)",
+      "Bash(__NEW_LINE_6308821394f55177__ echo \"\")",
+      "Bash(curl -sk --max-time 10 https://api-staging.youspeakhq.com/docs)",
+      "Bash(curl -skL --max-time 10 https://api.youspeakhq.com/)",
+      "Bash(curl -skL --connect-timeout 5 --max-time 10 https://api-staging.youspeakhq.com/)",
+      "Bash(__NEW_LINE_92d5d46398bacdd0__ echo \"\")",
+      "Bash(aws ecs describe-services --cluster youspeak-cluster --services youspeak-api-service-staging --query 'services[0].{Running:runningCount,Desired:desiredCount,Tasks:deployments[0].runningCount}' --output table)",
+      "Bash(curl -sI http://youspeak-alb-staging-620291408.us-east-1.elb.amazonaws.com/)",
+      "Bash(curl -skL --max-time 5 -o /dev/null -w \"  Status: %{http_code} | Time: %{time_total}s\\\\n\" https://api.youspeakhq.com/)",
+      "Bash(__NEW_LINE_0d8ec63a9561d82f__ echo \"\")",
+      "Bash(curl -skL --max-time 5 -o /dev/null -w \"  Status: %{http_code} | Time: %{time_total}s\\\\n\" https://api-staging.youspeakhq.com/)",
+      "Bash(aws ecs describe-services --cluster youspeak-cluster --services youspeak-api-service-production youspeak-api-service-staging --query 'services[*].{Service:serviceName,Running:runningCount,Health:deployments[0].rolloutState}' --output table)"
+    ]
+  }
+}
