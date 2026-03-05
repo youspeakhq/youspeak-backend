@@ -516,3 +516,55 @@ async def test_grade_submission_not_found_returns_404(
         json={"teacher_score": 85.5, "status": "graded"},
     )
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_create_assessment_with_alignment_fields(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict, class_id_for_student: str, unique_suffix: str
+):
+    """Verify that an assessment can be created with topics and rubric data (Figma Alignment)."""
+    topics = ["Vocabulary: Morning Routine", "Grammar: Reflexive Verbs"]
+    rubric_url = "https://storage.youspeak.com/rubrics/french_101.pdf"
+    rubric_data = [
+        {"criterion": "Pronunciation", "max_points": 10, "description": "Clarity of speech"},
+        {"criterion": "Grammar", "max_points": 5, "description": "Correct use of reflexive verbs"}
+    ]
+    
+    resp = await async_client.post(
+        f"{api_base}/assessments",
+        headers=teacher_headers,
+        json={
+            "title": f"Aligned Assessment {unique_suffix}",
+            "type": "oral",
+            "instructions": "Speak clearly into the microphone.",
+            "class_ids": [class_id_for_student],
+            "topics": topics,
+            "rubric_url": rubric_url,
+            "rubric_data": rubric_data
+        },
+    )
+    
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["topics"] == topics
+    assert data["rubric_url"] == rubric_url
+    assert len(data["rubric_data"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_create_question_with_true_false_type(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict, unique_suffix: str
+):
+    """Verify that a TRUE_FALSE question can be created (Figma Alignment)."""
+    resp = await async_client.post(
+        f"{api_base}/assessments/questions/bank",
+        headers=teacher_headers,
+        json={
+            "question_text": f"Is 'Bonjour' a morning greeting? {unique_suffix}",
+            "type": "true_false",
+            "correct_answer": "true"
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["type"] == "true_false"

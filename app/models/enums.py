@@ -100,6 +100,7 @@ class QuestionType(str, enum.Enum):
     MULTIPLE_CHOICE = "multiple_choice"
     OPEN_TEXT = "open_text"
     ORAL = "oral"
+    TRUE_FALSE = "true_false"
 
 
 class TaskCategory(str, enum.Enum):

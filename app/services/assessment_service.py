@@ -96,6 +96,9 @@ class AssessmentService:
             due_date=data.due_date,
             status=AssignmentStatus.DRAFT,
             enable_ai_marking=getattr(data, "enable_ai_marking", False),
+            topics=data.topics,
+            rubric_url=data.rubric_url,
+            rubric_data=[it.model_dump() for it in data.rubric_data] if data.rubric_data else None,
         )
         db.add(a)
         await db.flush()
@@ -157,6 +160,12 @@ class AssessmentService:
             a.due_date = data.due_date
         if getattr(data, "enable_ai_marking", None) is not None:
             a.enable_ai_marking = data.enable_ai_marking
+        if data.topics is not None:
+            a.topics = data.topics
+        if data.rubric_url is not None:
+            a.rubric_url = data.rubric_url
+        if data.rubric_data is not None:
+            a.rubric_data = [it.model_dump() for it in data.rubric_data]
         if data.class_ids is not None:
             await db.execute(delete(assignment_classes).where(assignment_classes.c.assignment_id == assignment_id))
             for cid in data.class_ids:

@@ -1,6 +1,6 @@
 """Domain 5: Assessment Models (Question Bank, Assignments, Submissions)"""
 
-from sqlalchemy import Boolean, Column, String, Text, DateTime, Integer, Numeric, ForeignKey, Table
+from sqlalchemy import Boolean, Column, String, Text, DateTime, Integer, Numeric, ForeignKey, Table, JSON
 from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.orm import relationship
 
@@ -62,6 +62,10 @@ class Assignment(BaseModel):
         index=True,
     )
     enable_ai_marking = Column(Boolean, nullable=False, default=False, server_default="false")
+    topics = Column(JSON, nullable=True)  # List of strings for AI prompt context
+    rubric_url = Column(String(512), nullable=True)  # URL to uploaded rubric file
+    rubric_data = Column(JSON, nullable=True)  # Structured marking criteria
+
 
     # Relationships
     teacher = relationship("User", back_populates="created_assignments")

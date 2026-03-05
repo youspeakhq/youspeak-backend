@@ -105,6 +105,16 @@ class AIGenerateRequest(BaseModel):
     topics: List[str]
     count: int = 10
 
+# --- Marking ---
+
+
+class MarkingCriterionItem(BaseModel):
+    """One marking criterion (from curriculum extract-marking-scheme)."""
+    criterion: str
+    max_points: int
+    description: Optional[str] = None
+
+
 # --- Assessment ---
 
 
@@ -123,6 +133,9 @@ class AssessmentCreate(BaseModel):
     due_date: Optional[datetime] = None
     class_ids: List[UUID] = []
     enable_ai_marking: bool = False
+    topics: Optional[List[str]] = None
+    rubric_url: Optional[str] = None
+    rubric_data: Optional[List[MarkingCriterionItem]] = None
     questions: Optional[List["AssignmentQuestionItem"]] = None
 
     model_config = ConfigDict(
@@ -165,6 +178,9 @@ class AssessmentUpdate(BaseModel):
     due_date: Optional[datetime] = None
     class_ids: Optional[List[UUID]] = None
     enable_ai_marking: Optional[bool] = None
+    topics: Optional[List[str]] = None
+    rubric_url: Optional[str] = None
+    rubric_data: Optional[List[MarkingCriterionItem]] = None
 
 
 class AssessmentContentUpdate(BaseModel):
@@ -180,6 +196,9 @@ class AssessmentResponse(BaseModel):
     due_date: Optional[datetime] = None
     instructions: Optional[str] = None
     enable_ai_marking: bool = False
+    topics: Optional[List[str]] = None
+    rubric_url: Optional[str] = None
+    rubric_data: Optional[List[MarkingCriterionItem]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -253,12 +272,6 @@ class GeneratedQuestion(BaseModel):
     correct_answer: Optional[str] = None
     options: Optional[List[str]] = None
 
-
-class MarkingCriterionItem(BaseModel):
-    """One marking criterion (from curriculum extract-marking-scheme)."""
-    criterion: str
-    max_points: int
-    description: Optional[str] = None
 
 
 # Resolve forward reference in AssessmentCreate.questions
