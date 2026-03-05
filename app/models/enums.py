@@ -102,8 +102,14 @@ class QuestionType(str, enum.Enum):
     ORAL = "oral"
 
 
+class TaskCategory(str, enum.Enum):
+    """Task category: Assessment (formal evaluation) vs Assignment (general task)"""
+    ASSESSMENT = "assessment"
+    ASSIGNMENT = "assignment"
+
+
 class AssignmentType(str, enum.Enum):
-    """Assignment types"""
+    """Assignment types (delivery method for assessments)"""
     ORAL = "oral"
     WRITTEN = "written"
 

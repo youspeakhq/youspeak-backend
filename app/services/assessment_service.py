@@ -91,6 +91,7 @@ class AssessmentService:
             teacher_id=teacher_id,
             title=data.title,
             instructions=data.instructions,
+            category=data.category,
             type=data.type,
             due_date=data.due_date,
             status=AssignmentStatus.DRAFT,
@@ -146,6 +147,8 @@ class AssessmentService:
             return None
         if data.title is not None:
             a.title = data.title
+        if data.category is not None:
+            a.category = data.category
         if data.type is not None:
             a.type = data.type
         if data.instructions is not None:

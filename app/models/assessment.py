@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.orm import relationship
 
 from app.models.base import BaseModel
-from app.models.enums import QuestionType, AssignmentType, AssignmentStatus, SubmissionStatus
+from app.models.enums import QuestionType, TaskCategory, AssignmentType, AssignmentStatus, SubmissionStatus
 
 
 class Question(BaseModel):
@@ -36,12 +36,23 @@ class Assignment(BaseModel):
     """
     Assignment/assessment task definition.
     Can be distributed to multiple classes.
+
+    Category distinguishes between:
+    - assessment: Formal evaluation with structured questions and grading
+    - assignment: General homework/task (may be simpler, less structured)
     """
     __tablename__ = "assignments"
 
     teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String(255), nullable=False)
     instructions = Column(Text, nullable=True)
+    category = Column(
+        ENUM(TaskCategory, name="task_category"),
+        default=TaskCategory.ASSESSMENT,
+        nullable=False,
+        server_default="assessment",
+        index=True,
+    )
     type = Column(ENUM(AssignmentType, name="assignment_type"), nullable=False)
     due_date = Column(DateTime, nullable=True)
     status = Column(

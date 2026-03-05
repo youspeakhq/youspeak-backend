@@ -49,6 +49,7 @@ def _assignment_to_list_row(
     return {
         "id": a.id,
         "title": a.title,
+        "category": a.category,
         "type": a.type,
         "status": a.status,
         "due_date": a.due_date,

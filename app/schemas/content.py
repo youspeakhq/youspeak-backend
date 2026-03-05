@@ -4,7 +4,7 @@ from uuid import UUID
 from datetime import datetime
 
 from app.models.enums import (
-    AssignmentType, AssignmentStatus, QuestionType, CurriculumSourceType,
+    TaskCategory, AssignmentType, AssignmentStatus, QuestionType, CurriculumSourceType,
     CurriculumStatus
 )
 
@@ -117,6 +117,7 @@ class QuestionBase(BaseModel):
 
 class AssessmentCreate(BaseModel):
     title: str
+    category: TaskCategory = TaskCategory.ASSESSMENT  # "assessment" or "assignment"
     type: AssignmentType  # "oral" or "written"
     instructions: Optional[str] = None
     due_date: Optional[datetime] = None
@@ -129,6 +130,7 @@ class AssessmentCreate(BaseModel):
             "examples": [
                 {
                     "title": "French Vocabulary Quiz",
+                    "category": "assessment",
                     "type": "written",
                     "instructions": "Complete all questions carefully",
                     "due_date": "2026-03-20T23:59:59Z",
@@ -142,9 +144,10 @@ class AssessmentCreate(BaseModel):
                     ]
                 },
                 {
-                    "title": "Oral Presentation",
-                    "type": "oral",
-                    "instructions": "Record a 5-minute presentation",
+                    "title": "Homework Reading Assignment",
+                    "category": "assignment",
+                    "type": "written",
+                    "instructions": "Read chapter 5 and write a summary",
                     "due_date": "2026-04-01T23:59:59Z",
                     "class_ids": ["c1fbfe2a-dc95-4627-b355-5abedc2f1184"],
                     "enable_ai_marking": False
@@ -156,6 +159,7 @@ class AssessmentCreate(BaseModel):
 
 class AssessmentUpdate(BaseModel):
     title: Optional[str] = None
+    category: Optional[TaskCategory] = None
     type: Optional[AssignmentType] = None
     instructions: Optional[str] = None
     due_date: Optional[datetime] = None
@@ -170,6 +174,7 @@ class AssessmentContentUpdate(BaseModel):
 class AssessmentResponse(BaseModel):
     id: UUID
     title: str
+    category: TaskCategory
     type: AssignmentType
     status: AssignmentStatus
     due_date: Optional[datetime] = None
@@ -183,7 +188,8 @@ class AssessmentListRow(BaseModel):
     """One row for Task Management table: class-level or assignment-level."""
     id: UUID
     title: str
-    type: AssignmentType
+    category: TaskCategory  # "assessment" or "assignment" - shown in Type column in Figma
+    type: AssignmentType  # "oral" or "written"
     status: AssignmentStatus
     due_date: Optional[datetime] = None
     class_name: Optional[str] = None
