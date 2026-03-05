@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy import select, func, delete, insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 from config import settings
 from models.curriculum import Curriculum, Topic, curriculum_classes
@@ -44,8 +44,8 @@ class CurriculumService:
             select(Curriculum)
             .where(Curriculum.school_id == school_id)
             .options(
-                selectinload(Curriculum.classes),
-                selectinload(Curriculum.language),
+                joinedload(Curriculum.classes),
+                joinedload(Curriculum.language),
                 # Don't load topics in list view for performance
             )
         )

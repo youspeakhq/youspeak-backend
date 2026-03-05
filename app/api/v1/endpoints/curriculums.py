@@ -164,7 +164,7 @@ async def generate_curriculum(
 async def extract_topics(
     request: Request,
     curriculum_id: UUID,
-    current_user: User = Depends(deps.require_admin),
+    current_user: User = Depends(deps.require_teacher_or_admin),
 ) -> Any:
     client = _get_curriculum_client(request)
     r = await client.post(
