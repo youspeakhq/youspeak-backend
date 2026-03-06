@@ -139,8 +139,7 @@ jobs:
         run: |
           pip install -r services/curriculum/requirements.txt
           (cd services/curriculum && DATABASE_URL="$DATABASE_URL" AWS_REGION="$AWS_REGION" BEDROCK_MODEL_ID="$BEDROCK_MODEL_ID" python3 -m uvicorn main:app --host 0.0.0.0 --port 8001) &
-          for i in $(seq 1 30); do curl -sf http://localhost:8001/health >/dev/null && break; sleep 1; done
-          curl -sf http://localhost:8001/health || (echo "Curriculum service failed to start"; exit 1)
+
       - name: Start API server
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
@@ -153,11 +152,16 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: |
           uvicorn app.main:app --host 0.0.0.0 --port 8000 &
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:8000/health >/dev/null && break
-            sleep 1
-          done
-          curl -sf http://localhost:8000/health || (echo "API failed to start"; exit 1)
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for curriculum service..."
+          timeout 30 bash -c 'until curl -sf http://localhost:8001/health >/dev/null 2>&1; do sleep 0.3; done' || (echo "Curriculum service failed to start"; exit 1)
+          echo "Curriculum service healthy"
+
+          echo "Waiting for API service..."
+          timeout 30 bash -c 'until curl -sf http://localhost:8000/health >/dev/null 2>&1; do sleep 0.3; done' || (echo "API failed to start"; exit 1)
+          echo "API service healthy"
       
       - name: Run tests
         env:
