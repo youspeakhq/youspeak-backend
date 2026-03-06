@@ -53,7 +53,8 @@ class CurriculumService:
             query = query.where(Curriculum.status == status)
         if language_id:
             query = query.where(Curriculum.language_id == language_id)
-        if search:
+        # Apply search filter only if search is provided and not empty/wildcard
+        if search and search.strip() and search != "*":
             query = query.where(Curriculum.title.ilike(f"%{search}%"))
 
         # Optimize: Build count query from base conditions without subquery
@@ -62,7 +63,8 @@ class CurriculumService:
             count_query = count_query.where(Curriculum.status == status)
         if language_id:
             count_query = count_query.where(Curriculum.language_id == language_id)
-        if search:
+        # Apply search filter only if search is provided and not empty/wildcard
+        if search and search.strip() and search != "*":
             count_query = count_query.where(Curriculum.title.ilike(f"%{search}%"))
 
         total = (await db.execute(count_query)).scalar_one()
