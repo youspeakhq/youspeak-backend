@@ -108,4 +108,4 @@ COPY . .
 
 # Default: run lint, migrations, then pytest (overridable for quick pytest-only)
 ENV PYTHONUNBUFFERED=1
-CMD ["sh", "-c", "flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics && flake8 app --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics && alembic upgrade head && pytest tests/ -v --tb=short --cov=app --cov-report=term"]
+CMD ["sh", "-c", "flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics && flake8 app --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics && alembic upgrade head && pytest tests/ -v --tb=short -n auto --cov=app --cov-report=term"]
