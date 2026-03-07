@@ -34,6 +34,8 @@ class UserUpdate(BaseModel):
     """Schema for updating user information"""
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     password: Optional[str] = Field(None, min_length=8)
 
 
@@ -44,6 +46,8 @@ class User(UserBase):
     """Schema for user responses"""
     id: UUID
     email: EmailStr
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     is_active: bool
     is_superuser: bool = False  # Deprecated but kept for compat
     role: UserRole
@@ -68,11 +72,14 @@ class User(UserBase):
         need nested language should pass it explicitly after eager load.
         """
         if hasattr(v, "__tablename__") and getattr(v, "__tablename__", None) == "users":
+            first = getattr(v, 'first_name', '')
+            last = getattr(v, 'last_name', '')
             return {
                 "id": v.id,
                 "email": v.email,
-                "full_name": getattr(v, "full_name", None)
-                or (f"{getattr(v, 'first_name', '')} {getattr(v, 'last_name', '')}".strip() or None),
+                "first_name": first,
+                "last_name": last,
+                "full_name": f"{first} {last}".strip() or None,
                 "is_active": v.is_active,
                 "is_superuser": getattr(v, "is_superuser", False),
                 "role": v.role,

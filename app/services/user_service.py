@@ -219,6 +219,15 @@ class UserService:
         # Update fields
         update_data = user_update.model_dump(exclude_unset=True)
 
+        # Handle full_name → first_name/last_name conversion
+        if "full_name" in update_data:
+            full_name = update_data.pop("full_name")
+            if full_name and full_name.strip():
+                # Split on first whitespace, handling single names and multiple spaces
+                parts = full_name.strip().split(None, 1)
+                update_data["first_name"] = parts[0]
+                update_data["last_name"] = parts[1] if len(parts) > 1 else ""
+
         if "password" in update_data:
             update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
 
