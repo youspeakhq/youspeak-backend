@@ -112,7 +112,9 @@ async def registered_school(async_client: AsyncClient, api_base: str, unique_suf
         json={"email": admin_email, "password": password},
     )
     assert login_resp.status_code == 200, login_resp.text
-    token = login_resp.json()["data"]["access_token"]
+    login_data = login_resp.json()["data"]
+    token = login_data["access_token"]
+    user_id = login_data["user_id"]
     headers = {"Authorization": f"Bearer {token}"}
 
     return {
@@ -120,6 +122,7 @@ async def registered_school(async_client: AsyncClient, api_base: str, unique_suf
         "password": password,
         "school_id": school_id,
         "school_name": school_name,
+        "user_id": user_id,
         "headers": headers,
     }
 
