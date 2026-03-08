@@ -71,7 +71,7 @@ class CurriculumService:
         result = await db.execute(
             query.offset(skip).limit(limit).order_by(Curriculum.created_at.desc())
         )
-        return list(result.scalars().all()), total
+        return list(result.scalars().unique().all()), total
 
     @staticmethod
     async def get_curriculum_by_id(
