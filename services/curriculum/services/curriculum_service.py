@@ -39,6 +39,7 @@ class CurriculumService:
         status: Optional[CurriculumStatus] = None,
         language_id: Optional[int] = None,
         search: Optional[str] = None,
+        source_type: Optional[CurriculumSourceType] = None,
     ) -> tuple[List[Curriculum], int]:
         query = (
             select(Curriculum)
@@ -53,6 +54,8 @@ class CurriculumService:
             query = query.where(Curriculum.status == status)
         if language_id:
             query = query.where(Curriculum.language_id == language_id)
+        if source_type:
+            query = query.where(Curriculum.source_type == source_type)
         # Apply search filter only if search is provided and not empty/wildcard
         if search and search.strip() and search != "*":
             query = query.where(Curriculum.title.ilike(f"%{search}%"))
@@ -63,6 +66,8 @@ class CurriculumService:
             count_query = count_query.where(Curriculum.status == status)
         if language_id:
             count_query = count_query.where(Curriculum.language_id == language_id)
+        if source_type:
+            count_query = count_query.where(Curriculum.source_type == source_type)
         # Apply search filter only if search is provided and not empty/wildcard
         if search and search.strip() and search != "*":
             count_query = count_query.where(Curriculum.title.ilike(f"%{search}%"))

@@ -31,7 +31,7 @@ from schemas.content import (
     EvaluateSubmissionResponse,
 )
 from schemas.responses import SuccessResponse, PaginatedResponse
-from models.enums import CurriculumStatus
+from models.enums import CurriculumStatus, CurriculumSourceType
 
 router = APIRouter()
 
@@ -68,6 +68,7 @@ async def list_curriculums(
     status: Optional[CurriculumStatus] = Query(None),
     language_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
+    source_type: Optional[CurriculumSourceType] = Query(None, description="Filter by source: library_master, teacher_upload, or merged"),
     school_id: uuid.UUID = Depends(get_school_id),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -80,6 +81,7 @@ async def list_curriculums(
         status=status,
         language_id=language_id,
         search=search,
+        source_type=source_type,
     )
     serialized = [_curriculum_to_response(c) for c in curriculums]
     total_pages = (total + page_size - 1) // page_size
