@@ -71,7 +71,8 @@ class CurriculumService:
         result = await db.execute(
             query.offset(skip).limit(limit).order_by(Curriculum.created_at.desc())
         )
-        return list(result.scalars().unique().all()), total
+        # Call unique() before scalars() when using joinedload on collections
+        return list(result.unique().scalars().all()), total
 
     @staticmethod
     async def get_curriculum_by_id(
