@@ -46,7 +46,7 @@ class CurriculumService:
             .options(
                 selectinload(Curriculum.classes),
                 selectinload(Curriculum.language),
-                # Don't load topics in list view for performance
+                selectinload(Curriculum.topics),  # Load topics - serialization needs them
             )
         )
         if status:
