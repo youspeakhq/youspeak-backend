@@ -44,8 +44,8 @@ class CurriculumService:
             select(Curriculum)
             .where(Curriculum.school_id == school_id)
             .options(
-                joinedload(Curriculum.classes),
-                joinedload(Curriculum.language),
+                selectinload(Curriculum.classes),
+                selectinload(Curriculum.language),
                 # Don't load topics in list view for performance
             )
         )
@@ -71,8 +71,8 @@ class CurriculumService:
         result = await db.execute(
             query.offset(skip).limit(limit).order_by(Curriculum.created_at.desc())
         )
-        # Call unique() before scalars() when using joinedload on collections
-        return list(result.unique().scalars().all()), total
+        # Use selectinload (not joinedload) to avoid MissingGreenlet errors with relationships
+        return list(result.scalars().all()), total
 
     @staticmethod
     async def get_curriculum_by_id(
