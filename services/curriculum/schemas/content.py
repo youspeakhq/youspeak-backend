@@ -55,6 +55,7 @@ class CurriculumUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[CurriculumStatus] = None
+    source_type: Optional[CurriculumSourceType] = None
     file_url: Optional[str] = None
     class_ids: Optional[List[UUID]] = None
 
