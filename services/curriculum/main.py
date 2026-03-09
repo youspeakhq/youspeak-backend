@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from config import settings
 from database import engine, get_db, close_db
 from api.routes import router
+from api.admin_routes import router as admin_router
 
 
 @asynccontextmanager
@@ -27,6 +28,7 @@ app = FastAPI(
 )
 
 app.include_router(router, prefix="/curriculums", tags=["Curriculum"])
+app.include_router(admin_router, prefix="/curriculums", tags=["Admin"])
 
 
 @app.get("/health")
