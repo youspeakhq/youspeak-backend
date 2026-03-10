@@ -82,13 +82,23 @@ async def parse_create_class_request(request: Request) -> Tuple[ClassCreate, Opt
 
 @router.get("", response_model=SuccessResponse[List[ClassResponse]])
 async def get_my_classes(
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
-    List assigned classes.
+    List classes.
+    - Teachers: Returns only assigned classes
+    - Admins: Returns all classes in the school
     """
-    classes = await AcademicService.get_teacher_classes(db, current_user.id)
+    from app.models.enums import UserRole
+
+    if current_user.role == UserRole.SCHOOL_ADMIN:
+        # Admin: get all school classes
+        classes = await AcademicService.get_school_classes(db, current_user.school_id)
+    else:
+        # Teacher: get only assigned classes
+        classes = await AcademicService.get_teacher_classes(db, current_user.id)
+
     return SuccessResponse(data=classes)
 
 
