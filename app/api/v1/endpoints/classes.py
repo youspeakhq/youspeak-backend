@@ -86,7 +86,7 @@ async def get_my_classes(
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
-    List classes.
+    List classes (role-based access).
     - Teachers: Returns only assigned classes
     - Admins: Returns all classes in the school
     """
