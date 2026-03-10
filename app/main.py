@@ -167,11 +167,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "correlation_id": getattr(request.state, "request_id", None),
         }
     )
+    # Handle FormData or other non-serializable body types
+    body_value = exc.body
+    if not isinstance(body_value, (dict, list, str, int, float, bool, type(None))):
+        body_value = str(body_value)
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "detail": exc.errors(),
-            "body": exc.body
+            "body": body_value
         },
     )
 
