@@ -284,11 +284,16 @@ async def test_teacher_cannot_create_student(
 
 
 @pytest.mark.asyncio
-async def test_admin_cannot_access_teacher_my_classes(
+async def test_admin_can_access_all_school_classes(
     async_client: AsyncClient, api_base: str, registered_school: dict
 ):
+    """Admins can access /my-classes and get all school classes (not just assigned ones)."""
     resp = await async_client.get(f"{api_base}/my-classes", headers=registered_school["headers"])
-    assert resp.status_code == 403
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "data" in data
+    assert isinstance(data["data"], list)
+    # Admins should see all classes in the school
 
 
 @pytest.mark.asyncio
