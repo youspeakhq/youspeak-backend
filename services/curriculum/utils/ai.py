@@ -367,19 +367,55 @@ async def structured_completion(
                     detail=f"AI generation timed out after {MAX_RETRIES} attempts. Correlation ID: {correlation_id}",
                 )
         except Exception as e:
-            # Non-timeout errors don't retry
-            logger.error(
-                "Bedrock request failed",
-                extra={
-                    "correlation_id": correlation_id,
-                    "error_type": type(e).__name__,
-                    "error": str(e),
-                }
+            # Check if it's a retryable error (connection issues, transient errors)
+            error_name = type(e).__name__
+            is_retryable = any(
+                err in error_name
+                for err in [
+                    "ConnectionClosed",
+                    "ConnectionReset",
+                    "ConnectionError",
+                    "BrokenPipe",
+                    "EndpointConnectionError",
+                    "ReadTimeout",
+                    "ConnectTimeout",
+                ]
             )
-            raise HTTPException(
-                status_code=503,
-                detail=f"AI service error: {type(e).__name__}. Correlation ID: {correlation_id}",
-            )
+
+            if is_retryable and attempt < MAX_RETRIES - 1:
+                # Retry transient connection errors with exponential backoff
+                base_delay = 2 ** attempt
+                jitter = random.uniform(0.5, 1.5)
+                delay = base_delay * jitter
+
+                logger.warning(
+                    "Bedrock request failed with retryable error, retrying",
+                    extra={
+                        "correlation_id": correlation_id,
+                        "error_type": error_name,
+                        "error": str(e),
+                        "attempt": attempt + 1,
+                        "max_retries": MAX_RETRIES,
+                        "delay_seconds": delay,
+                    }
+                )
+                await asyncio.sleep(delay)
+            else:
+                # Non-retryable error or final retry attempt failed
+                logger.error(
+                    "Bedrock request failed",
+                    extra={
+                        "correlation_id": correlation_id,
+                        "error_type": error_name,
+                        "error": str(e),
+                        "is_retryable": is_retryable,
+                        "attempts": attempt + 1,
+                    }
+                )
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"AI service error: {error_name}. Correlation ID: {correlation_id}",
+                )
 
     # Extract JSON from response
     text = _extract_json(text)
@@ -461,7 +497,7 @@ class ChatCompletionsShim:
     def completions(self) -> "ChatCompletionsShim":
         return self
 
-    async def create(self, *, model: str, response_model: type, messages: List[dict], max_tokens: int = DEFAULT_MAX_TOKENS, **kwargs: Any) -> Any:
+    async def create(self, *, model: str, response_model: type, messages: List[dict], max_tokens: int = DEFAULT_MAX_TOKENS, **_kwargs: Any) -> Any:
         return await structured_completion(model, messages, response_model, max_tokens=max_tokens)
 
 
