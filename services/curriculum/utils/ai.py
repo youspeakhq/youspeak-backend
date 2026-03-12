@@ -19,7 +19,7 @@ _bedrock: Any = None
 
 # Default max tokens for curriculum generate (smaller = faster). Other flows can override.
 DEFAULT_MAX_TOKENS = 2048
-BEDROCK_TIMEOUT_SECONDS = 75
+BEDROCK_TIMEOUT_SECONDS = 60  # Must be LESS than boto3 read_timeout (70s) to avoid ConnectionClosedError
 MAX_RETRIES = 3
 
 # Circuit breaker settings
@@ -120,7 +120,16 @@ _circuit_breaker = CircuitBreaker(
 
 
 def _get_bedrock():
-    """Get Bedrock client with connection pooling configuration."""
+    """
+    Get Bedrock client with connection pooling configuration.
+
+    Configuration rationale:
+    - max_pool_connections=100: Supports concurrent requests; AWS default is 10
+    - retries=0: We handle retries at application level for better control
+    - connect_timeout=10s: Time to establish connection; increased from 5s
+    - read_timeout=70s: Time to read response; MUST be > app timeout (60s)
+    - App timeout (60s) < read_timeout (70s) prevents ConnectionClosedError
+    """
     global _bedrock
     if _bedrock is None:
         import boto3
@@ -128,10 +137,10 @@ def _get_bedrock():
 
         config = Config(
             region_name=settings.AWS_REGION,
-            max_pool_connections=50,  # Connection pooling
+            max_pool_connections=100,  # Increased for concurrent requests
             retries={'max_attempts': 0},  # Handle retries ourselves
-            connect_timeout=5,
-            read_timeout=70,
+            connect_timeout=10,  # Increased from 5s to reduce connection failures
+            read_timeout=70,  # Keep at 70s (app timeout is 60s)
         )
         _bedrock = boto3.client("bedrock-runtime", config=config)
         logger.info(
@@ -369,6 +378,9 @@ async def structured_completion(
         except Exception as e:
             # Check if it's a retryable error (connection issues, transient errors)
             error_name = type(e).__name__
+            error_str = str(e).lower()
+
+            # Expanded list of retryable errors from boto3/botocore and urllib3
             is_retryable = any(
                 err in error_name
                 for err in [
@@ -379,6 +391,20 @@ async def structured_completion(
                     "EndpointConnectionError",
                     "ReadTimeout",
                     "ConnectTimeout",
+                    "ProtocolError",
+                    "IncompleteRead",
+                    "ResponseStreamingError",
+                    "ReadTimeoutError",
+                    "ConnectTimeoutError",
+                ]
+            ) or any(
+                phrase in error_str
+                for phrase in [
+                    "connection reset",
+                    "connection closed",
+                    "broken pipe",
+                    "connection aborted",
+                    "timeout",
                 ]
             )
 
