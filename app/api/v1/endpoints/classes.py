@@ -109,9 +109,12 @@ async def get_class_by_id(
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
-    Get a single class by ID (role-based access).
+    Get a single class by ID with role-based access control.
+
     - Teachers: Can only access their assigned classes
     - Admins: Can access any class in their school
+
+    Returns 404 if class not found, 403 if access denied.
     """
     from app.models.enums import UserRole
 
