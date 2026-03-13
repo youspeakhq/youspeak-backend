@@ -130,19 +130,13 @@ async def test_get_class_by_id_not_found(
 
 @pytest.mark.asyncio
 async def test_get_class_by_id_access_denied(
-    async_client: AsyncClient, api_base: str, teacher_headers: dict, unique_suffix: str
+    async_client: AsyncClient, api_base: str, teacher_headers: dict, registered_school: dict, unique_suffix: str
 ):
-    # Create a second teacher
+    # Create a second teacher in the same school
     email2 = f"teacher2_{unique_suffix}@test.com"
-    admin_resp = await async_client.post(
-        f"{api_base}/auth/login",
-        json={"email": "admin@test.com", "password": "Pass123!"},
-    )
-    admin_headers = {"Authorization": f"Bearer {admin_resp.json()['data']['access_token']}"}
-
     create_teacher_resp = await async_client.post(
         f"{api_base}/teachers",
-        headers=admin_headers,
+        headers=registered_school["headers"],  # Use registered school admin
         json={"first_name": "Teacher", "last_name": "Two", "email": email2},
     )
     code2 = create_teacher_resp.json()["data"]["access_code"]
