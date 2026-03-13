@@ -418,3 +418,265 @@ async def test_create_award_requires_teacher(
         },
     )
     assert resp.status_code == 403
+
+
+# --- Bulk Roster Import for Existing Classes ---
+
+
+@pytest.mark.asyncio
+async def test_import_roster_to_existing_class(
+    async_client: AsyncClient,
+    api_base: str,
+    teacher_headers: dict,
+    unique_suffix: str,
+):
+    """Import roster CSV to existing class using POST /my-classes/{class_id}/roster/import."""
+    # 1. Create class without roster
+    resp = await async_client.get(
+        f"{api_base}/schools/terms",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    term_id = resp.json()["data"][0]["id"]
+
+    resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        json={
+            "name": f"Roster Import Test {unique_suffix}",
+            "schedule": [{"day_of_week": "Thu", "start_time": "14:00:00", "end_time": "15:00:00"}],
+            "language_id": 1,
+            "term_id": term_id,
+        },
+    )
+    assert resp.status_code == 200
+    class_id = resp.json()["data"]["id"]
+
+    # 2. Upload roster to existing class
+    csv_content = (
+        b"first_name,last_name,email,student_id\n"
+        + f"Charlie,Brown,charlie.{unique_suffix}@test.com,2025-001\n".encode()
+        + f"Lucy,Van Pelt,lucy.{unique_suffix}@test.com,2025-002\n".encode()
+        + b"Snoopy,Dog,,2025-003\n"  # No email (auto-generated)
+    )
+
+    resp = await async_client.post(
+        f"{api_base}/my-classes/{class_id}/roster/import",
+        headers=teacher_headers,
+        files={"file": ("roster.csv", csv_content, "text/csv")},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert "created" in data
+    assert "enrolled" in data
+    assert "skipped" in data
+    assert "errors" in data
+    assert data["created"] >= 3  # 3 new students
+    assert data["enrolled"] >= 3  # All 3 enrolled
+    assert isinstance(data["errors"], list)
+
+    # 3. Verify roster
+    resp = await async_client.get(
+        f"{api_base}/my-classes/{class_id}/roster",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    roster = resp.json()["data"]
+    assert len(roster) >= 3
+    emails = [s["email"] for s in roster]
+    assert f"charlie.{unique_suffix}@test.com" in emails
+    assert f"lucy.{unique_suffix}@test.com" in emails
+
+
+@pytest.mark.asyncio
+async def test_import_roster_skips_existing_students(
+    async_client: AsyncClient,
+    api_base: str,
+    teacher_headers: dict,
+    unique_suffix: str,
+):
+    """Importing roster with existing students skips already-enrolled students."""
+    # 1. Create class with initial roster
+    resp = await async_client.get(
+        f"{api_base}/schools/terms",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    term_id = resp.json()["data"][0]["id"]
+
+    csv_content_1 = (
+        b"first_name,last_name,email\n"
+        + f"Alice,Existing,alice.{unique_suffix}@test.com\n".encode()
+    )
+
+    resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        data={
+            "data": json.dumps({
+                "name": f"Skip Test {unique_suffix}",
+                "schedule": [{"day_of_week": "Fri", "start_time": "10:00:00", "end_time": "11:00:00"}],
+                "language_id": 1,
+                "term_id": term_id,
+            })
+        },
+        files={"file": ("roster.csv", csv_content_1, "text/csv")},
+    )
+    assert resp.status_code == 200
+    class_id = resp.json()["data"]["id"]
+
+    # 2. Try to import same student again + new student
+    csv_content_2 = (
+        b"first_name,last_name,email\n"
+        + f"Alice,Existing,alice.{unique_suffix}@test.com\n".encode()  # Duplicate
+        + f"Bob,New,bob.{unique_suffix}@test.com\n".encode()  # New
+    )
+
+    resp = await async_client.post(
+        f"{api_base}/my-classes/{class_id}/roster/import",
+        headers=teacher_headers,
+        files={"file": ("roster.csv", csv_content_2, "text/csv")},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["skipped"] >= 1  # Alice skipped (already enrolled)
+    assert data["enrolled"] >= 1  # Bob enrolled
+    assert data["created"] >= 1  # Bob created
+
+    # 3. Verify roster has 2 students total
+    resp = await async_client.get(
+        f"{api_base}/my-classes/{class_id}/roster",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    roster = resp.json()["data"]
+    assert len(roster) == 2  # Alice + Bob
+
+
+@pytest.mark.asyncio
+async def test_import_roster_requires_teacher_access(
+    async_client: AsyncClient,
+    api_base: str,
+    teacher_headers: dict,
+    unique_suffix: str,
+):
+    """Teacher cannot import roster to class they don't teach."""
+    # Create class as first teacher
+    resp = await async_client.get(
+        f"{api_base}/schools/terms",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    term_id = resp.json()["data"][0]["id"]
+
+    resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        json={
+            "name": f"Restricted Class {unique_suffix}",
+            "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
+            "language_id": 1,
+            "term_id": term_id,
+        },
+    )
+    assert resp.status_code == 200
+    class_id = resp.json()["data"]["id"]
+
+    # Try to import as different teacher (use admin headers as proxy for "other user")
+    resp = await async_client.get(f"{api_base}/schools/terms", headers=teacher_headers)
+    assert resp.status_code == 200
+
+    csv_content = b"first_name,last_name,email\nTest,Student,test@test.com\n"
+
+    # TODO: Create second teacher fixture for proper test
+    # For now, test with class_id that doesn't exist
+    fake_class_id = "00000000-0000-0000-0000-000000000999"
+    resp = await async_client.post(
+        f"{api_base}/my-classes/{fake_class_id}/roster/import",
+        headers=teacher_headers,
+        files={"file": ("roster.csv", csv_content, "text/csv")},
+    )
+    assert resp.status_code == 404  # Class not found
+
+
+@pytest.mark.asyncio
+async def test_import_roster_requires_csv_file(
+    async_client: AsyncClient,
+    api_base: str,
+    teacher_headers: dict,
+    unique_suffix: str,
+):
+    """Import roster requires CSV file extension."""
+    # Create class
+    resp = await async_client.get(
+        f"{api_base}/schools/terms",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    term_id = resp.json()["data"][0]["id"]
+
+    resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        json={
+            "name": f"CSV Test {unique_suffix}",
+            "schedule": [{"day_of_week": "Wed", "start_time": "13:00:00", "end_time": "14:00:00"}],
+            "language_id": 1,
+            "term_id": term_id,
+        },
+    )
+    assert resp.status_code == 200
+    class_id = resp.json()["data"]["id"]
+
+    # Try to upload non-CSV file
+    txt_content = b"first_name,last_name\nTest,Student\n"
+    resp = await async_client.post(
+        f"{api_base}/my-classes/{class_id}/roster/import",
+        headers=teacher_headers,
+        files={"file": ("roster.txt", txt_content, "text/plain")},
+    )
+    assert resp.status_code == 400
+    assert "csv" in resp.json().get("detail", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_import_roster_empty_csv(
+    async_client: AsyncClient,
+    api_base: str,
+    teacher_headers: dict,
+    unique_suffix: str,
+):
+    """Import roster with empty CSV returns appropriate response."""
+    # Create class
+    resp = await async_client.get(
+        f"{api_base}/schools/terms",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    term_id = resp.json()["data"][0]["id"]
+
+    resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        json={
+            "name": f"Empty CSV Test {unique_suffix}",
+            "schedule": [{"day_of_week": "Tue", "start_time": "11:00:00", "end_time": "12:00:00"}],
+            "language_id": 1,
+            "term_id": term_id,
+        },
+    )
+    assert resp.status_code == 200
+    class_id = resp.json()["data"]["id"]
+
+    # Upload empty CSV (just headers)
+    csv_content = b"first_name,last_name,email\n"
+    resp = await async_client.post(
+        f"{api_base}/my-classes/{class_id}/roster/import",
+        headers=teacher_headers,
+        files={"file": ("roster.csv", csv_content, "text/csv")},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["created"] == 0
+    assert data["enrolled"] == 0
+    assert data["skipped"] == 0

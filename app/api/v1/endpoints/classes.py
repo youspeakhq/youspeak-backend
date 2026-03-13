@@ -460,7 +460,7 @@ async def add_student_to_roster(
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
-    Add student with specific role.
+    Add single student to class roster with specific role.
     """
     success = await AcademicService.add_student_to_class(
         db, class_id, roster_in.student_id, roster_in.role
@@ -469,3 +469,72 @@ async def add_student_to_roster(
         raise HTTPException(status_code=400, detail="Could not add student")
 
     return SuccessResponse(message="Student added to class")
+
+
+@router.post("/{class_id}/roster/import", response_model=SuccessResponse)
+async def import_class_roster(
+    class_id: UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Bulk import students to existing class from CSV.
+
+    This endpoint allows teachers to upload a roster CSV for an existing class
+    (useful when roster upload was skipped during class creation).
+
+    **CSV Format:**
+    - Required columns: `first_name`, `last_name`
+    - Optional columns: `email`, `student_id`
+
+    **Behavior:**
+    - Creates new student accounts if they don't exist
+    - Enrolls existing students if found by email
+    - Skips students already enrolled in the class
+    - All students use the class's language_id
+
+    **Example CSV:**
+    ```csv
+    first_name,last_name,email,student_id
+    John,Doe,john.doe@example.com,2025-001
+    Jane,Smith,jane.smith@example.com,2025-002
+    Alice,Johnson,,2025-003
+    ```
+
+    **Response includes:**
+    - `created`: Number of new student accounts created
+    - `enrolled`: Number of students successfully enrolled
+    - `skipped`: Number of students skipped (already enrolled or duplicates)
+    - `errors`: List of error messages if any rows failed
+    """
+    # Check class exists and teacher has access
+    cls = await AcademicService.get_class_by_id(db, class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+    if not any(c.id == class_id for c in teacher_classes):
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    # Validate file format
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only CSV files are supported. Required columns: first_name, last_name. Optional: email, student_id"
+        )
+
+    # Read and import roster
+    content = await file.read()
+    result = await AcademicService.import_roster_from_csv(
+        db, class_id, content, current_user.school_id, cls.language_id
+    )
+
+    # Build response message
+    msg = f"Imported: {result['created']} created, {result['enrolled']} enrolled, {result['skipped']} skipped."
+    if result.get("errors"):
+        msg += f" Errors: {'; '.join(result['errors'][:5])}"
+        if len(result["errors"]) > 5:
+            msg += f" (+{len(result['errors']) - 5} more)"
+
+    return SuccessResponse(data=result, message=msg)
