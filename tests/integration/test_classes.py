@@ -79,6 +79,113 @@ async def test_create_class(
 
 
 @pytest.mark.asyncio
+async def test_get_class_by_id(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict
+):
+    # Create a class first
+    resp = await async_client.get(
+        f"{api_base}/schools/terms",
+        headers=teacher_headers,
+    )
+    term_id = resp.json()["data"][0]["id"]
+
+    create_resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        json={
+            "name": "Spanish 101",
+            "schedule": [
+                {"day_of_week": "Tue", "start_time": "10:00:00", "end_time": "11:00:00"}
+            ],
+            "language_id": 1,
+            "term_id": term_id,
+        },
+    )
+    assert create_resp.status_code == 200
+    class_id = create_resp.json()["data"]["id"]
+
+    # Get the class by ID
+    get_resp = await async_client.get(
+        f"{api_base}/my-classes/{class_id}",
+        headers=teacher_headers,
+    )
+    assert get_resp.status_code == 200
+    data = get_resp.json()["data"]
+    assert data["id"] == class_id
+    assert data["name"] == "Spanish 101"
+
+
+@pytest.mark.asyncio
+async def test_get_class_by_id_not_found(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict
+):
+    # Try to get a non-existent class
+    fake_id = "00000000-0000-0000-0000-000000000000"
+    resp = await async_client.get(
+        f"{api_base}/my-classes/{fake_id}",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_class_by_id_access_denied(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict, unique_suffix: str
+):
+    # Create a second teacher
+    email2 = f"teacher2_{unique_suffix}@test.com"
+    admin_resp = await async_client.post(
+        f"{api_base}/auth/login",
+        json={"email": "admin@test.com", "password": "Pass123!"},
+    )
+    admin_headers = {"Authorization": f"Bearer {admin_resp.json()['data']['access_token']}"}
+
+    create_teacher_resp = await async_client.post(
+        f"{api_base}/teachers",
+        headers=admin_headers,
+        json={"first_name": "Teacher", "last_name": "Two", "email": email2},
+    )
+    code2 = create_teacher_resp.json()["data"]["access_code"]
+    await async_client.post(
+        f"{api_base}/auth/register/teacher",
+        json={
+            "access_code": code2,
+            "email": email2,
+            "password": "Pass123!",
+            "first_name": "Teacher",
+            "last_name": "Two",
+        },
+    )
+    login2_resp = await async_client.post(
+        f"{api_base}/auth/login",
+        json={"email": email2, "password": "Pass123!"},
+    )
+    teacher2_headers = {"Authorization": f"Bearer {login2_resp.json()['data']['access_token']}"}
+
+    # Teacher 1 creates a class
+    resp = await async_client.get(f"{api_base}/schools/terms", headers=teacher_headers)
+    term_id = resp.json()["data"][0]["id"]
+    create_resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        json={
+            "name": "German 101",
+            "schedule": [{"day_of_week": "Wed", "start_time": "11:00:00", "end_time": "12:00:00"}],
+            "language_id": 1,
+            "term_id": term_id,
+        },
+    )
+    class_id = create_resp.json()["data"]["id"]
+
+    # Teacher 2 tries to access Teacher 1's class - should be denied
+    get_resp = await async_client.get(
+        f"{api_base}/my-classes/{class_id}",
+        headers=teacher2_headers,
+    )
+    assert get_resp.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_create_class_with_timeline(
     async_client: AsyncClient, api_base: str, teacher_headers: dict, unique_suffix: str
 ):

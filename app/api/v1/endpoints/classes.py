@@ -102,6 +102,40 @@ async def get_my_classes(
     return SuccessResponse(data=classes)
 
 
+@router.get("/{class_id}", response_model=SuccessResponse[ClassResponse])
+async def get_class_by_id(
+    class_id: UUID,
+    current_user: User = Depends(deps.require_teacher_or_admin),
+    db: AsyncSession = Depends(deps.get_db)
+) -> Any:
+    """
+    Get a single class by ID (role-based access).
+    - Teachers: Can only access their assigned classes
+    - Admins: Can access any class in their school
+    """
+    from app.models.enums import UserRole
+
+    # Fetch the class
+    cls = await AcademicService.get_class_by_id(db, class_id)
+
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    # Access control: verify user has permission to view this class
+    if current_user.role == UserRole.SCHOOL_ADMIN:
+        # Admin: can access any class in their school
+        if cls.school_id != current_user.school_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        # Teacher: can only access their assigned classes
+        teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+        teacher_class_ids = {c.id for c in teacher_classes}
+        if class_id not in teacher_class_ids:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    return SuccessResponse(data=cls)
+
+
 @router.get("/leaderboard", response_model=SuccessResponse[LeaderboardResponse])
 async def get_my_classes_leaderboard(
     current_user: User = Depends(deps.require_teacher),
