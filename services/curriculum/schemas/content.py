@@ -1,6 +1,6 @@
 """Curriculum request/response schemas."""
 
-from typing import Optional, List
+from typing import Optional, List, Literal
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
@@ -141,7 +141,7 @@ class ExtractMarkingSchemeResponse(BaseModel):
 
 class GenerateAssessmentQuestionsRequest(BaseModel):
     topics: List[str]
-    assignment_type: str = "written"  # "oral" | "written"
+    assignment_type: Literal["written", "multiple_choice", "mixed", "oral"] = "multiple_choice"
 
 
 class QuestionForEvaluation(BaseModel):

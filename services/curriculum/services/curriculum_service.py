@@ -361,9 +361,18 @@ class CurriculumService:
     @staticmethod
     async def generate_assessment_questions(
         topics: List[str],
-        assignment_type: str = "written",
+        assignment_type: str = "multiple_choice",
     ) -> List[ExtractedQuestion]:
-        """Generate assessment questions from topics using Bedrock (Generate with AI)."""
+        """Generate assessment questions from topics using Bedrock (Generate with AI).
+
+        Args:
+            topics: List of topics to cover
+            assignment_type: One of "written", "multiple_choice", "mixed", "oral"
+                - "written": Only open_text questions
+                - "multiple_choice": Only multiple_choice questions
+                - "mixed": Both multiple_choice and open_text questions
+                - "oral": Only oral (speaking/listening) questions
+        """
         if os.getenv("TEST_MODE") == "true":
             return [
                 ExtractedQuestion(
@@ -372,14 +381,34 @@ class CurriculumService:
                     correct_answer=None,
                 )
             ]
+
         ai_client = _get_ai_client()
-        type_hint = "oral (speaking/listening)" if assignment_type == "oral" else "written"
+
+        # Map assignment_type to specific question type constraints
+        if assignment_type == "written":
+            type_constraint = "open_text ONLY (no multiple choice)"
+            allowed_types = "open_text"
+        elif assignment_type == "multiple_choice":
+            type_constraint = "multiple_choice ONLY"
+            allowed_types = "multiple_choice"
+        elif assignment_type == "mixed":
+            type_constraint = "a mix of multiple_choice AND open_text"
+            allowed_types = "multiple_choice, open_text"
+        elif assignment_type == "oral":
+            type_constraint = "oral (speaking/listening) ONLY"
+            allowed_types = "oral"
+        else:
+            # Default fallback
+            type_constraint = "multiple_choice ONLY"
+            allowed_types = "multiple_choice"
+
         prompt = (
-            f"Generate 5–10 assessment questions for a {type_hint} language assessment. "
+            f"Generate 5–10 assessment questions with {type_constraint}. "
             "Topics to cover: " + ", ".join(topics) + ". "
-            "For each question include: question_text, type (one of: multiple_choice, open_text, oral), "
-            "correct_answer when applicable, and options for multiple_choice."
+            f"IMPORTANT: ALL questions must have type set to one of: {allowed_types}. "
+            "For each question include: question_text, type, correct_answer when applicable, and options for multiple_choice."
         )
+
         questions = await ai_client.chat.completions.create(
             model=settings.BEDROCK_MODEL_ID,
             response_model=List[ExtractedQuestion],
@@ -387,9 +416,9 @@ class CurriculumService:
                 {
                     "role": "system",
                     "content": (
-                        "You are an expert language assessment designer. Output a structured list of questions "
-                        "suitable for the given topics and assessment type. Use clear question_text and appropriate "
-                        "type (multiple_choice, open_text, oral)."
+                        f"You are an expert language assessment designer. Output a structured list of questions "
+                        f"suitable for the given topics. CRITICAL: Only generate questions with type: {allowed_types}. "
+                        "Do not deviate from the specified question type(s)."
                     ),
                 },
                 {"role": "user", "content": prompt},

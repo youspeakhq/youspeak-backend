@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pydantic import BaseModel, ConfigDict, field_validator
 from uuid import UUID
 from datetime import datetime, timezone
@@ -288,7 +288,7 @@ class AnalyticsSummary(BaseModel):
 class GenerateQuestionsRequest(BaseModel):
     """Request for Generate with AI (calls curriculum/Bedrock)."""
     topics: List[str]
-    assignment_type: str = "written"  # oral | written
+    assignment_type: Literal["written", "multiple_choice", "mixed", "oral"] = "multiple_choice"
 
 
 class GeneratedQuestion(BaseModel):
