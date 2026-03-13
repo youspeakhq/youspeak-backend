@@ -1,5 +1,5 @@
 from typing import Optional, List, Literal
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from uuid import UUID
 from datetime import datetime, timezone
 
@@ -289,6 +289,7 @@ class GenerateQuestionsRequest(BaseModel):
     """Request for Generate with AI (calls curriculum/Bedrock)."""
     topics: List[str]
     assignment_type: Literal["written", "multiple_choice", "mixed", "oral"] = "multiple_choice"
+    num_questions: int = Field(default=10, ge=1, le=20, description="Number of questions to generate (1-20)")
 
 
 class GeneratedQuestion(BaseModel):

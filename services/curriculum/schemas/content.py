@@ -3,7 +3,7 @@
 from typing import Optional, List, Literal
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from models.enums import CurriculumSourceType, CurriculumStatus
 
@@ -142,6 +142,7 @@ class ExtractMarkingSchemeResponse(BaseModel):
 class GenerateAssessmentQuestionsRequest(BaseModel):
     topics: List[str]
     assignment_type: Literal["written", "multiple_choice", "mixed", "oral"] = "multiple_choice"
+    num_questions: int = Field(default=10, ge=1, le=20, description="Number of questions to generate (1-20)")
 
 
 class QuestionForEvaluation(BaseModel):

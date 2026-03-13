@@ -129,6 +129,7 @@ async def generate_assessment_questions(
         questions = await CurriculumService.generate_assessment_questions(
             topics=body.topics,
             assignment_type=body.assignment_type or "written",
+            num_questions=body.num_questions,
         )
     except Exception as e:
         raise HTTPException(

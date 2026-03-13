@@ -124,7 +124,7 @@ async def generate_questions(
         headers["X-Internal-Secret"] = settings.CURRICULUM_INTERNAL_SECRET
     r = await client.post(
         "/curriculums/assessment-questions/generate",
-        json={"topics": body.topics, "assignment_type": body.assignment_type},
+        json={"topics": body.topics, "assignment_type": body.assignment_type, "num_questions": body.num_questions},
         headers=headers,
     )
     if r.status_code >= 400:

@@ -362,6 +362,7 @@ class CurriculumService:
     async def generate_assessment_questions(
         topics: List[str],
         assignment_type: str = "multiple_choice",
+        num_questions: int = 10,
     ) -> List[ExtractedQuestion]:
         """Generate assessment questions from topics using Bedrock (Generate with AI).
 
@@ -372,6 +373,7 @@ class CurriculumService:
                 - "multiple_choice": Only multiple_choice questions
                 - "mixed": Both multiple_choice and open_text questions
                 - "oral": Only oral (speaking/listening) questions
+            num_questions: Number of questions to generate (default: 10)
         """
         if os.getenv("TEST_MODE") == "true":
             return [
@@ -403,9 +405,9 @@ class CurriculumService:
             allowed_types = "multiple_choice"
 
         prompt = (
-            f"Generate 5–10 assessment questions with {type_constraint}. "
+            f"Generate exactly {num_questions} assessment questions with {type_constraint}. "
             "Topics to cover: " + ", ".join(topics) + ". "
-            f"IMPORTANT: ALL questions must have type set to one of: {allowed_types}. "
+            f"IMPORTANT: Generate EXACTLY {num_questions} questions. ALL questions must have type set to one of: {allowed_types}. "
             "For each question include: question_text, type, correct_answer when applicable, and options for multiple_choice."
         )
 
