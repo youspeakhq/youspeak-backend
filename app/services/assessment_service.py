@@ -224,6 +224,34 @@ class AssessmentService:
         return q
 
     @staticmethod
+    async def bulk_create_questions(
+        db: AsyncSession,
+        teacher_id: UUID,
+        questions: List[QuestionBase],
+    ) -> List[Question]:
+        """Bulk create questions in the teacher's bank."""
+        if not questions:
+            return []
+
+        question_objects = [
+            Question(
+                teacher_id=teacher_id,
+                question_text=q.question_text,
+                type=q.type,
+                correct_answer=q.correct_answer,
+            )
+            for q in questions
+        ]
+        db.add_all(question_objects)
+        await db.commit()
+
+        # Refresh all to get IDs and timestamps
+        for q in question_objects:
+            await db.refresh(q)
+
+        return question_objects
+
+    @staticmethod
     async def get_questions_for_assignment(
         db: AsyncSession,
         assignment_id: UUID,

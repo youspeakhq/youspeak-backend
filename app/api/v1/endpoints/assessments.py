@@ -92,6 +92,23 @@ async def create_question(
     return SuccessResponse(data=QuestionResponse.model_validate(q), message="Question created")
 
 
+@router.post("/questions/bank/bulk", response_model=SuccessResponse[List[QuestionResponse]])
+async def bulk_create_questions(
+    questions: List[QuestionBase],
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """Bulk create questions in the teacher's bank (for saving AI-generated questions)."""
+    if not questions:
+        raise HTTPException(status_code=400, detail="Questions list cannot be empty")
+
+    created = await AssessmentService.bulk_create_questions(db, current_user.id, questions)
+    return SuccessResponse(
+        data=[QuestionResponse.model_validate(q) for q in created],
+        message=f"{len(created)} questions saved to bank",
+    )
+
+
 @router.post("/questions/generate", response_model=SuccessResponse[List[GeneratedQuestion]])
 async def generate_questions(
     request: Request,

@@ -383,6 +383,70 @@ async def test_create_question_invalid_type_returns_422(
     assert resp.status_code == 422
 
 
+@pytest.mark.asyncio
+async def test_bulk_create_questions_success(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict, unique_suffix: str
+):
+    questions = [
+        {
+            "question_text": f"What is the capital of France? {unique_suffix}",
+            "type": "multiple_choice",
+            "correct_answer": "Paris",
+            "options": ["Paris", "London", "Berlin", "Madrid"],
+        },
+        {
+            "question_text": f"Describe your daily routine {unique_suffix}",
+            "type": "open_text",
+        },
+        {
+            "question_text": f"Pronounce the following word {unique_suffix}",
+            "type": "oral",
+        },
+    ]
+
+    resp = await async_client.post(
+        f"{api_base}/assessments/questions/bank/bulk",
+        headers=teacher_headers,
+        json=questions,
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data.get("success") is True
+    assert "3 questions saved to bank" in data.get("message", "")
+
+    created = data["data"]
+    assert len(created) == 3
+    assert all("id" in q for q in created)
+    assert created[0]["question_text"] == f"What is the capital of France? {unique_suffix}"
+    assert created[0]["type"] == "multiple_choice"
+    assert created[1]["type"] == "open_text"
+    assert created[2]["type"] == "oral"
+
+
+@pytest.mark.asyncio
+async def test_bulk_create_questions_empty_list_returns_400(
+    async_client: AsyncClient, api_base: str, teacher_headers: dict
+):
+    resp = await async_client.post(
+        f"{api_base}/assessments/questions/bank/bulk",
+        headers=teacher_headers,
+        json=[],
+    )
+    assert resp.status_code == 400
+    assert "cannot be empty" in resp.json().get("detail", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_bulk_create_questions_requires_auth(
+    async_client: AsyncClient, api_base: str
+):
+    resp = await async_client.post(
+        f"{api_base}/assessments/questions/bank/bulk",
+        json=[{"question_text": "Test", "type": "open_text"}],
+    )
+    assert resp.status_code == 401
+
+
 # --- Assignment questions ---
 
 
