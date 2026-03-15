@@ -31,6 +31,11 @@ class Arena(BaseModel):
     session_state = Column(String(20), default='not_started', nullable=False, index=True)  # 'not_started' | 'initialized' | 'live' | 'completed'
     team_size = Column(Integer, nullable=True)  # For collaborative mode (2-5)
 
+    # Phase 2: Waiting room & admission
+    join_code = Column(String(20), nullable=True, unique=True)  # 6-digit code for students to join
+    qr_code_url = Column(Text, nullable=True)  # URL to QR code image
+    join_code_expires_at = Column(DateTime, nullable=True)  # Expiration timestamp
+
     # Relationships
     class_ = relationship("Class", back_populates="arenas")
     criteria = relationship("ArenaCriteria", back_populates="arena", cascade="all, delete-orphan")
@@ -97,6 +102,30 @@ class ArenaPerformer(BaseModel):
 
     def __repr__(self) -> str:
         return f"<ArenaPerformer {self.user_id} - {self.total_points} pts>"
+
+
+class ArenaWaitingRoom(BaseModel):
+    """
+    Students waiting to be admitted to an arena session.
+    Phase 2: Waiting room & admission control.
+    """
+    __tablename__ = "arena_waiting_room"
+
+    arena_id = Column(UUID(as_uuid=True), ForeignKey("arenas.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    entry_timestamp = Column(DateTime, nullable=False)
+    status = Column(String(20), default='pending', nullable=False)  # 'pending' | 'admitted' | 'rejected'
+    admitted_at = Column(DateTime, nullable=True)
+    admitted_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+
+    # Relationships
+    arena = relationship("Arena", backref="waiting_room_entries")
+    student = relationship("User", foreign_keys=[student_id], backref="arena_waiting_entries")
+    admitted_by_user = relationship("User", foreign_keys=[admitted_by])
+
+    def __repr__(self) -> str:
+        return f"<ArenaWaitingRoom arena={self.arena_id} student={self.student_id} status={self.status}>"
 
 
 # Association table for Arena <-> Moderator (Teachers/Admins)

@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '001_arena_session_config'
-down_revision = None  # Update this to previous migration ID
+down_revision = '84d9cb7499cd'  # add_topics_and_rubric_to_assignment
 branch_labels = None
 depends_on = None
 

@@ -6,16 +6,27 @@ All operations are scoped to the given teacher_id (teacher must teach the arena'
 from typing import Optional, List, Tuple
 from uuid import UUID
 import random
+import string
+from datetime import datetime, timedelta
+import io
+import base64
 
-from sqlalchemy import select, and_, delete, insert, func
+from sqlalchemy import select, and_, delete, insert, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.arena import Arena, ArenaCriteria, ArenaRule, arena_moderators
+from app.models.arena import Arena, ArenaCriteria, ArenaRule, arena_moderators, ArenaWaitingRoom
 from app.models.academic import Class, teacher_assignments
 from app.models.user import User
 from app.models.enums import ArenaStatus, UserRole
 from app.schemas.communication import ArenaCreate, ArenaUpdate, ArenaSessionConfig
+
+# QR code generation (install: pip install qrcode[pil])
+try:
+    import qrcode
+    HAS_QRCODE = True
+except ImportError:
+    HAS_QRCODE = False
 
 
 class ArenaService:
@@ -280,3 +291,253 @@ class ArenaService:
             selected_students.extend(random_selections)
 
         return selected_students
+
+    # --- Phase 2: Waiting Room & Admission ---
+
+    @staticmethod
+    def _generate_join_code(length: int = 6) -> str:
+        """Generate random alphanumeric join code (uppercase + digits)."""
+        chars = string.ascii_uppercase + string.digits
+        return ''.join(random.choice(chars) for _ in range(length))
+
+    @staticmethod
+    def _generate_qr_code(join_url: str) -> str:
+        """Generate QR code as base64 data URL."""
+        if not HAS_QRCODE:
+            return ""  # Graceful degradation if qrcode not installed
+
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(join_url)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        img_bytes = buffer.getvalue()
+        img_base64 = base64.b64encode(img_bytes).decode()
+        return f"data:image/png;base64,{img_base64}"
+
+    @staticmethod
+    async def generate_join_code(
+        db: AsyncSession,
+        arena_id: UUID,
+        teacher_id: UUID,
+        base_url: str = "https://youspeak.com/arena/join",
+    ) -> Optional[Tuple[str, str, datetime]]:
+        """
+        Generate unique join code and QR code for arena.
+        Returns (join_code, qr_code_url, expires_at) or None if arena not found.
+        """
+        # Verify teacher has access
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            return None
+
+        # Generate unique join code (retry up to 3 times if collision)
+        join_code = None
+        for attempt in range(3):
+            code = ArenaService._generate_join_code(length=6 if attempt < 2 else 8)
+            # Check uniqueness
+            result = await db.execute(
+                select(Arena).where(Arena.join_code == code)
+            )
+            if not result.scalar_one_or_none():
+                join_code = code
+                break
+
+        if not join_code:
+            raise Exception("Failed to generate unique join code after 3 attempts")
+
+        # Set expiration: arena start time + duration + 15 minutes buffer
+        if arena.start_time and arena.duration_minutes:
+            expires_at = arena.start_time + timedelta(minutes=arena.duration_minutes + 15)
+        else:
+            # Default: 24 hours from now
+            expires_at = datetime.utcnow() + timedelta(hours=24)
+
+        # Generate QR code
+        join_url = f"{base_url}?code={join_code}"
+        qr_code_url = ArenaService._generate_qr_code(join_url)
+
+        # Update arena
+        arena.join_code = join_code
+        arena.qr_code_url = qr_code_url
+        arena.join_code_expires_at = expires_at
+
+        await db.commit()
+        await db.refresh(arena)
+
+        return (join_code, qr_code_url, expires_at)
+
+    @staticmethod
+    async def student_join_waiting_room(
+        db: AsyncSession,
+        arena_id: UUID,
+        student_id: UUID,
+        join_code: str,
+    ) -> Optional[ArenaWaitingRoom]:
+        """
+        Student joins arena waiting room using join code.
+        Returns waiting room entry or None if code invalid/expired.
+        """
+        # Validate join code
+        result = await db.execute(
+            select(Arena).where(
+                Arena.id == arena_id,
+                Arena.join_code == join_code
+            )
+        )
+        arena = result.scalar_one_or_none()
+
+        if not arena:
+            return None  # Invalid arena or join code
+
+        # Check expiration
+        if arena.join_code_expires_at and datetime.utcnow() > arena.join_code_expires_at:
+            return None  # Code expired
+
+        # Check arena state (must be initialized or live)
+        if arena.session_state not in ('initialized', 'live'):
+            return None  # Cannot join
+
+        # Create waiting room entry (UNIQUE constraint handles duplicates)
+        entry = ArenaWaitingRoom(
+            arena_id=arena_id,
+            student_id=student_id,
+            entry_timestamp=datetime.utcnow(),
+            status='pending'
+        )
+        db.add(entry)
+
+        try:
+            await db.commit()
+            await db.refresh(entry)
+            return entry
+        except Exception:
+            # Duplicate entry (student already in waiting room)
+            await db.rollback()
+            return None
+
+    @staticmethod
+    async def list_waiting_room(
+        db: AsyncSession,
+        arena_id: UUID,
+        teacher_id: UUID,
+    ) -> Optional[Tuple[List[Tuple[ArenaWaitingRoom, User]], int, int, int]]:
+        """
+        List waiting room entries for arena.
+        Returns (pending_entries_with_user, total_pending, total_admitted, total_rejected).
+        """
+        # Verify teacher has access
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            return None
+
+        # Get pending entries with student info
+        q = (
+            select(ArenaWaitingRoom, User)
+            .join(User, User.id == ArenaWaitingRoom.student_id)
+            .where(
+                ArenaWaitingRoom.arena_id == arena_id,
+                ArenaWaitingRoom.status == 'pending'
+            )
+            .order_by(ArenaWaitingRoom.entry_timestamp)
+        )
+        result = await db.execute(q)
+        pending_entries = result.all()
+
+        # Get counts
+        count_q = (
+            select(
+                func.count().filter(ArenaWaitingRoom.status == 'pending').label('pending'),
+                func.count().filter(ArenaWaitingRoom.status == 'admitted').label('admitted'),
+                func.count().filter(ArenaWaitingRoom.status == 'rejected').label('rejected')
+            )
+            .where(ArenaWaitingRoom.arena_id == arena_id)
+        )
+        counts = (await db.execute(count_q)).first()
+        total_pending = counts.pending or 0
+        total_admitted = counts.admitted or 0
+        total_rejected = counts.rejected or 0
+
+        return (pending_entries, total_pending, total_admitted, total_rejected)
+
+    @staticmethod
+    async def admit_student(
+        db: AsyncSession,
+        arena_id: UUID,
+        entry_id: UUID,
+        teacher_id: UUID,
+    ) -> Optional[ArenaWaitingRoom]:
+        """
+        Admit student from waiting room.
+        Returns waiting room entry or None if not found.
+        """
+        # Verify teacher has access
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            return None
+
+        # Get waiting room entry
+        result = await db.execute(
+            select(ArenaWaitingRoom).where(
+                ArenaWaitingRoom.id == entry_id,
+                ArenaWaitingRoom.arena_id == arena_id,
+                ArenaWaitingRoom.status == 'pending'
+            )
+        )
+        entry = result.scalar_one_or_none()
+
+        if not entry:
+            return None
+
+        # Update status
+        entry.status = 'admitted'
+        entry.admitted_at = datetime.utcnow()
+        entry.admitted_by = teacher_id
+
+        # TODO Phase 4: Create arena_participants entry
+
+        await db.commit()
+        await db.refresh(entry)
+
+        return entry
+
+    @staticmethod
+    async def reject_student(
+        db: AsyncSession,
+        arena_id: UUID,
+        entry_id: UUID,
+        teacher_id: UUID,
+        reason: Optional[str] = None,
+    ) -> Optional[ArenaWaitingRoom]:
+        """
+        Reject student from waiting room.
+        Returns waiting room entry or None if not found.
+        """
+        # Verify teacher has access
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            return None
+
+        # Get waiting room entry
+        result = await db.execute(
+            select(ArenaWaitingRoom).where(
+                ArenaWaitingRoom.id == entry_id,
+                ArenaWaitingRoom.arena_id == arena_id,
+                ArenaWaitingRoom.status == 'pending'
+            )
+        )
+        entry = result.scalar_one_or_none()
+
+        if not entry:
+            return None
+
+        # Update status
+        entry.status = 'rejected'
+        entry.rejection_reason = reason
+
+        await db.commit()
+        await db.refresh(entry)
+
+        return entry

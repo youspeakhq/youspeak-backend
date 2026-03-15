@@ -27,6 +27,14 @@ from app.schemas.communication import (
     RandomizeStudentsResponse,
     HybridSelectionRequest,
     HybridSelectionResponse,
+    # Phase 2: Waiting room & admission
+    JoinCodeGenerateResponse,
+    WaitingRoomJoinRequest,
+    WaitingRoomJoinResponse,
+    WaitingRoomListResponse,
+    WaitingRoomEntry,
+    WaitingRoomAdmitResponse,
+    WaitingRoomRejectRequest,
 )
 from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
 from app.services.arena_service import ArenaService
@@ -322,4 +330,174 @@ async def hybrid_student_selection(
     return SuccessResponse(
         data=HybridSelectionResponse(final_participants=student_items),
         message=f"Selected {len(student_items)} students ({len(body.manual_selections)} manual + {body.randomize_count} random)"
+    )
+
+
+# --- Phase 2: Waiting Room & Admission Endpoints ---
+
+
+@router.post("/{arena_id}/join-code", response_model=SuccessResponse[JoinCodeGenerateResponse])
+async def generate_join_code(
+    arena_id: UUID,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Generate join code and QR code for arena.
+
+    Students use this code to join the waiting room.
+    Used by: Teacher clicks "Generate Join Code" on Arena Entry screen
+    """
+    result = await ArenaService.generate_join_code(db, arena_id, current_user.id)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    join_code, qr_code_url, expires_at = result
+
+    return SuccessResponse(
+        data=JoinCodeGenerateResponse(
+            join_code=join_code,
+            qr_code_url=qr_code_url,
+            expires_at=expires_at
+        ),
+        message="Join code generated successfully"
+    )
+
+
+@router.post("/{arena_id}/waiting-room/join", response_model=SuccessResponse[WaitingRoomJoinResponse])
+async def join_waiting_room(
+    arena_id: UUID,
+    body: WaitingRoomJoinRequest,
+    current_user: User = Depends(deps.require_student),  # Student auth
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Student joins arena waiting room using join code.
+
+    Used by: Student submits join code on join screen
+    """
+    entry = await ArenaService.student_join_waiting_room(
+        db, arena_id, current_user.id, body.join_code
+    )
+
+    if not entry:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired join code, or you have already joined"
+        )
+
+    # Calculate position in queue
+    from sqlalchemy import select, func
+    from app.models.arena import ArenaWaitingRoom
+    position_result = await db.execute(
+        select(func.count())
+        .where(
+            ArenaWaitingRoom.arena_id == arena_id,
+            ArenaWaitingRoom.status == 'pending',
+            ArenaWaitingRoom.entry_timestamp <= entry.entry_timestamp
+        )
+    )
+    position = position_result.scalar() or 1
+
+    return SuccessResponse(
+        data=WaitingRoomJoinResponse(
+            waiting_room_id=entry.id,
+            status="pending",
+            position_in_queue=position
+        ),
+        message="Successfully joined waiting room"
+    )
+
+
+@router.get("/{arena_id}/waiting-room", response_model=SuccessResponse[WaitingRoomListResponse])
+async def list_waiting_room(
+    arena_id: UUID,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    List students in arena waiting room.
+
+    Used by: Teacher sees pending students list on Arena Entry screen
+    """
+    result = await ArenaService.list_waiting_room(db, arena_id, current_user.id)
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    pending_entries, total_pending, total_admitted, total_rejected = result
+
+    entries = [
+        WaitingRoomEntry(
+            entry_id=entry.id,
+            student_id=user.id,
+            student_name=user.name,
+            avatar_url=user.profile_pic_url,
+            entry_timestamp=entry.entry_timestamp,
+            status=entry.status
+        )
+        for entry, user in pending_entries
+    ]
+
+    return SuccessResponse(
+        data=WaitingRoomListResponse(
+            pending_students=entries,
+            total_pending=total_pending,
+            total_admitted=total_admitted,
+            total_rejected=total_rejected
+        )
+    )
+
+
+@router.post("/{arena_id}/waiting-room/{entry_id}/admit", response_model=SuccessResponse[WaitingRoomAdmitResponse])
+async def admit_student(
+    arena_id: UUID,
+    entry_id: UUID,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Admit student from waiting room to arena.
+
+    Used by: Teacher clicks "Admit" button on waiting room entry
+    """
+    entry = await ArenaService.admit_student(db, arena_id, entry_id, current_user.id)
+
+    if not entry:
+        raise HTTPException(status_code=404, detail="Waiting room entry not found or already processed")
+
+    # TODO Phase 4: Return actual participant_id from arena_participants table
+    return SuccessResponse(
+        data=WaitingRoomAdmitResponse(
+            success=True,
+            participant_id=entry.student_id  # Temporary: use student_id
+        ),
+        message="Student admitted successfully"
+    )
+
+
+@router.post("/{arena_id}/waiting-room/{entry_id}/reject", response_model=SuccessResponse[WaitingRoomAdmitResponse])
+async def reject_student(
+    arena_id: UUID,
+    entry_id: UUID,
+    body: WaitingRoomRejectRequest,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Reject student from waiting room.
+
+    Used by: Teacher clicks "Reject" button on waiting room entry
+    """
+    entry = await ArenaService.reject_student(
+        db, arena_id, entry_id, current_user.id, body.reason
+    )
+
+    if not entry:
+        raise HTTPException(status_code=404, detail="Waiting room entry not found or already processed")
+
+    return SuccessResponse(
+        data=WaitingRoomAdmitResponse(success=True, participant_id=None),
+        message="Student rejected successfully"
     )

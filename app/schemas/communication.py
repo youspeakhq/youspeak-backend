@@ -142,6 +142,59 @@ class HybridSelectionResponse(BaseModel):
     final_participants: List[StudentListItem]
 
 
+# --- Phase 2: Waiting Room & Admission ---
+
+
+class JoinCodeGenerateResponse(BaseModel):
+    """Response for POST /arenas/{id}/join-code"""
+    join_code: str  # 6-digit alphanumeric
+    qr_code_url: str  # URL to QR code image
+    expires_at: datetime
+
+
+class WaitingRoomJoinRequest(BaseModel):
+    """Request for POST /arenas/{id}/waiting-room/join"""
+    join_code: str
+
+
+class WaitingRoomJoinResponse(BaseModel):
+    """Response for student joining waiting room"""
+    waiting_room_id: UUID
+    status: Literal["pending"]
+    position_in_queue: int
+
+
+class WaitingRoomEntry(BaseModel):
+    """Waiting room entry information"""
+    entry_id: UUID
+    student_id: UUID
+    student_name: str
+    avatar_url: Optional[str] = None
+    entry_timestamp: datetime
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WaitingRoomListResponse(BaseModel):
+    """Response for GET /arenas/{id}/waiting-room"""
+    pending_students: List[WaitingRoomEntry]
+    total_pending: int
+    total_admitted: int
+    total_rejected: int
+
+
+class WaitingRoomAdmitResponse(BaseModel):
+    """Response for admit/reject actions"""
+    success: bool
+    participant_id: Optional[UUID] = None  # Only for admit
+
+
+class WaitingRoomRejectRequest(BaseModel):
+    """Request for POST /arenas/{id}/waiting-room/{entry_id}/reject"""
+    reason: Optional[str] = None
+
+
 # --- Announcement ---
 
 
