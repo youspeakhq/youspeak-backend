@@ -92,6 +92,7 @@ async def teacher_with_class_and_students(
                 "first_name": f"Student{i}",
                 "last_name": "Test",
                 "email": student_email,
+                "lang_id": 1,
             },
         )
         assert resp.status_code == 200, resp.text
