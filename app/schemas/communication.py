@@ -1,5 +1,5 @@
-from typing import Optional, List, Dict
-from pydantic import BaseModel, ConfigDict
+from typing import Optional, List, Dict, Literal
+from pydantic import BaseModel, ConfigDict, field_validator
 from uuid import UUID
 from datetime import datetime
 
@@ -55,6 +55,92 @@ class ArenaResponse(BaseModel):
     rules: List[str]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- Phase 1: Arena Session Configuration ---
+
+
+class StudentListItem(BaseModel):
+    """Student information for selection UI"""
+    id: UUID
+    name: str
+    avatar_url: Optional[str] = None
+    status: Optional[str] = "active"
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ArenaSessionConfig(BaseModel):
+    """Configuration for initializing an arena session"""
+    arena_mode: Literal["competitive", "collaborative"]
+    judging_mode: Literal["teacher_only", "hybrid"]
+    ai_co_judge_enabled: bool = False
+    student_selection_mode: Literal["manual", "hybrid", "randomize"]
+    selected_student_ids: List[UUID] = []
+    team_size: Optional[int] = None
+
+    @field_validator('team_size')
+    @classmethod
+    def validate_team_size(cls, v, info):
+        arena_mode = info.data.get('arena_mode')
+        if arena_mode == 'collaborative' and v is None:
+            raise ValueError('team_size is required for collaborative mode')
+        if v is not None and (v < 2 or v > 5):
+            raise ValueError('team_size must be between 2 and 5')
+        return v
+
+    @field_validator('selected_student_ids')
+    @classmethod
+    def validate_selected_students(cls, v, info):
+        selection_mode = info.data.get('student_selection_mode')
+        if selection_mode == 'manual' and len(v) == 0:
+            raise ValueError('selected_student_ids required for manual selection mode')
+        return v
+
+
+class ArenaInitializeRequest(ArenaSessionConfig):
+    """Request body for POST /arenas/{id}/initialize"""
+    pass
+
+
+class ArenaInitializeResponse(BaseModel):
+    """Response for arena initialization"""
+    session_id: UUID  # Same as arena_id
+    status: Literal["initialized"]
+    participants: List[StudentListItem]
+    configuration: ArenaSessionConfig
+
+
+class StudentSearchResponse(BaseModel):
+    """Response for GET /students/search"""
+    students: List[StudentListItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class RandomizeStudentsRequest(BaseModel):
+    """Request for POST /arenas/{id}/students/randomize"""
+    class_id: UUID
+    participant_count: int
+
+
+class RandomizeStudentsResponse(BaseModel):
+    """Response for randomize endpoint"""
+    selected_students: List[StudentListItem]
+
+
+class HybridSelectionRequest(BaseModel):
+    """Request for POST /arenas/{id}/students/hybrid"""
+    manual_selections: List[UUID]
+    randomize_count: int
+    class_id: UUID
+
+
+class HybridSelectionResponse(BaseModel):
+    """Response for hybrid selection endpoint"""
+    final_participants: List[StudentListItem]
+
 
 # --- Announcement ---
 

@@ -5,6 +5,7 @@ All operations are scoped to the given teacher_id (teacher must teach the arena'
 
 from typing import Optional, List, Tuple
 from uuid import UUID
+import random
 
 from sqlalchemy import select, and_, delete, insert, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,8 +13,9 @@ from sqlalchemy.orm import selectinload
 
 from app.models.arena import Arena, ArenaCriteria, ArenaRule, arena_moderators
 from app.models.academic import Class, teacher_assignments
-from app.models.enums import ArenaStatus
-from app.schemas.communication import ArenaCreate, ArenaUpdate
+from app.models.user import User
+from app.models.enums import ArenaStatus, UserRole
+from app.schemas.communication import ArenaCreate, ArenaUpdate, ArenaSessionConfig
 
 
 class ArenaService:
@@ -146,3 +148,135 @@ class ArenaService:
         await db.commit()
         await db.refresh(arena)
         return arena
+
+    # --- Phase 1: Session Configuration ---
+
+    @staticmethod
+    async def search_students(
+        db: AsyncSession,
+        class_id: UUID,
+        name: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> Tuple[List[User], int]:
+        """Search for students in a class by name."""
+        q = (
+            select(User)
+            .join(User.enrollments)
+            .where(
+                User.enrollments.any(class_id=class_id),
+                User.role == UserRole.STUDENT,
+                User.is_active == True
+            )
+        )
+
+        if name:
+            q = q.where(User.name.ilike(f"%{name}%"))
+
+        # Count total
+        count_q = select(func.count()).select_from(q.subquery())
+        total = (await db.execute(count_q)).scalar() or 0
+
+        # Get paginated results
+        q = q.offset(skip).limit(limit).order_by(User.name)
+        result = await db.execute(q)
+        students = list(result.scalars().all())
+
+        return students, total
+
+    @staticmethod
+    async def initialize_arena_session(
+        db: AsyncSession,
+        arena_id: UUID,
+        teacher_id: UUID,
+        config: ArenaSessionConfig,
+    ) -> Optional[Arena]:
+        """Initialize arena session with configuration and selected participants."""
+        # Verify teacher has access
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            return None
+
+        # Update arena with session configuration
+        arena.arena_mode = config.arena_mode
+        arena.judging_mode = config.judging_mode
+        arena.ai_co_judge_enabled = config.ai_co_judge_enabled
+        arena.student_selection_mode = config.student_selection_mode
+        arena.session_state = "initialized"
+
+        if config.team_size:
+            arena.team_size = config.team_size
+
+        # TODO Phase 4: Create arena_participants entries for selected students
+        # For now, just update the arena configuration
+
+        await db.commit()
+        await db.refresh(arena)
+        return arena
+
+    @staticmethod
+    async def randomize_student_selection(
+        db: AsyncSession,
+        class_id: UUID,
+        participant_count: int,
+    ) -> List[User]:
+        """Randomly select N students from a class."""
+        # Get all active students in class
+        q = (
+            select(User)
+            .join(User.enrollments)
+            .where(
+                User.enrollments.any(class_id=class_id),
+                User.role == UserRole.STUDENT,
+                User.is_active == True
+            )
+        )
+        result = await db.execute(q)
+        all_students = list(result.scalars().all())
+
+        # Randomly select
+        if len(all_students) <= participant_count:
+            return all_students
+
+        return random.sample(all_students, participant_count)
+
+    @staticmethod
+    async def hybrid_student_selection(
+        db: AsyncSession,
+        class_id: UUID,
+        manual_selections: List[UUID],
+        randomize_count: int,
+    ) -> List[User]:
+        """Combine manual selections with random selections."""
+        # Get manually selected students
+        if manual_selections:
+            q = select(User).where(User.id.in_(manual_selections))
+            result = await db.execute(q)
+            selected_students = list(result.scalars().all())
+        else:
+            selected_students = []
+
+        # Get remaining students (excluding manual selections)
+        q = (
+            select(User)
+            .join(User.enrollments)
+            .where(
+                User.enrollments.any(class_id=class_id),
+                User.role == UserRole.STUDENT,
+                User.is_active == True
+            )
+        )
+
+        if manual_selections:
+            q = q.where(User.id.not_in(manual_selections))
+
+        result = await db.execute(q)
+        remaining_students = list(result.scalars().all())
+
+        # Randomly select from remaining
+        if randomize_count > 0 and remaining_students:
+            random_count = min(randomize_count, len(remaining_students))
+            random_selections = random.sample(remaining_students, random_count)
+            selected_students.extend(random_selections)
+
+        return selected_students

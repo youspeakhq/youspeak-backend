@@ -1,6 +1,6 @@
 """Domain 6: Arena (Gamification) Models"""
 
-from sqlalchemy import Column, String, Text, DateTime, Integer, Numeric, ForeignKey, Table
+from sqlalchemy import Column, String, Text, DateTime, Integer, Numeric, ForeignKey, Table, Boolean
 from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.orm import relationship
 
@@ -22,6 +22,14 @@ class Arena(BaseModel):
     status = Column(ENUM(ArenaStatus, name="arena_status"), default=ArenaStatus.DRAFT, nullable=False, index=True)
     start_time = Column(DateTime, nullable=True)
     duration_minutes = Column(Integer, nullable=True)
+
+    # Phase 1: Session configuration fields
+    arena_mode = Column(String(20), nullable=True)  # 'competitive' | 'collaborative'
+    judging_mode = Column(String(20), nullable=True)  # 'teacher_only' | 'hybrid'
+    ai_co_judge_enabled = Column(Boolean, default=False, nullable=False)
+    student_selection_mode = Column(String(20), nullable=True)  # 'manual' | 'hybrid' | 'randomize'
+    session_state = Column(String(20), default='not_started', nullable=False, index=True)  # 'not_started' | 'initialized' | 'live' | 'completed'
+    team_size = Column(Integer, nullable=True)  # For collaborative mode (2-5)
 
     # Relationships
     class_ = relationship("Class", back_populates="arenas")
