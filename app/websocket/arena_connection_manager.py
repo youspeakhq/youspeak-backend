@@ -24,6 +24,10 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Connection limits
+MAX_CONNECTIONS_PER_ARENA = 100
+MAX_CONNECTIONS_PER_USER = 5
+
 
 class ArenaConnectionManager:
     """
@@ -102,11 +106,39 @@ class ArenaConnectionManager:
         """
         Accept WebSocket connection and subscribe to arena channel.
 
+        Enforces connection limits:
+        - Max 100 connections per arena
+        - Max 5 connections per user (across all arenas)
+
         Args:
             arena_id: Arena session ID
             user_id: Connected user ID
             websocket: WebSocket connection
+
+        Raises:
+            Closes WebSocket with code 4008 if connection limit exceeded
         """
+        # Check arena connection limit
+        arena_conn_count = len(self.active_connections.get(arena_id, []))
+        if arena_conn_count >= MAX_CONNECTIONS_PER_ARENA:
+            logger.warning(
+                f"Arena connection limit reached: arena={arena_id}, count={arena_conn_count}"
+            )
+            await websocket.close(code=4008, reason="Arena connection limit reached")
+            return
+
+        # Check user connection limit (across all arenas)
+        user_conn_count = sum(
+            1 for (aid, uid) in self.user_connections.keys()
+            if uid == user_id
+        )
+        if user_conn_count >= MAX_CONNECTIONS_PER_USER:
+            logger.warning(
+                f"User connection limit reached: user={user_id}, count={user_conn_count}"
+            )
+            await websocket.close(code=4008, reason="User connection limit reached")
+            return
+
         await websocket.accept()
 
         # Add to local connections
@@ -122,7 +154,7 @@ class ArenaConnectionManager:
             task = asyncio.create_task(self._redis_listener(arena_id))
             self.pubsub_tasks[arena_id] = task
 
-        logger.info(f"WebSocket connected: arena={arena_id}, user={user_id}")
+        logger.info(f"WebSocket connected: arena={arena_id}, user={user_id}, total_arena_conns={arena_conn_count + 1}")
 
     async def disconnect(
         self,
@@ -171,6 +203,8 @@ class ArenaConnectionManager:
         If Redis is enabled, publishes to Redis channel (reaching all servers).
         Otherwise, broadcasts to local connections only (single server mode).
 
+        Circuit breaker: Falls back to local broadcast if Redis fails or times out.
+
         Args:
             arena_id: Arena to broadcast to
             message: Message dict (will be JSON-serialized)
@@ -186,10 +220,18 @@ class ArenaConnectionManager:
             # Publish to Redis channel (all servers will receive)
             channel = f"arena:{arena_id}:live"
             try:
-                await self.redis_client.publish(channel, message_json)
+                # Timeout after 2 seconds (circuit breaker pattern)
+                await asyncio.wait_for(
+                    self.redis_client.publish(channel, message_json),
+                    timeout=2.0
+                )
                 logger.debug(f"Broadcasted to Redis channel {channel}")
+            except asyncio.TimeoutError:
+                logger.error(f"Redis broadcast timeout for {channel}, falling back to local")
+                # Fallback to local broadcast
+                await self._broadcast_local(arena_id, message, exclude_user)
             except Exception as e:
-                logger.error(f"Redis broadcast error: {e}")
+                logger.error(f"Redis broadcast error: {e}, falling back to local")
                 # Fallback to local broadcast
                 await self._broadcast_local(arena_id, message, exclude_user)
         else:
@@ -204,6 +246,8 @@ class ArenaConnectionManager:
     ):
         """
         Broadcast message to local WebSocket connections only.
+
+        Uses parallel sends for better performance with many connections.
 
         Args:
             arena_id: Arena to broadcast to
@@ -222,23 +266,30 @@ class ArenaConnectionManager:
             if exclude_ws in connections:
                 connections.remove(exclude_ws)
 
-        # Send to all remaining connections
-        message_json = json.dumps(message)
-        disconnected = []
+        if not connections:
+            return
 
-        for websocket in connections:
-            try:
-                await websocket.send_text(message_json)
-            except WebSocketDisconnect:
-                disconnected.append(websocket)
-            except Exception as e:
-                logger.error(f"Error sending message: {e}")
-                disconnected.append(websocket)
+        # Send to all remaining connections in parallel
+        message_json = json.dumps(message)
+
+        # Create send tasks for all connections
+        send_tasks = [ws.send_text(message_json) for ws in connections]
+
+        # Execute all sends in parallel, capture exceptions
+        results = await asyncio.gather(*send_tasks, return_exceptions=True)
+
+        # Handle failed sends (disconnect)
+        disconnected = [
+            ws for ws, result in zip(connections, results)
+            if isinstance(result, Exception)
+        ]
 
         # Clean up disconnected websockets
-        for ws in disconnected:
-            if ws in self.active_connections.get(arena_id, []):
-                self.active_connections[arena_id].remove(ws)
+        if disconnected:
+            logger.debug(f"Cleaning up {len(disconnected)} disconnected websockets in arena {arena_id}")
+            for ws in disconnected:
+                if ws in self.active_connections.get(arena_id, []):
+                    self.active_connections[arena_id].remove(ws)
 
     async def _redis_listener(self, arena_id: UUID):
         """

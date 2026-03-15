@@ -527,30 +527,62 @@ async def arena_live_session(
     """
     WebSocket endpoint for real-time arena session.
 
-    Client connects after being admitted to waiting room.
+    Client connects after being admitted to waiting room or as teacher.
     Receives: speaking updates, engagement metrics, reactions, session events
     Sends: speaking events, reactions, audio mute events
 
     Architecture: Uses Redis Pub/Sub for horizontal scaling across multiple servers.
+
+    Authentication: Token in query param (?token=JWT) or Authorization header
     """
-    # TODO: Authenticate WebSocket connection (extract token from query params or headers)
-    # For now, assume user_id is provided in connection (will be extracted from JWT)
-    # This is a placeholder - proper auth will be added in Phase 3.5
+    logger = get_logger(__name__)
 
-    user_id = UUID("00000000-0000-0000-0000-000000000001")  # TODO: Extract from JWT
+    # Authenticate WebSocket connection
+    user = await deps.authenticate_websocket(websocket, db)
+    if not user:
+        return  # authenticate_websocket already closed connection
 
-    # Verify arena exists and is live
+    user_id = user.id
+    correlation_id = f"ws-{arena_id}-{user_id}"
+
+    log = logger.bind(
+        correlation_id=correlation_id,
+        arena_id=str(arena_id),
+        user_id=str(user_id),
+        user_role=user.role.value
+    )
+
+    log.info("websocket_connection_attempt")
+
+    # Verify arena exists
     arena = await ArenaService.get_arena(db, arena_id, user_id)
     if not arena:
-        await websocket.close(code=4004, reason="Arena not found")
+        log.warning("websocket_denied_arena_not_found")
+        await websocket.close(code=4004, reason="Arena not found or access denied")
         return
 
+    # Verify arena session is live
     if arena.session_state != "live":
+        log.warning("websocket_denied_arena_not_live", session_state=arena.session_state)
         await websocket.close(code=4003, reason="Arena session not live")
         return
 
+    # Authorization: Verify user is teacher or admitted participant
+    from app.models.enums import UserRole
+    is_teacher = user.role in [UserRole.TEACHER, UserRole.SCHOOL_ADMIN]
+    if not is_teacher:
+        # Verify student was admitted from waiting room
+        is_admitted = await ArenaService.is_arena_participant(db, arena_id, user_id)
+        if not is_admitted:
+            log.warning("websocket_denied_not_participant")
+            await websocket.close(code=4003, reason="Not authorized for this arena")
+            return
+
+    log.info("websocket_authorization_granted", is_teacher=is_teacher)
+
     # Connect to WebSocket manager
     await connection_manager.connect(arena_id, user_id, websocket)
+    log.info("websocket_connected")
 
     try:
         # Send initial session state
@@ -570,12 +602,38 @@ async def arena_live_session(
             },
         )
 
+        log.info("websocket_initial_state_sent")
+
+        # Message counter for rate limiting
+        message_count = 0
+        message_window_start = datetime.utcnow()
+
         # Listen for client events
         while True:
             data = await websocket.receive_text()
-            message = json.loads(data)
+
+            # Rate limiting: 30 messages per minute per user
+            message_count += 1
+            now = datetime.utcnow()
+            elapsed = (now - message_window_start).total_seconds()
+
+            if elapsed >= 60:
+                # Reset window
+                message_count = 1
+                message_window_start = now
+            elif message_count > 30:
+                log.warning("websocket_rate_limit_exceeded", messages_per_minute=message_count)
+                await websocket.close(code=4008, reason="Rate limit exceeded")
+                return
+
+            try:
+                message = json.loads(data)
+            except json.JSONDecodeError:
+                log.warning("websocket_invalid_json", data=data[:100])
+                continue
 
             event_type = message.get("event_type")
+            log.debug("websocket_message_received", event_type=event_type)
 
             if event_type == "speaking_started":
                 # Broadcast to all participants
@@ -590,6 +648,7 @@ async def arena_live_session(
                         },
                     },
                 )
+                log.debug("websocket_speaking_started_broadcasted")
 
             elif event_type == "speaking_stopped":
                 await connection_manager.broadcast(
@@ -603,6 +662,7 @@ async def arena_live_session(
                         },
                     },
                 )
+                log.debug("websocket_speaking_stopped_broadcasted")
 
             elif event_type == "reaction_sent":
                 reaction_type = message.get("reaction_type", "thumbs_up")
@@ -618,6 +678,7 @@ async def arena_live_session(
                     },
                     exclude_user=user_id,  # Don't send back to sender
                 )
+                log.debug("websocket_reaction_broadcasted", reaction_type=reaction_type)
 
             elif event_type in ["audio_muted", "audio_unmuted"]:
                 # Broadcast audio state change
@@ -632,14 +693,18 @@ async def arena_live_session(
                         },
                     },
                 )
+                log.debug("websocket_audio_state_broadcasted", event_type=event_type)
+
+            else:
+                log.warning("websocket_unknown_event_type", event_type=event_type)
 
     except WebSocketDisconnect:
-        pass
+        log.info("websocket_disconnected_by_client")
     except Exception as e:
-        logger = get_logger(__name__)
-        logger.error(f"WebSocket error for arena {arena_id}, user {user_id}: {e}")
+        log.error("websocket_error", error=str(e), error_type=type(e).__name__)
     finally:
         await connection_manager.disconnect(arena_id, user_id, websocket)
+        log.info("websocket_connection_closed")
 
 
 @router.post("/{arena_id}/start", response_model=SuccessResponse[ArenaSessionStateResponse])
@@ -656,11 +721,22 @@ async def start_arena_session(
 
     Used by: Teacher clicks "Start Session" button
     """
+    logger = get_logger(__name__)
+    log = logger.bind(
+        arena_id=str(arena_id),
+        teacher_id=str(current_user.id)
+    )
+
+    log.info("arena_session_start_requested")
+
     # Update arena session state
     arena = await ArenaService.start_arena_session(db, arena_id, current_user.id)
 
     if not arena:
+        log.warning("arena_session_start_denied_not_found")
         raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    log.info("arena_session_started", session_state=arena.session_state)
 
     # Broadcast session start to all connected clients
     await connection_manager.broadcast(
@@ -675,6 +751,8 @@ async def start_arena_session(
             },
         },
     )
+
+    log.info("arena_session_start_broadcasted")
 
     return SuccessResponse(
         data=ArenaSessionStateResponse(
@@ -705,13 +783,25 @@ async def end_arena_session(
 
     Used by: Teacher clicks "End Session" button
     """
+    logger = get_logger(__name__)
+    log = logger.bind(
+        arena_id=str(arena_id),
+        teacher_id=str(current_user.id),
+        reason=body.reason
+    )
+
+    log.info("arena_session_end_requested")
+
     # Update arena session state
     arena = await ArenaService.end_arena_session(
         db, arena_id, current_user.id, reason=body.reason
     )
 
     if not arena:
+        log.warning("arena_session_end_denied_not_found")
         raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    log.info("arena_session_ended", session_state=arena.session_state)
 
     # Broadcast session end to all connected clients
     await connection_manager.broadcast(
@@ -725,6 +815,8 @@ async def end_arena_session(
             },
         },
     )
+
+    log.info("arena_session_end_broadcasted")
 
     # TODO: Gracefully close all WebSocket connections for this arena
 

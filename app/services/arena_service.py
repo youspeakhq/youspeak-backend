@@ -547,6 +547,26 @@ class ArenaService:
     # ========================================================================
 
     @staticmethod
+    async def is_arena_participant(
+        db: AsyncSession,
+        arena_id: UUID,
+        student_id: UUID,
+    ) -> bool:
+        """
+        Check if student was admitted to arena from waiting room.
+        Returns True if student is admitted participant, False otherwise.
+        """
+        result = await db.execute(
+            select(ArenaWaitingRoom).where(
+                ArenaWaitingRoom.arena_id == arena_id,
+                ArenaWaitingRoom.student_id == student_id,
+                ArenaWaitingRoom.status == 'admitted'
+            )
+        )
+        entry = result.scalar_one_or_none()
+        return entry is not None
+
+    @staticmethod
     async def start_arena_session(
         db: AsyncSession,
         arena_id: UUID,
