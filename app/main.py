@@ -21,6 +21,7 @@ from app.core.middleware import (
     SecurityHeadersMiddleware
 )
 from app.api.v1.router import api_router
+from app.websocket.arena_connection_manager import connection_manager
 
 # Setup logging
 setup_logging()
@@ -42,6 +43,11 @@ async def lifespan(app: FastAPI):
         await init_db()
         logger.info("Database initialized")
 
+    # Initialize WebSocket connection manager with Redis
+    connection_manager.redis_url = settings.REDIS_URL
+    await connection_manager.initialize()
+    logger.info("WebSocket connection manager initialized")
+
     # Curriculum service HTTP client (internal proxy)
     app.state.curriculum_http = None
     if settings.CURRICULUM_SERVICE_URL:
@@ -57,6 +63,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down application")
     if getattr(app.state, "curriculum_http", None) is not None:
         await app.state.curriculum_http.aclose()
+    await connection_manager.shutdown()
     await close_db()
 
 

@@ -195,6 +195,74 @@ class WaitingRoomRejectRequest(BaseModel):
     reason: Optional[str] = None
 
 
+# --- Phase 3: WebSocket & Live Sessions ---
+
+
+class ArenaSessionStateResponse(BaseModel):
+    """Response for GET /arenas/{id}/session - Current session state"""
+    arena_id: UUID
+    session_state: str  # initialized, live, completed, cancelled
+    start_time: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
+    active_speaker_id: Optional[UUID] = None
+    participants: List[Dict] = []  # List of participant info
+
+
+class ArenaSessionStartRequest(BaseModel):
+    """Request for POST /arenas/{id}/start"""
+    pass  # Empty body - just triggers session start
+
+
+class ArenaSessionEndRequest(BaseModel):
+    """Request for POST /arenas/{id}/end"""
+    reason: Optional[str] = None  # Optional reason for ending early
+
+
+# WebSocket event schemas
+
+class WSClientEvent(BaseModel):
+    """Base schema for client→server WebSocket events"""
+    event_type: Literal[
+        "speaking_started",
+        "speaking_stopped",
+        "reaction_sent",
+        "audio_muted",
+        "audio_unmuted"
+    ]
+    timestamp: Optional[datetime] = None
+
+
+class WSSpeakingEvent(WSClientEvent):
+    """Client sends when starting/stopping speaking"""
+    event_type: Literal["speaking_started", "speaking_stopped"]
+
+
+class WSReactionEvent(WSClientEvent):
+    """Client sends a reaction (emoji, etc.)"""
+    event_type: Literal["reaction_sent"]
+    reaction_type: str  # "thumbs_up", "clap", etc.
+
+
+class WSAudioEvent(WSClientEvent):
+    """Client mutes/unmutes audio"""
+    event_type: Literal["audio_muted", "audio_unmuted"]
+
+
+class WSServerEvent(BaseModel):
+    """Base schema for server→client WebSocket broadcasts"""
+    event_type: Literal[
+        "session_state",
+        "speaking_update",
+        "engagement_update",
+        "reaction_broadcast",
+        "participant_joined",
+        "participant_left",
+        "session_ended"
+    ]
+    timestamp: datetime
+    data: Dict  # Event-specific payload
+
+
 # --- Announcement ---
 
 

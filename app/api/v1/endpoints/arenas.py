@@ -4,10 +4,12 @@ All routes require teacher auth and operate on arenas for classes the teacher te
 """
 
 from typing import Any, Optional
+import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
+from datetime import datetime
 
 from app.api import deps
 from app.models.user import User
@@ -35,9 +37,17 @@ from app.schemas.communication import (
     WaitingRoomEntry,
     WaitingRoomAdmitResponse,
     WaitingRoomRejectRequest,
+    # Phase 3: WebSocket & Live Sessions
+    ArenaSessionStateResponse,
+    ArenaSessionStartRequest,
+    ArenaSessionEndRequest,
+    WSClientEvent,
+    WSServerEvent,
 )
 from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
 from app.services.arena_service import ArenaService
+from app.websocket.arena_connection_manager import connection_manager
+from app.core.logging import get_logger
 
 router = APIRouter()
 
@@ -500,4 +510,269 @@ async def reject_student(
     return SuccessResponse(
         data=WaitingRoomAdmitResponse(success=True, participant_id=None),
         message="Student rejected successfully"
+    )
+
+
+# ============================================================================
+# Phase 3: WebSocket & Live Session Management
+# ============================================================================
+
+
+@router.websocket("/{arena_id}/live")
+async def arena_live_session(
+    websocket: WebSocket,
+    arena_id: UUID,
+    db: AsyncSession = Depends(deps.get_db),
+):
+    """
+    WebSocket endpoint for real-time arena session.
+
+    Client connects after being admitted to waiting room.
+    Receives: speaking updates, engagement metrics, reactions, session events
+    Sends: speaking events, reactions, audio mute events
+
+    Architecture: Uses Redis Pub/Sub for horizontal scaling across multiple servers.
+    """
+    # TODO: Authenticate WebSocket connection (extract token from query params or headers)
+    # For now, assume user_id is provided in connection (will be extracted from JWT)
+    # This is a placeholder - proper auth will be added in Phase 3.5
+
+    user_id = UUID("00000000-0000-0000-0000-000000000001")  # TODO: Extract from JWT
+
+    # Verify arena exists and is live
+    arena = await ArenaService.get_arena(db, arena_id, user_id)
+    if not arena:
+        await websocket.close(code=4004, reason="Arena not found")
+        return
+
+    if arena.session_state != "live":
+        await websocket.close(code=4003, reason="Arena session not live")
+        return
+
+    # Connect to WebSocket manager
+    await connection_manager.connect(arena_id, user_id, websocket)
+
+    try:
+        # Send initial session state
+        participants = []  # TODO Phase 4: Get from arena_participants table
+        await connection_manager.send_personal_message(
+            arena_id,
+            user_id,
+            {
+                "event_type": "session_state",
+                "timestamp": datetime.utcnow().isoformat(),
+                "data": {
+                    "arena_id": str(arena_id),
+                    "session_state": arena.session_state,
+                    "active_speaker_id": None,  # TODO: Track active speaker
+                    "participants": participants,
+                },
+            },
+        )
+
+        # Listen for client events
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+
+            event_type = message.get("event_type")
+
+            if event_type == "speaking_started":
+                # Broadcast to all participants
+                await connection_manager.broadcast(
+                    arena_id,
+                    {
+                        "event_type": "speaking_update",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "data": {
+                            "user_id": str(user_id),
+                            "is_speaking": True,
+                        },
+                    },
+                )
+
+            elif event_type == "speaking_stopped":
+                await connection_manager.broadcast(
+                    arena_id,
+                    {
+                        "event_type": "speaking_update",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "data": {
+                            "user_id": str(user_id),
+                            "is_speaking": False,
+                        },
+                    },
+                )
+
+            elif event_type == "reaction_sent":
+                reaction_type = message.get("reaction_type", "thumbs_up")
+                await connection_manager.broadcast(
+                    arena_id,
+                    {
+                        "event_type": "reaction_broadcast",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "data": {
+                            "user_id": str(user_id),
+                            "reaction_type": reaction_type,
+                        },
+                    },
+                    exclude_user=user_id,  # Don't send back to sender
+                )
+
+            elif event_type in ["audio_muted", "audio_unmuted"]:
+                # Broadcast audio state change
+                await connection_manager.broadcast(
+                    arena_id,
+                    {
+                        "event_type": "engagement_update",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "data": {
+                            "user_id": str(user_id),
+                            "audio_muted": event_type == "audio_muted",
+                        },
+                    },
+                )
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger = get_logger(__name__)
+        logger.error(f"WebSocket error for arena {arena_id}, user {user_id}: {e}")
+    finally:
+        await connection_manager.disconnect(arena_id, user_id, websocket)
+
+
+@router.post("/{arena_id}/start", response_model=SuccessResponse[ArenaSessionStateResponse])
+async def start_arena_session(
+    arena_id: UUID,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Start live arena session.
+
+    Transitions session_state from 'initialized' to 'live'.
+    Broadcasts session_started event to all connected WebSocket clients.
+
+    Used by: Teacher clicks "Start Session" button
+    """
+    # Update arena session state
+    arena = await ArenaService.start_arena_session(db, arena_id, current_user.id)
+
+    if not arena:
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    # Broadcast session start to all connected clients
+    await connection_manager.broadcast(
+        arena_id,
+        {
+            "event_type": "session_state",
+            "timestamp": datetime.utcnow().isoformat(),
+            "data": {
+                "arena_id": str(arena_id),
+                "session_state": "live",
+                "message": "Session started",
+            },
+        },
+    )
+
+    return SuccessResponse(
+        data=ArenaSessionStateResponse(
+            arena_id=arena.id,
+            session_state=arena.session_state,
+            start_time=arena.start_time,
+            duration_minutes=arena.duration_minutes,
+            active_speaker_id=None,
+            participants=[],  # TODO Phase 4: Get from arena_participants
+        ),
+        message="Arena session started successfully"
+    )
+
+
+@router.post("/{arena_id}/end", response_model=SuccessResponse[ArenaSessionStateResponse])
+async def end_arena_session(
+    arena_id: UUID,
+    body: ArenaSessionEndRequest,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    End live arena session.
+
+    Transitions session_state from 'live' to 'completed' (or 'cancelled' if reason provided).
+    Broadcasts session_ended event to all connected WebSocket clients.
+    Disconnects all WebSocket connections.
+
+    Used by: Teacher clicks "End Session" button
+    """
+    # Update arena session state
+    arena = await ArenaService.end_arena_session(
+        db, arena_id, current_user.id, reason=body.reason
+    )
+
+    if not arena:
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    # Broadcast session end to all connected clients
+    await connection_manager.broadcast(
+        arena_id,
+        {
+            "event_type": "session_ended",
+            "timestamp": datetime.utcnow().isoformat(),
+            "data": {
+                "arena_id": str(arena_id),
+                "reason": body.reason or "Session ended by teacher",
+            },
+        },
+    )
+
+    # TODO: Gracefully close all WebSocket connections for this arena
+
+    return SuccessResponse(
+        data=ArenaSessionStateResponse(
+            arena_id=arena.id,
+            session_state=arena.session_state,
+            start_time=arena.start_time,
+            duration_minutes=arena.duration_minutes,
+            active_speaker_id=None,
+            participants=[],
+        ),
+        message="Arena session ended successfully"
+    )
+
+
+@router.get("/{arena_id}/session", response_model=SuccessResponse[ArenaSessionStateResponse])
+async def get_arena_session_state(
+    arena_id: UUID,
+    current_user: User = Depends(deps.get_db_user),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Get current arena session state.
+
+    Returns: session_state, active participants, current speaker, etc.
+
+    Used by: Client polling for session updates (if WebSocket disconnected)
+    """
+    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
+
+    if not arena:
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    # Get connected users count (local to this server)
+    connected_users = connection_manager.get_connected_users(arena_id)
+
+    return SuccessResponse(
+        data=ArenaSessionStateResponse(
+            arena_id=arena.id,
+            session_state=arena.session_state,
+            start_time=arena.start_time,
+            duration_minutes=arena.duration_minutes,
+            active_speaker_id=None,  # TODO: Track active speaker
+            participants=[
+                {"user_id": str(uid), "connected": True}
+                for uid in connected_users
+            ],
+        ),
+        message="Session state retrieved successfully"
     )

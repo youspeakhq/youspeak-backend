@@ -1,7 +1,7 @@
 """Enhanced API Dependencies with RBAC"""
 
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, WebSocket
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -190,3 +190,60 @@ async def require_student(
             detail="Student access required"
         )
     return current_user
+
+
+async def authenticate_websocket(
+    websocket: WebSocket,
+    db: AsyncSession
+) -> Optional[User]:
+    """
+    Authenticate WebSocket connection using token from query params or headers.
+
+    Args:
+        websocket: WebSocket connection
+        db: Database session
+
+    Returns:
+        Authenticated user or None if authentication fails
+
+    Note:
+        Closes WebSocket with code 4001 (Unauthorized) if authentication fails.
+    """
+    # Try to get token from query params first (common for WebSocket clients)
+    token = websocket.query_params.get("token")
+
+    # Fallback to Authorization header
+    if not token:
+        auth_header = websocket.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+
+    if not token:
+        await websocket.close(code=4001, reason="Missing authentication token")
+        return None
+
+    # Decode token
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "access":
+        await websocket.close(code=4001, reason="Invalid authentication token")
+        return None
+
+    # Get user ID
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        await websocket.close(code=4001, reason="Invalid token payload")
+        return None
+
+    try:
+        user_id = UUID(user_id_str)
+    except ValueError:
+        await websocket.close(code=4001, reason="Invalid user ID format")
+        return None
+
+    # Get user from database
+    user = await UserService.get_user_by_id(db, user_id)
+    if not user or not user.is_active:
+        await websocket.close(code=4001, reason="User not found or inactive")
+        return None
+
+    return user

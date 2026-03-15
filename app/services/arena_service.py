@@ -541,3 +541,68 @@ class ArenaService:
         await db.refresh(entry)
 
         return entry
+
+    # ========================================================================
+    # Phase 3: Live Session Management
+    # ========================================================================
+
+    @staticmethod
+    async def start_arena_session(
+        db: AsyncSession,
+        arena_id: UUID,
+        teacher_id: UUID,
+    ) -> Optional[Arena]:
+        """
+        Start live arena session.
+        Transitions session_state from 'initialized' to 'live'.
+        Returns arena or None if not found/no access.
+        """
+        # Verify teacher has access
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            return None
+
+        # Verify arena is in initialized state
+        if arena.session_state != 'initialized':
+            return None
+
+        # Update session state
+        arena.session_state = 'live'
+
+        # Set start_time if not already set
+        if not arena.start_time:
+            arena.start_time = datetime.utcnow()
+
+        await db.commit()
+        await db.refresh(arena)
+
+        return arena
+
+    @staticmethod
+    async def end_arena_session(
+        db: AsyncSession,
+        arena_id: UUID,
+        teacher_id: UUID,
+        reason: Optional[str] = None,
+    ) -> Optional[Arena]:
+        """
+        End live arena session.
+        Transitions session_state from 'live' to 'completed' (or 'cancelled' if reason provided).
+        Returns arena or None if not found/no access.
+        """
+        # Verify teacher has access
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            return None
+
+        # Verify arena is in live state
+        if arena.session_state != 'live':
+            return None
+
+        # Update session state
+        arena.session_state = 'cancelled' if reason else 'completed'
+
+        await db.commit()
+        await db.refresh(arena)
+
+        return arena
