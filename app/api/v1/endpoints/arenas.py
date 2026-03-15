@@ -836,7 +836,7 @@ async def end_arena_session(
 @router.get("/{arena_id}/session", response_model=SuccessResponse[ArenaSessionStateResponse])
 async def get_arena_session_state(
     arena_id: UUID,
-    current_user: User = Depends(deps.get_db_user),
+    current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """
