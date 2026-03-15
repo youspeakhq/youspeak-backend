@@ -7,7 +7,7 @@ to enable horizontal scaling across multiple backend servers.
 
 import json
 import asyncio
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Set, Optional, TYPE_CHECKING, Any
 from uuid import UUID
 from datetime import datetime
 import logging
@@ -15,12 +15,16 @@ import logging
 from fastapi import WebSocket, WebSocketDisconnect
 
 # Redis imports with graceful degradation
-try:
+if TYPE_CHECKING:
     import redis.asyncio as aioredis
     HAS_REDIS = True
-except ImportError:
-    HAS_REDIS = False
-    aioredis = None
+else:
+    try:
+        import redis.asyncio as aioredis
+        HAS_REDIS = True
+    except ImportError:
+        HAS_REDIS = False
+        aioredis = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +62,8 @@ class ArenaConnectionManager:
 
         # Redis clients
         self.redis_url = redis_url
-        self.redis_client: Optional[aioredis.Redis] = None
-        self.pubsub_client: Optional[aioredis.Redis] = None
+        self.redis_client: Optional[Any] = None  # redis.asyncio.Redis when available
+        self.pubsub_client: Optional[Any] = None  # redis.asyncio.Redis when available
 
         # Pubsub listeners: {arena_id: asyncio.Task}
         self.pubsub_tasks: Dict[UUID, asyncio.Task] = {}
