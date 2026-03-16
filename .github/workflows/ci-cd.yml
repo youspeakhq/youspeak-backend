@@ -39,6 +39,7 @@ jobs:
             core:
               - 'app/**'
               - 'alembic/**'
+              - 'tests/**'
               - 'requirements.txt'
               - 'requirements-*.txt'
               - 'Dockerfile'
