@@ -5,7 +5,6 @@ All routes require teacher auth and operate on arenas for classes the teacher te
 
 from typing import Any, Optional
 import json
-import structlog
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1362,7 +1361,7 @@ async def create_team(
     - 400: Arena not in collaborative mode
     - 400: Duplicate team name
     """
-    log = structlog.get_logger().bind(
+    log = get_logger(__name__).bind(
         endpoint="create_team",
         arena_id=str(arena_id),
         teacher_id=str(current_user.id),
@@ -1453,7 +1452,7 @@ async def list_teams(
     **Errors:**
     - 404: Arena not found or access denied
     """
-    log = structlog.get_logger().bind(
+    log = get_logger(__name__).bind(
         endpoint="list_teams",
         arena_id=str(arena_id),
         teacher_id=str(current_user.id)
@@ -1558,7 +1557,7 @@ async def get_history(
     - Analytics and reporting
     - Re-running past challenges (clone from history)
     """
-    log = structlog.get_logger().bind(
+    log = get_logger(__name__).bind(
         endpoint="get_history",
         teacher_id=str(current_user.id),
         page=page,
