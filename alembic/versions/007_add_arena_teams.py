@@ -2,8 +2,8 @@
 
 Create arena_teams and arena_team_members tables for collaborative mode.
 
-Revision ID: 007_add_arena_teams
-Revises: 006_add_challenge_pool_fields
+Revision ID: 007_arena_teams
+Revises: 006_challenge_pool
 Create Date: 2026-03-16 09:30:00.000000
 
 """
@@ -14,8 +14,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
 # revision identifiers, used by Alembic.
-revision: str = '007_add_arena_teams'
-down_revision: Union[str, None] = '006_add_challenge_pool_fields'
+revision: str = '007_arena_teams'
+down_revision: Union[str, None] = '006_challenge_pool'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
