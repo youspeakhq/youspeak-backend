@@ -80,6 +80,10 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     await db.flush()
 
     # Create students and enroll them
+    from sqlalchemy import insert
+    from app.models.academic import class_enrollments
+    from app.models.enums import StudentRole
+
     student_ids = []
     for i in range(3):
         student = User(
@@ -96,8 +100,15 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
         await db.flush()
         student_ids.append(student.id)
 
-        # Enroll student in class
-        class_.students.append(student)
+        # Enroll student in class via association table
+        await db.execute(
+            insert(class_enrollments).values(
+                class_id=class_.id,
+                student_id=student.id,
+                role=StudentRole.STUDENT,
+                joined_at=datetime.utcnow()
+            )
+        )
 
     # Create arena in live state
     arena = Arena(
