@@ -67,7 +67,10 @@
       "Bash(gh run cancel:*)",
       "Bash(gunzip:*)",
       "Bash(echo:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)",
+      "Bash(/tmp/fix_logger.py:*)",
+      "Bash(__NEW_LINE_a518bc83ce3dd6db__ python3 /tmp/fix_logger.py)"
     ]
   }
 }
