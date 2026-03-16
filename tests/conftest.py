@@ -15,9 +15,11 @@ try:
 except ImportError:
     pass
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
 from app.config import settings
+from app.database import async_session_maker
 
 # Skip integration/E2E tests if DATABASE_URL or SECRET_KEY not set
 requires_db = pytest.mark.skipif(
@@ -76,6 +78,14 @@ async def async_client(api_base: str):
         client = AsyncClient(transport=transport, base_url=api_base, timeout=30.0)
     yield client
     await client.aclose()
+
+
+@pytest.fixture
+async def db() -> AsyncSession:
+    """Provide an AsyncSession for direct database access in tests."""
+    async with async_session_maker() as session:
+        yield session
+        await session.rollback()  # Rollback any uncommitted changes
 
 
 
