@@ -6,6 +6,7 @@ Create Date: 2026-03-16
 
 """
 from alembic import op
+from sqlalchemy import text
 
 # revision identifiers, used by Alembic.
 revision = '008_add_published_to_arena_status'
@@ -15,17 +16,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ALTER TYPE ... ADD VALUE cannot run inside a PostgreSQL transaction.
-    # We bypass SQLAlchemy's transaction wrapper entirely by using the raw
-    # DBAPI connection and setting autocommit at the driver level.
-    conn = op.get_bind()
-    raw = conn.connection  # raw DBAPI connection (psycopg2)
-    original_autocommit = raw.autocommit
-    raw.autocommit = True
-    try:
-        raw.execute("ALTER TYPE arena_status ADD VALUE IF NOT EXISTS 'published'")
-    finally:
-        raw.autocommit = original_autocommit
+    # PostgreSQL 12+ allows ALTER TYPE ADD VALUE inside a transaction when
+    # using IF NOT EXISTS. asyncpg handles this correctly.
+    op.execute(text("ALTER TYPE arena_status ADD VALUE IF NOT EXISTS 'published'"))
 
 
 def downgrade() -> None:
