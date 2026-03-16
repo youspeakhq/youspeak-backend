@@ -175,7 +175,7 @@ class ArenaService:
             select(User)
             .join(User.enrolled_classes)
             .where(
-                User.enrolled_classes.any(class_id=class_id),
+                Class.id == class_id,
                 User.role == UserRole.STUDENT,
                 User.is_active == True
             )
@@ -243,7 +243,7 @@ class ArenaService:
             select(User)
             .join(User.enrolled_classes)
             .where(
-                User.enrolled_classes.any(class_id=class_id),
+                Class.id == class_id,
                 User.role == UserRole.STUDENT,
                 User.is_active == True
             )
@@ -278,7 +278,7 @@ class ArenaService:
             select(User)
             .join(User.enrolled_classes)
             .where(
-                User.enrolled_classes.any(class_id=class_id),
+                Class.id == class_id,
                 User.role == UserRole.STUDENT,
                 User.is_active == True
             )

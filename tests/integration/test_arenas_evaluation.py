@@ -14,7 +14,7 @@ from app.models.arena import Arena, ArenaWaitingRoom, ArenaParticipant, ArenaRea
 from app.models.academic import Class
 from app.models.enums import UserRole, ArenaStatus
 from app.core.security import create_access_token
-from tests.integration.conftest import requires_db
+from tests.conftest import requires_db
 
 
 # ============================================================================
