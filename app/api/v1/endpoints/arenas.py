@@ -141,6 +141,52 @@ async def create_arena(
     )
 
 
+@router.get("/history", response_model=SuccessResponse[ArenaHistoryResponse])
+async def get_history(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    status: Optional[ArenaStatus] = Query(None, description="Filter by arena status"),
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Get historical arenas for the current teacher.
+    """
+    skip = (page - 1) * page_size
+    rows, total = await ArenaService.list_history(
+        db=db,
+        teacher_id=current_user.id,
+        skip=skip,
+        limit=page_size,
+        status_filter=status
+    )
+    from app.schemas.communication import ArenaHistoryItem
+    history_items = [
+        ArenaHistoryItem(
+            id=arena.id,
+            title=arena.title,
+            class_name=class_name,
+            status=arena.status,
+            session_state=arena.session_state,
+            start_time=arena.start_time,
+            duration_minutes=arena.duration_minutes,
+            arena_mode=arena.arena_mode,
+            participant_count=participant_count,
+            published_at=arena.published_at
+        )
+        for arena, class_name, participant_count in rows
+    ]
+    return SuccessResponse(
+        data=ArenaHistoryResponse(
+            arenas=history_items,
+            total=total,
+            page=page,
+            page_size=page_size
+        ),
+        message=f"Retrieved {len(history_items)} of {total} historical arenas"
+    )
+
+
 @router.get("/{arena_id}", response_model=SuccessResponse[ArenaResponse])
 async def get_arena(
     arena_id: UUID,
@@ -1479,51 +1525,6 @@ async def list_teams(
     )
 
 
-@router.get("/history", response_model=SuccessResponse[ArenaHistoryResponse])
-async def get_history(
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    status: Optional[ArenaStatus] = Query(None, description="Filter by arena status"),
-    current_user: User = Depends(deps.require_teacher),
-    db: AsyncSession = Depends(deps.get_db),
-) -> Any:
-    """
-    Get historical arenas for the current teacher.
-
-    Returns completed and cancelled arenas, sorted by start time (most recent first).
-
-    **Query Parameters:**
-    - `page`: Page number (default: 1)
-    - `page_size`: Items per page (default: 20, max: 100)
-    - `status`: Optional filter by arena status
-
-    **Response:**
-    ```json
-    {
-      "data": {
-        "arenas": [
-          {
-            "id": "uuid",
-            "title": "Debate Competition 2026",
-            "class_name": "English Advanced",
-            "status": "published",
-            "session_state": "completed",
-            "start_time": "2026-03-10T10:00:00Z",
-            "duration_minutes": 60,
-            "arena_mode": "competitive",
-            "participant_count": 12,
-            "published_at": "2026-03-10T12:00:00Z"
-          }
-        ],
-        "total": 45,
-        "page": 1,
-        "page_size": 20
-      }
-    }
-    ```
-
-    **Use cases:**
-    - Teacher dashboard showing past arenas
     - Analytics and reporting
     - Re-running past challenges (clone from history)
     """

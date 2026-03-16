@@ -111,11 +111,11 @@ Teacher clicks link in email (frontend validates code).
 - **Endpoint**: `POST /api/v1/auth/login`
 - **Response**: `200 OK` (Access Token - Role: TEACHER)
 
-### Step 3.2: Get Metadata (Semesters)
-Teacher needs to know which Semester to attach the class to.
-- **Endpoint**: `GET /api/v1/schools/semesters`
+### Step 3.2: Get Metadata (Terms/Semesters)
+Teacher needs to know which Term to attach the class to.
+- **Endpoint**: `GET /api/v1/schools/terms`
 - **Headers**: `Authorization: Bearer <TeacherToken>`
-- **Response**: List of Semesters. Pick `id` of current one.
+- **Response**: List of Terms. Pick `id` of the active one.
 
 ### Step 3.3: Create Class
 - **Endpoint**: `POST /api/v1/my-classes`
@@ -126,7 +126,7 @@ Teacher needs to know which Semester to attach the class to.
     "description": "Brief description",
     "timeline": "Jan 2026 - May 2026",
     "language_id": 2, 
-    "semester_id": "<uuid-from-step-3.2>",
+    "term_id": "<uuid-from-step-3.2>",
     "schedule": [
         { "day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00" },
         { "day_of_week": "Wed", "start_time": "09:00:00", "end_time": "10:00:00" }
