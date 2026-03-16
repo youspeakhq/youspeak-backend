@@ -35,8 +35,8 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     school = School(
         id=fake_school_id,
         name="Test School",
-        school_type=SchoolType.PRIVATE,
-        program_type=ProgramType.GENERAL
+        school_type=SchoolType.PRIMARY,
+        program_type=ProgramType.PIONEER
     )
     db.add(school)
     await db.flush()

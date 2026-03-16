@@ -580,7 +580,7 @@ async def arena_live_session(
 
     # Verify arena session is live
     if arena.session_state != "live":
-        log.warning("websocket_denied_arena_not_live", session_state=arena.session_state)
+        log.warning("websocket_denied_arena_not_live")
         await websocket.close(code=4003, reason="Arena session not live")
         return
 
@@ -595,7 +595,7 @@ async def arena_live_session(
             await websocket.close(code=4003, reason="Not authorized for this arena")
             return
 
-    log.info("websocket_authorization_granted", is_teacher=is_teacher)
+    log.info("websocket_authorization_granted")
 
     # Connect to WebSocket manager
     await connection_manager.connect(arena_id, user_id, websocket)
@@ -639,18 +639,18 @@ async def arena_live_session(
                 message_count = 1
                 message_window_start = now
             elif message_count > 30:
-                log.warning("websocket_rate_limit_exceeded", messages_per_minute=message_count)
+                log.warning("websocket_rate_limit_exceeded")
                 await websocket.close(code=4008, reason="Rate limit exceeded")
                 return
 
             try:
                 message = json.loads(data)
             except json.JSONDecodeError:
-                log.warning("websocket_invalid_json", data=data[:100])
+                log.warning("websocket_invalid_json")
                 continue
 
             event_type = message.get("event_type")
-            log.debug("websocket_message_received", event_type=event_type)
+            log.debug("websocket_message_received")
 
             if event_type == "speaking_started":
                 # Broadcast to all participants
@@ -695,7 +695,7 @@ async def arena_live_session(
                     },
                     exclude_user=user_id,  # Don't send back to sender
                 )
-                log.debug("websocket_reaction_broadcasted", reaction_type=reaction_type)
+                log.debug("websocket_reaction_broadcasted")
 
             elif event_type in ["audio_muted", "audio_unmuted"]:
                 # Broadcast audio state change
@@ -710,15 +710,15 @@ async def arena_live_session(
                         },
                     },
                 )
-                log.debug("websocket_audio_state_broadcasted", event_type=event_type)
+                log.debug("websocket_audio_state_broadcasted")
 
             else:
-                log.warning("websocket_unknown_event_type", event_type=event_type)
+                log.warning("websocket_unknown_event_type")
 
     except WebSocketDisconnect:
         log.info("websocket_disconnected_by_client")
     except Exception as e:
-        log.error("websocket_error", error=str(e), error_type=type(e).__name__)
+        log.error("websocket_error")
     finally:
         await connection_manager.disconnect(arena_id, user_id, websocket)
         log.info("websocket_connection_closed")
@@ -750,7 +750,7 @@ async def start_arena_session(
         log.warning("arena_session_start_denied_not_found")
         raise HTTPException(status_code=404, detail="Arena not found or access denied")
 
-    log.info("arena_session_started", session_state=arena.session_state)
+    log.info("arena_session_started")
 
     # Broadcast session start to all connected clients
     await connection_manager.broadcast(
@@ -811,7 +811,7 @@ async def end_arena_session(
         log.warning("arena_session_end_denied_not_found")
         raise HTTPException(status_code=404, detail="Arena not found or access denied")
 
-    log.info("arena_session_ended", session_state=arena.session_state)
+    log.info("arena_session_ended")
 
     # Broadcast session end to all connected clients
     await connection_manager.broadcast(
@@ -998,7 +998,7 @@ async def rate_participant(
     logger = get_logger(__name__)
     correlation_id = f"rate-{arena_id}-{participant_id}"
     log = get_logger(__name__)
-    log.info("teacher_rating_submission_started", participant_id=str(participant_id))
+    log.info("teacher_rating_submission_started")
 
     participant = await ArenaService.save_teacher_rating(
         db=db,
@@ -1010,10 +1010,10 @@ async def rate_participant(
     )
 
     if not participant:
-        log.warning("teacher_rating_failed", reason="participant_not_found_or_no_access")
+        log.warning("teacher_rating_failed")
         raise HTTPException(status_code=404, detail="Participant not found or access denied")
 
-    log.info("teacher_rating_saved", overall_rating=rating_data.overall_rating)
+    log.info("teacher_rating_saved")
 
     return SuccessResponse(
         data=TeacherRatingResponse(
@@ -1045,7 +1045,7 @@ async def publish_arena_results(
     logger = get_logger(__name__)
     correlation_id = f"publish-{arena_id}"
     log = get_logger(__name__)
-    log.info("arena_publish_started", visibility=publish_data.visibility, include_ai=publish_data.include_ai_analysis)
+    log.info("arena_publish_started")
 
     arena = await ArenaService.publish_arena_results(
         db=db,
@@ -1056,13 +1056,13 @@ async def publish_arena_results(
     )
 
     if not arena:
-        log.warning("arena_publish_failed", reason="arena_not_found_or_not_completed")
+        log.warning("arena_publish_failed")
         raise HTTPException(status_code=404, detail="Arena not found, not completed, or access denied")
 
     # TODO: Generate share URL based on visibility setting
     share_url = f"https://youspeak.com/arenas/{arena_id}/results"
 
-    log.info("arena_published", status=arena.status.value)
+    log.info("arena_published")
 
     return SuccessResponse(
         data=PublishArenaResponse(
@@ -1218,13 +1218,13 @@ async def publish_to_challenge_pool(
     )
 
     if not arena:
-        log.warning("challenge_pool_publish_failed", reason="arena_not_found_or_not_completed")
+        log.warning("challenge_pool_publish_failed")
         raise HTTPException(
             status_code=404,
             detail="Arena not found, not completed, or access denied"
         )
 
-    log.info("challenge_pool_published", is_public=arena.is_public)
+    log.info("challenge_pool_published")
 
     return SuccessResponse(
         data=PublishToChallengePoolResponse(
@@ -1268,13 +1268,13 @@ async def clone_challenge_from_pool(
     )
 
     if not cloned_arena:
-        log.warning("challenge_clone_failed", reason="pool_challenge_not_found_or_no_access")
+        log.warning("challenge_clone_failed")
         raise HTTPException(
             status_code=404,
             detail="Challenge not found in pool or you don't have access to the target class"
         )
 
-    log.info("challenge_cloned", new_arena_id=str(cloned_arena.id))
+    log.info("challenge_cloned")
 
     return SuccessResponse(
         data=CloneChallengeResponse(
@@ -1352,11 +1352,11 @@ async def create_team(
             leader_id=request.leader_id
         )
     except ValueError as e:
-        log.warning("team_creation_failed", reason=str(e))
+        log.warning("team_creation_failed")
         raise HTTPException(status_code=400, detail=str(e))
 
     if not team:
-        log.warning("team_creation_failed", reason="arena_not_found_or_no_access")
+        log.warning("team_creation_failed")
         raise HTTPException(status_code=404, detail="Arena not found or access denied")
 
     # Build response with member info
@@ -1379,7 +1379,7 @@ async def create_team(
         created_at=team.created_at
     )
 
-    log.info("team_created", team_id=str(team.id), member_count=len(members_info))
+    log.info("team_created")
 
     return SuccessResponse(
         data=CreateTeamResponse(
@@ -1431,7 +1431,7 @@ async def list_teams(
     teams = await ArenaService.list_teams(db, arena_id, current_user.id)
 
     if teams is None:
-        log.warning("list_teams_failed", reason="arena_not_found_or_no_access")
+        log.warning("list_teams_failed")
         raise HTTPException(status_code=404, detail="Arena not found or access denied")
 
     # Get arena info
@@ -1465,7 +1465,7 @@ async def list_teams(
 
         total_students += len(members_info)
 
-    log.info("teams_listed", total_teams=len(teams_info), total_students=total_students)
+    log.info("teams_listed")
 
     return SuccessResponse(
         data=ListTeamsResponse(
@@ -1558,7 +1558,7 @@ async def get_history(
         for arena, class_name, participant_count in rows
     ]
 
-    log.info("history_retrieved", total=total, returned=len(history_items))
+    log.info("history_retrieved")
 
     return SuccessResponse(
         data=ArenaHistoryResponse(

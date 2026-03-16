@@ -195,18 +195,32 @@ async def pydantic_validation_exception_handler(request: Request, exc: PydanticV
     Handle Pydantic ValidationError raised from field validators.
     Converts to 422 response like FastAPI's RequestValidationError handler.
     """
+    # Clean up error dicts to remove non-JSON-serializable objects (like ValueError in ctx)
+    errors = []
+    for error in exc.errors():
+        clean_error = {
+            "type": error.get("type"),
+            "loc": error.get("loc"),
+            "msg": error.get("msg"),
+            "input": error.get("input"),
+        }
+        # Convert ctx values to strings if present
+        if "ctx" in error:
+            clean_error["ctx"] = {k: str(v) for k, v in error["ctx"].items()}
+        errors.append(clean_error)
+
     logger.warning(
         "Pydantic validation error",
         extra={
             "path": request.url.path,
-            "errors": exc.errors(),
+            "errors": errors,
             "correlation_id": getattr(request.state, "request_id", None),
         }
     )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
-            "detail": exc.errors()
+            "detail": errors
         },
     )
 
