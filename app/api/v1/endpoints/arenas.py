@@ -464,8 +464,8 @@ async def list_waiting_room(
         WaitingRoomEntry(
             entry_id=entry.id,
             student_id=user.id,
-            student_name=user.name,
-            avatar_url=user.profile_pic_url,
+            student_name=f"{user.first_name} {user.last_name}",
+            avatar_url=user.profile_picture_url,
             entry_timestamp=entry.entry_timestamp,
             status=entry.status
         )
@@ -926,8 +926,8 @@ async def get_arena_scores(
             ParticipantScoreCard(
                 participant_id=participant.id,
                 student_id=participant.student_id,
-                student_name=user.name,
-                avatar_url=user.avatar_url,
+                student_name=f"{user.first_name} {user.last_name}",
+                avatar_url=user.profile_picture_url,
                 total_speaking_duration_seconds=participant.total_speaking_duration_seconds,
                 engagement_score=float(participant.engagement_score),
                 reactions_received=reactions_count,
@@ -1391,9 +1391,9 @@ async def create_team(
     members_info = [
         TeamMemberInfo(
             student_id=member.student_id,
-            student_name=member.student.name,
+            student_name=f"{member.student.first_name} {member.student.last_name}",
             role=member.role,
-            avatar_url=member.student.profile_pic_url
+            avatar_url=member.student.profile_picture_url
         )
         for member in team.members
     ]
@@ -1477,9 +1477,9 @@ async def list_teams(
         members_info = [
             TeamMemberInfo(
                 student_id=member.student_id,
-                student_name=member.student.name,
+                student_name=f"{member.student.first_name} {member.student.last_name}",
                 role=member.role,
-                avatar_url=member.student.profile_pic_url
+                avatar_url=member.student.profile_picture_url
             )
             for member in team.members
         ]
