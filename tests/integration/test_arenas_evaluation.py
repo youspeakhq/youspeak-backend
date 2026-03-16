@@ -29,7 +29,7 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     Returns: dict with teacher_id, headers, class_id, arena_id, participant_ids
     """
     # Create a fake school first
-    from app.models.academic import School
+    from app.models.onboarding import School
     fake_school_id = UUID("00000000-0000-0000-0000-000000000001")
     school = School(
         id=fake_school_id,
