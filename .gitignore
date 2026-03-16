@@ -181,3 +181,8 @@ terraform-outputs.txt
 .env
 .env.*
 !.env.example
+
+# Test files with credentials (use env vars or AWS profiles instead)
+test_*_bearer.py
+test_*_credentials.py
+*_secret_test.py
