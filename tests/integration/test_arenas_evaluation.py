@@ -32,6 +32,10 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     from app.models.onboarding import School
     from app.models.enums import SchoolType, ProgramType
     from uuid import uuid4
+
+    # Generate unique suffix for parallel test execution
+    unique_suffix = uuid4().hex[:8]
+
     fake_school_id = uuid4()
     school = School(
         id=fake_school_id,
@@ -44,7 +48,7 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
 
     # Create teacher with school_id
     teacher = User(
-        email="teacher@test.com",
+        email=f"teacher-{unique_suffix}@test.com",
         first_name="Teacher",
         last_name="Test",
         role=UserRole.TEACHER,
@@ -88,7 +92,7 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     student_ids = []
     for i in range(3):
         student = User(
-            email=f"student{i}@test.com",
+            email=f"student{i}-{unique_suffix}@test.com",
             first_name=f"Student",
             last_name=f"{i}",
             role=UserRole.STUDENT,
