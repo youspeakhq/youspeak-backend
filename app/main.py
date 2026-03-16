@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from pydantic import ValidationError as PydanticValidationError
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -184,6 +185,28 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={
             "detail": exc.errors(),
             "body": body_value
+        },
+    )
+
+
+@app.exception_handler(PydanticValidationError)
+async def pydantic_validation_exception_handler(request: Request, exc: PydanticValidationError):
+    """
+    Handle Pydantic ValidationError raised from field validators.
+    Converts to 422 response like FastAPI's RequestValidationError handler.
+    """
+    logger.warning(
+        "Pydantic validation error",
+        extra={
+            "path": request.url.path,
+            "errors": exc.errors(),
+            "correlation_id": getattr(request.state, "request_id", None),
+        }
+    )
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "detail": exc.errors()
         },
     )
 

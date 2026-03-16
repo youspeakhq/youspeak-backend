@@ -58,7 +58,16 @@
       "Bash(grep:*)",
       "Bash(alembic upgrade:*)",
       "Bash(python -m alembic:*)",
-      "Bash(gh run watch:*)"
+      "Bash(gh run watch:*)",
+      "Bash(gh variable list:*)",
+      "Bash(gh secret list:*)",
+      "Bash(gh api repos/:owner/:repo/environments)",
+      "Bash(gh api:*)",
+      "Bash(python -m flake8:*)",
+      "Bash(gh run cancel:*)",
+      "Bash(gunzip:*)",
+      "Bash(echo:*)",
+      "Bash(git reset:*)"
     ]
   }
 }
