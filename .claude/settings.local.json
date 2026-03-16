@@ -57,7 +57,8 @@
       "Bash(pip3 install:*)",
       "Bash(grep:*)",
       "Bash(alembic upgrade:*)",
-      "Bash(python -m alembic:*)"
+      "Bash(python -m alembic:*)",
+      "Bash(gh run watch:*)"
     ]
   }
 }

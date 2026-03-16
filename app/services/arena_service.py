@@ -15,7 +15,7 @@ from sqlalchemy import select, and_, or_, delete, insert, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.arena import Arena, ArenaCriteria, ArenaRule, arena_moderators, ArenaWaitingRoom, ArenaParticipant, ArenaReaction
+from app.models.arena import Arena, ArenaCriteria, ArenaRule, arena_moderators, ArenaWaitingRoom, ArenaParticipant, ArenaReaction, ArenaTeam, ArenaTeamMember
 from app.models.academic import Class, teacher_assignments
 from app.models.user import User
 from app.models.enums import ArenaStatus, UserRole
@@ -1176,7 +1176,7 @@ class ArenaService:
         team_name: str,
         student_ids: List[UUID],
         leader_id: Optional[UUID] = None,
-    ) -> Optional["ArenaTeam"]:
+    ) -> Optional[ArenaTeam]:
         """
         Create a team for collaborative arena mode.
 
@@ -1229,7 +1229,7 @@ class ArenaService:
         db: AsyncSession,
         arena_id: UUID,
         teacher_id: UUID,
-    ) -> Optional[List["ArenaTeam"]]:
+    ) -> Optional[List[ArenaTeam]]:
         """
         List all teams for an arena.
 
