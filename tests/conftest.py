@@ -274,3 +274,101 @@ async def create_student_direct(
         "password": password,
         "token": token,
     }
+
+
+@pytest.fixture
+async def teacher_with_class_and_students(
+    async_client: AsyncClient,
+    api_base: str,
+    registered_school: dict,
+    unique_suffix: str,
+):
+    """
+    Create teacher with a class and enrolled students.
+    Returns: dict with teacher_id, headers, class_id, student_ids
+    """
+    # Create teacher
+    teacher_email = f"teacher_{unique_suffix}@test.com"
+    resp = await async_client.post(
+        f"{api_base}/teachers",
+        headers=registered_school["headers"],
+        json={"first_name": "Teacher", "last_name": "Test", "email": teacher_email},
+    )
+    assert resp.status_code == 200, resp.text
+    code = resp.json()["data"]["access_code"]
+
+    # Register teacher
+    await async_client.post(
+        f"{api_base}/auth/register/teacher",
+        json={
+            "access_code": code,
+            "email": teacher_email,
+            "password": "Pass123!",
+            "first_name": "Teacher",
+            "last_name": "Test",
+        },
+    )
+
+    # Login teacher
+    resp = await async_client.post(
+        f"{api_base}/auth/login",
+        json={"email": teacher_email, "password": "Pass123!"},
+    )
+    assert resp.status_code == 200, resp.text
+    token = resp.json()["data"]["access_token"]
+    teacher_id = resp.json()["data"]["user_id"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Get or create term
+    resp = await async_client.get(f"{api_base}/schools/terms", headers=headers)
+    terms = resp.json().get("data", [])
+    if not terms:
+        # Create a dummy classroom to ensure semester exists
+        await async_client.post(
+            f"{api_base}/classrooms",
+            headers=registered_school["headers"],
+            json={"name": f"Dummy_{unique_suffix}", "language_id": 1, "level": "a1"}
+        )
+        resp = await async_client.get(f"{api_base}/schools/terms", headers=headers)
+        terms = resp.json().get("data", [])
+
+    term_id = terms[0]["id"]
+
+    # Create class
+    resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=headers,
+        json={
+            "name": f"Test Class {unique_suffix}",
+            "schedule": [
+                {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
+            ],
+            "language_id": 1,
+            "term_id": term_id,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    class_id = resp.json()["data"]["id"]
+
+    # Create 3 students enrolled in the class
+    student_ids = []
+    for i in range(3):
+        student = await create_student_direct(
+            async_client=async_client,
+            api_base=api_base,
+            admin_headers=registered_school["headers"],
+            class_id=class_id,
+            first_name=f"Student",
+            last_name=f"{i}",
+            email=f"student{i}_{unique_suffix}@test.com",
+            password="Pass123!",
+            lang_id=1,
+        )
+        student_ids.append(student["student_id"])
+
+    return {
+        "teacher_id": teacher_id,
+        "headers": headers,
+        "class_id": class_id,
+        "student_ids": student_ids,
+    }
