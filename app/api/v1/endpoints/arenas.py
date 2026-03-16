@@ -201,8 +201,8 @@ async def search_students(
     student_items = [
         StudentListItem(
             id=s.id,
-            name=s.name,
-            avatar_url=s.profile_pic_url,
+            name=f"{s.first_name} {s.last_name}",
+            avatar_url=s.profile_picture_url,
             status="active"
         )
         for s in students
@@ -252,8 +252,8 @@ async def initialize_arena_session(
         participants = [
             StudentListItem(
                 id=u.id,
-                name=u.name,
-                avatar_url=u.profile_pic_url,
+                name=f"{u.first_name} {u.last_name}",
+                avatar_url=u.profile_picture_url,
                 status="active"
             )
             for u in users
@@ -309,8 +309,8 @@ async def randomize_student_selection(
     student_items = [
         StudentListItem(
             id=s.id,
-            name=s.name,
-            avatar_url=s.profile_pic_url,
+            name=f"{s.first_name} {s.last_name}",
+            avatar_url=s.profile_picture_url,
             status="active"
         )
         for s in students
@@ -352,8 +352,8 @@ async def hybrid_student_selection(
     student_items = [
         StudentListItem(
             id=s.id,
-            name=s.name,
-            avatar_url=s.profile_pic_url,
+            name=f"{s.first_name} {s.last_name}",
+            avatar_url=s.profile_picture_url,
             status="active"
         )
         for s in students
