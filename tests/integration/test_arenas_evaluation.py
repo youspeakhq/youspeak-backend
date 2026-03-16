@@ -28,7 +28,18 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     Create teacher with a live arena session that has admitted participants.
     Returns: dict with teacher_id, headers, class_id, arena_id, participant_ids
     """
-    # Create teacher
+    # Create a fake school first
+    from app.models.academic import School
+    fake_school_id = UUID("00000000-0000-0000-0000-000000000001")
+    school = School(
+        id=fake_school_id,
+        name="Test School",
+        subdomain="test-school"
+    )
+    db.add(school)
+    await db.flush()
+
+    # Create teacher with school_id
     teacher = User(
         email="teacher@test.com",
         first_name="Teacher",
@@ -36,7 +47,8 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
         role=UserRole.TEACHER,
         hashed_password="fake_hash",
         is_active=True,
-        language_id=1
+        language_id=1,
+        school_id=fake_school_id
     )
     db.add(teacher)
     await db.flush()
@@ -44,7 +56,7 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     # Create class
     class_ = Class(
         name="Test Class",
-        school_id=UUID("00000000-0000-0000-0000-000000000001"),  # Fake school
+        school_id=fake_school_id,
         description="Test class for arena"
     )
     db.add(class_)
@@ -60,7 +72,8 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
             role=UserRole.STUDENT,
             hashed_password="fake_hash",
             is_active=True,
-            language_id=1
+            language_id=1,
+            school_id=fake_school_id
         )
         db.add(student)
         await db.flush()

@@ -567,7 +567,7 @@ async def arena_live_session(
     user_id = user.id
     correlation_id = f"ws-{arena_id}-{user_id}"
 
-    log = logger.bind(
+    log = get_logger(__name__).bind(
         correlation_id=correlation_id,
         arena_id=str(arena_id),
         user_id=str(user_id),
@@ -744,7 +744,7 @@ async def start_arena_session(
     Used by: Teacher clicks "Start Session" button
     """
     logger = get_logger(__name__)
-    log = logger.bind(
+    log = get_logger(__name__).bind(
         arena_id=str(arena_id),
         teacher_id=str(current_user.id)
     )
@@ -806,7 +806,7 @@ async def end_arena_session(
     Used by: Teacher clicks "End Session" button
     """
     logger = get_logger(__name__)
-    log = logger.bind(
+    log = get_logger(__name__).bind(
         arena_id=str(arena_id),
         teacher_id=str(current_user.id),
         reason=body.reason
@@ -1009,7 +1009,7 @@ async def rate_participant(
     """
     logger = get_logger(__name__)
     correlation_id = f"rate-{arena_id}-{participant_id}"
-    log = logger.bind(correlation_id=correlation_id, arena_id=str(arena_id), teacher_id=str(current_user.id))
+    log = get_logger(__name__).bind(correlation_id=correlation_id, arena_id=str(arena_id), teacher_id=str(current_user.id))
 
     log.info("teacher_rating_submission_started", participant_id=str(participant_id))
 
@@ -1057,7 +1057,7 @@ async def publish_arena_results(
     """
     logger = get_logger(__name__)
     correlation_id = f"publish-{arena_id}"
-    log = logger.bind(correlation_id=correlation_id, arena_id=str(arena_id), teacher_id=str(current_user.id))
+    log = get_logger(__name__).bind(correlation_id=correlation_id, arena_id=str(arena_id), teacher_id=str(current_user.id))
 
     log.info("arena_publish_started", visibility=publish_data.visibility, include_ai=publish_data.include_ai_analysis)
 
@@ -1221,7 +1221,7 @@ async def publish_to_challenge_pool(
     Used by: Post-session publishing workflow
     """
     logger = get_logger(__name__)
-    log = logger.bind(
+    log = get_logger(__name__).bind(
         arena_id=str(arena_id),
         teacher_id=str(current_user.id)
     )
@@ -1272,7 +1272,7 @@ async def clone_challenge_from_pool(
     Used by: Challenge pool browser (clone button)
     """
     logger = get_logger(__name__)
-    log = logger.bind(
+    log = get_logger(__name__).bind(
         pool_arena_id=str(pool_arena_id),
         teacher_id=str(current_user.id),
         class_id=str(clone_data.class_id)
