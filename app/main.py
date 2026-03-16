@@ -199,36 +199,56 @@ async def pydantic_validation_exception_handler(request: Request, exc: PydanticV
 
     def make_json_serializable(obj):
         """Convert any object to a JSON-serializable form."""
-        if obj is None or isinstance(obj, (str, int, float, bool)):
-            return obj
-        if isinstance(obj, (list, tuple)):
-            return [make_json_serializable(item) for item in obj]
-        if isinstance(obj, dict):
-            return {k: make_json_serializable(v) for k, v in obj.items()}
-        # For any other type (ValueError, custom objects, etc.), convert to string
-        return str(obj)
+        try:
+            if obj is None or isinstance(obj, (str, int, float, bool)):
+                return obj
+            if isinstance(obj, (list, tuple)):
+                return [make_json_serializable(item) for item in obj]
+            if isinstance(obj, dict):
+                return {k: make_json_serializable(v) for k, v in obj.items()}
+            # For any other type (ValueError, custom objects, etc.), convert to string
+            return str(obj)
+        except Exception:
+            return "<non-serializable>"
 
     # Clean up error dicts to remove non-JSON-serializable objects
     errors = []
-    for error in exc.errors():
-        clean_error = {
-            "type": make_json_serializable(error.get("type")),
-            "loc": make_json_serializable(error.get("loc")),
-            "msg": make_json_serializable(error.get("msg")),
-        }
-        # Only include input if it's small and serializable
-        if "input" in error:
-            input_val = error["input"]
-            # Only include simple inputs, skip large or complex objects
-            if isinstance(input_val, (str, int, float, bool, type(None))) or \
-               (isinstance(input_val, (list, dict)) and len(str(input_val)) < 200):
-                clean_error["input"] = make_json_serializable(input_val)
+    try:
+        for error in exc.errors():
+            try:
+                clean_error = {
+                    "type": make_json_serializable(error.get("type")),
+                    "loc": make_json_serializable(error.get("loc")),
+                    "msg": make_json_serializable(error.get("msg")),
+                }
+                # Only include input if it's small and serializable
+                if "input" in error:
+                    try:
+                        input_val = error["input"]
+                        # Only include simple inputs, skip large or complex objects
+                        if isinstance(input_val, (str, int, float, bool, type(None))) or \
+                           (isinstance(input_val, (list, dict)) and len(str(input_val)) < 200):
+                            clean_error["input"] = make_json_serializable(input_val)
+                    except Exception:
+                        pass  # Skip input if serialization fails
 
-        # Convert ctx values to strings if present
-        if "ctx" in error:
-            clean_error["ctx"] = make_json_serializable(error["ctx"])
+                # Convert ctx values to strings if present
+                if "ctx" in error:
+                    try:
+                        clean_error["ctx"] = make_json_serializable(error["ctx"])
+                    except Exception:
+                        pass  # Skip ctx if serialization fails
 
-        errors.append(clean_error)
+                errors.append(clean_error)
+            except Exception:
+                # Fallback for individual error processing failures
+                errors.append({
+                    "type": "validation_error",
+                    "msg": str(error.get("msg", "Validation failed")),
+                })
+    except Exception:
+        # Ultimate fallback if exc.errors() itself fails
+        errors = [{"type": "validation_error", "msg": "Validation failed"}]
 
     logger.warning(
         "Pydantic validation error",
