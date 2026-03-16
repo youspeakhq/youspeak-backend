@@ -292,16 +292,12 @@ async def randomize_student_selection(
     Used by: "Randomize" tab in Student Selection screen
     Returns selected students but does NOT save them (that happens in /initialize)
     """
-    # Check if arena exists
-    arena = await ArenaService.get_arena_by_id(db, arena_id)
-    if not arena:
-        raise HTTPException(status_code=404, detail="Arena not found")
-
     # Verify teacher has access to this arena
-    if not await ArenaService._teacher_teaches_class(db, current_user.id, arena.class_id):
-        raise HTTPException(status_code=403, detail="You do not teach the class for this arena")
+    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
+    if not arena:
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
 
-    # Verify teacher teaches the requested class
+    # Verify teacher teaches the class
     teaches = await ArenaService._teacher_teaches_class(db, current_user.id, body.class_id)
     if not teaches:
         raise HTTPException(status_code=403, detail="You do not teach this class")
@@ -339,16 +335,12 @@ async def hybrid_student_selection(
     Used by: "Hybrid" tab in Student Selection screen
     Returns combined list but does NOT save (that happens in /initialize)
     """
-    # Check if arena exists
-    arena = await ArenaService.get_arena_by_id(db, arena_id)
-    if not arena:
-        raise HTTPException(status_code=404, detail="Arena not found")
-
     # Verify teacher has access to this arena
-    if not await ArenaService._teacher_teaches_class(db, current_user.id, arena.class_id):
-        raise HTTPException(status_code=403, detail="You do not teach the class for this arena")
+    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
+    if not arena:
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
 
-    # Verify teacher teaches the requested class
+    # Verify teacher teaches the class
     teaches = await ArenaService._teacher_teaches_class(db, current_user.id, body.class_id)
     if not teaches:
         raise HTTPException(status_code=403, detail="You do not teach this class")
@@ -575,10 +567,7 @@ async def arena_live_session(
     user_id = user.id
     correlation_id = f"ws-{arena_id}-{user_id}"
 
-    log = get_logger(__name__),
-        user_id=str(user_id),
-        user_role=user.role.value
-    )
+    log = get_logger(__name__)
 
     log.info("websocket_connection_attempt")
 
@@ -750,9 +739,7 @@ async def start_arena_session(
     Used by: Teacher clicks "Start Session" button
     """
     logger = get_logger(__name__)
-    log = get_logger(__name__),
-        teacher_id=str(current_user.id)
-    )
+    log = get_logger(__name__)
 
     log.info("arena_session_start_requested")
 
@@ -811,10 +798,7 @@ async def end_arena_session(
     Used by: Teacher clicks "End Session" button
     """
     logger = get_logger(__name__)
-    log = get_logger(__name__),
-        teacher_id=str(current_user.id),
-        reason=body.reason
-    )
+    log = get_logger(__name__)
 
     log.info("arena_session_end_requested")
 
@@ -1013,8 +997,7 @@ async def rate_participant(
     """
     logger = get_logger(__name__)
     correlation_id = f"rate-{arena_id}-{participant_id}"
-    log = get_logger(__name__), teacher_id=str(current_user.id))
-
+    log = get_logger(__name__)
     log.info("teacher_rating_submission_started", participant_id=str(participant_id))
 
     participant = await ArenaService.save_teacher_rating(
@@ -1061,8 +1044,7 @@ async def publish_arena_results(
     """
     logger = get_logger(__name__)
     correlation_id = f"publish-{arena_id}"
-    log = get_logger(__name__), teacher_id=str(current_user.id))
-
+    log = get_logger(__name__)
     log.info("arena_publish_started", visibility=publish_data.visibility, include_ai=publish_data.include_ai_analysis)
 
     arena = await ArenaService.publish_arena_results(
@@ -1225,9 +1207,7 @@ async def publish_to_challenge_pool(
     Used by: Post-session publishing workflow
     """
     logger = get_logger(__name__)
-    log = get_logger(__name__),
-        teacher_id=str(current_user.id)
-    )
+    log = get_logger(__name__)
 
     log.info("challenge_pool_publish_started")
 
@@ -1275,10 +1255,7 @@ async def clone_challenge_from_pool(
     Used by: Challenge pool browser (clone button)
     """
     logger = get_logger(__name__)
-    log = get_logger(__name__),
-        teacher_id=str(current_user.id),
-        class_id=str(clone_data.class_id)
-    )
+    log = get_logger(__name__)
 
     log.info("challenge_clone_started")
 
@@ -1363,10 +1340,7 @@ async def create_team(
     - 400: Arena not in collaborative mode
     - 400: Duplicate team name
     """
-    log = get_logger(__name__),
-        teacher_id=str(current_user.id),
-        team_name=request.team_name
-    )
+    log = get_logger(__name__)
 
     try:
         team = await ArenaService.create_team(
@@ -1452,9 +1426,7 @@ async def list_teams(
     **Errors:**
     - 404: Arena not found or access denied
     """
-    log = get_logger(__name__),
-        teacher_id=str(current_user.id)
-    )
+    log = get_logger(__name__)
 
     teams = await ArenaService.list_teams(db, arena_id, current_user.id)
 
@@ -1555,10 +1527,7 @@ async def get_history(
     - Analytics and reporting
     - Re-running past challenges (clone from history)
     """
-    log = get_logger(__name__),
-        page=page,
-        page_size=page_size
-    )
+    log = get_logger(__name__)
 
     skip = (page - 1) * page_size
 
