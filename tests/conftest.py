@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
 from app.config import settings
-from app.database import async_session_maker
+from app.database import AsyncSessionLocal
 
 # Skip integration/E2E tests if DATABASE_URL or SECRET_KEY not set
 requires_db = pytest.mark.skipif(
@@ -83,7 +83,7 @@ async def async_client(api_base: str):
 @pytest.fixture
 async def db() -> AsyncSession:
     """Provide an AsyncSession for direct database access in tests."""
-    async with async_session_maker() as session:
+    async with AsyncSessionLocal() as session:
         yield session
         await session.rollback()  # Rollback any uncommitted changes
 
