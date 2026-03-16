@@ -195,25 +195,46 @@ async def pydantic_validation_exception_handler(request: Request, exc: PydanticV
     Handle Pydantic ValidationError raised from field validators.
     Converts to 422 response like FastAPI's RequestValidationError handler.
     """
-    # Clean up error dicts to remove non-JSON-serializable objects (like ValueError in ctx)
+    import json
+
+    def make_json_serializable(obj):
+        """Convert any object to a JSON-serializable form."""
+        if obj is None or isinstance(obj, (str, int, float, bool)):
+            return obj
+        if isinstance(obj, (list, tuple)):
+            return [make_json_serializable(item) for item in obj]
+        if isinstance(obj, dict):
+            return {k: make_json_serializable(v) for k, v in obj.items()}
+        # For any other type (ValueError, custom objects, etc.), convert to string
+        return str(obj)
+
+    # Clean up error dicts to remove non-JSON-serializable objects
     errors = []
     for error in exc.errors():
         clean_error = {
-            "type": error.get("type"),
-            "loc": error.get("loc"),
-            "msg": error.get("msg"),
-            "input": error.get("input"),
+            "type": make_json_serializable(error.get("type")),
+            "loc": make_json_serializable(error.get("loc")),
+            "msg": make_json_serializable(error.get("msg")),
         }
+        # Only include input if it's small and serializable
+        if "input" in error:
+            input_val = error["input"]
+            # Only include simple inputs, skip large or complex objects
+            if isinstance(input_val, (str, int, float, bool, type(None))) or \
+               (isinstance(input_val, (list, dict)) and len(str(input_val)) < 200):
+                clean_error["input"] = make_json_serializable(input_val)
+
         # Convert ctx values to strings if present
         if "ctx" in error:
-            clean_error["ctx"] = {k: str(v) for k, v in error["ctx"].items()}
+            clean_error["ctx"] = make_json_serializable(error["ctx"])
+
         errors.append(clean_error)
 
     logger.warning(
         "Pydantic validation error",
         extra={
             "path": request.url.path,
-            "errors": errors,
+            "error_count": len(errors),
             "correlation_id": getattr(request.state, "request_id", None),
         }
     )
