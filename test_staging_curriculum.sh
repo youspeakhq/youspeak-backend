@@ -1,86 +1,120 @@
-#!/bin/bash
-# Quick test script for staging curriculum GET endpoint
+#!/usr/bin/env bash
+# Quick test script for staging curriculum endpoint
+# Usage: ./test_staging_curriculum.sh [EMAIL] [PASSWORD]
+# If no credentials provided, creates a new test account
 
 set -e
 
-STAGING_URL="https://api-staging.youspeakhq.com"
-API_BASE="${STAGING_URL}/api/v1"
+BASE_URL="https://api-staging.youspeakhq.com"
+TEST_EMAIL="${1:-test-$(date +%s)@example.com}"
+TEST_PASSWORD="${2:-TestPassword123}"
 
-echo "============================================================"
-echo "Testing Curriculum GET endpoint on staging"
-echo "Staging URL: ${STAGING_URL}"
-echo "============================================================"
+echo "🧪 Testing Staging Curriculum Endpoint"
+echo "======================================="
+echo ""
+echo "📧 Email: $TEST_EMAIL"
+echo "🔗 Base URL: $BASE_URL"
 echo ""
 
-# Get credentials
-read -p "Enter admin email: " ADMIN_EMAIL
-read -sp "Enter admin password: " ADMIN_PASSWORD
-echo ""
-echo ""
-
-# Step 1: Login
-echo "[1/3] Logging in as admin..."
-LOGIN_RESPONSE=$(curl -s -X POST "${API_BASE}/auth/login" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"${ADMIN_EMAIL}\",\"password\":\"${ADMIN_PASSWORD}\"}")
-
-if echo "$LOGIN_RESPONSE" | grep -q '"success":true'; then
-  TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
-  echo "✅ Login successful"
-else
-  echo "❌ Login failed:"
-  echo "$LOGIN_RESPONSE" | jq '.' 2>/dev/null || echo "$LOGIN_RESPONSE"
-  exit 1
-fi
-echo ""
-
-# Step 2: List curriculums
-echo "[2/3] Listing curriculums..."
-LIST_RESPONSE=$(curl -s -X GET "${API_BASE}/curriculums?page=1&page_size=10" \
-  -H "Authorization: Bearer ${TOKEN}")
-
-if echo "$LIST_RESPONSE" | grep -q '"success":true'; then
-  CURRICULUM_COUNT=$(echo "$LIST_RESPONSE" | jq '.data | length' 2>/dev/null || echo "0")
-  echo "✅ Found ${CURRICULUM_COUNT} curriculum(s)"
-
-  if [ "$CURRICULUM_COUNT" -eq 0 ]; then
-    echo "⚠️  No curriculums found. Please create one first."
-    exit 0
-  fi
-
-  CURRICULUM_ID=$(echo "$LIST_RESPONSE" | jq -r '.data[0].id' 2>/dev/null)
-  echo "   Testing with ID: ${CURRICULUM_ID}"
-else
-  echo "❌ List failed:"
-  echo "$LIST_RESPONSE" | jq '.' 2>/dev/null || echo "$LIST_RESPONSE"
-  exit 1
-fi
-echo ""
-
-# Step 3: Get specific curriculum
-echo "[3/3] Getting curriculum by ID..."
-GET_RESPONSE=$(curl -s -X GET "${API_BASE}/curriculums/${CURRICULUM_ID}" \
-  -H "Authorization: Bearer ${TOKEN}")
-
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET "${API_BASE}/curriculums/${CURRICULUM_ID}" \
-  -H "Authorization: Bearer ${TOKEN}")
-
-echo "Response Status: ${HTTP_CODE}"
-echo ""
-
-if [ "$HTTP_CODE" = "200" ]; then
-  echo "✅ GET curriculum successful!"
+# Step 1: Register or login
+if [ -z "$1" ]; then
+  echo "📝 Step 1: Registering new test account..."
+  REG_RESP=$(curl -s -X POST "$BASE_URL/api/v1/auth/register/school" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "account_type": "school",
+      "email": "'"$TEST_EMAIL"'",
+      "password": "'"$TEST_PASSWORD"'",
+      "school_name": "Test School",
+      "admin_first_name": "Test",
+      "admin_last_name": "User"
+    }')
+  echo "✅ Registration response:"
+  echo "$REG_RESP" | jq '.'
   echo ""
-  echo "Curriculum Details:"
-  echo "$GET_RESPONSE" | jq '.data | {id, title, status, language_name, topics: (.topics | length)}' 2>/dev/null || \
-    echo "$GET_RESPONSE"
 else
-  echo "❌ GET failed:"
-  echo "$GET_RESPONSE" | jq '.' 2>/dev/null || echo "$GET_RESPONSE"
+  echo "📝 Step 1: Using existing credentials"
+  echo ""
+fi
+
+# Step 2: Login
+echo "🔐 Step 2: Logging in..."
+LOGIN_RESP=$(curl -s -X POST "$BASE_URL/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "'"$TEST_EMAIL"'",
+    "password": "'"$TEST_PASSWORD"'"
+  }')
+
+TOKEN=$(echo "$LOGIN_RESP" | jq -r '.data.access_token // empty')
+
+if [ -z "$TOKEN" ]; then
+  echo "❌ Login failed:"
+  echo "$LOGIN_RESP" | jq '.'
   exit 1
 fi
 
+echo "✅ Login successful"
+echo "🎫 Token: ${TOKEN:0:30}..."
 echo ""
-echo "============================================================"
-echo "✅ TEST PASSED: Curriculum GET endpoint is working"
-echo "============================================================"
+
+# Step 3: Test curriculum endpoints
+echo "📚 Step 3: Testing curriculum endpoints"
+echo "----------------------------------------"
+echo ""
+
+# Test 1: List all
+echo "Test 1: List all curriculums (no filters)"
+curl -s -X GET "$BASE_URL/api/v1/curriculums" \
+  -H "Authorization: Bearer $TOKEN" | jq '.'
+echo ""
+
+# Test 2: Empty search
+echo "Test 2: List with empty search (should show all)"
+curl -s -X GET "$BASE_URL/api/v1/curriculums?search=" \
+  -H "Authorization: Bearer $TOKEN" | jq '.'
+echo ""
+
+# Test 3: Wildcard search
+echo "Test 3: List with wildcard search (should show all)"
+curl -s -X GET "$BASE_URL/api/v1/curriculums?search=*" \
+  -H "Authorization: Bearer $TOKEN" | jq '.'
+echo ""
+
+# Test 4: Text search
+echo "Test 4: List with text search 'English'"
+curl -s -X GET "$BASE_URL/api/v1/curriculums?search=English" \
+  -H "Authorization: Bearer $TOKEN" | jq '.'
+echo ""
+
+# Test 5: With status filter
+echo "Test 5: List with status=published"
+curl -s -X GET "$BASE_URL/api/v1/curriculums?status=published" \
+  -H "Authorization: Bearer $TOKEN" | jq '.'
+echo ""
+
+# Test 6: Invalid status (should error)
+echo "Test 6: Invalid status (should return 422)"
+curl -s -w "\nHTTP Status: %{http_code}\n" \
+  -X GET "$BASE_URL/api/v1/curriculums?status=invalid" \
+  -H "Authorization: Bearer $TOKEN" | jq '.'
+echo ""
+
+# Test 7: Pagination
+echo "Test 7: Pagination (page=2, page_size=5)"
+curl -s -X GET "$BASE_URL/api/v1/curriculums?page=2&page_size=5" \
+  -H "Authorization: Bearer $TOKEN" | jq '.'
+echo ""
+
+echo "✅ All tests complete!"
+echo ""
+echo "📖 View interactive API docs:"
+echo "   Swagger UI: $BASE_URL/docs"
+echo "   ReDoc: $BASE_URL/redoc"
+echo ""
+echo "💡 Frontend developer tips:"
+echo "   1. Check token expiration (15 min lifetime)"
+echo "   2. Ensure 'Authorization: Bearer TOKEN' header format"
+echo "   3. Empty results (data: []) is NOT an error"
+echo "   4. Check browser console for network errors"
+echo ""

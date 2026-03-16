@@ -53,6 +53,11 @@ class Arena(BaseModel):
         secondary="arena_moderators",
         backref="moderated_arenas"
     )
+    # Phase 2: Waiting room
+    waiting_room_entries = relationship("ArenaWaitingRoom", back_populates="arena", lazy="select")
+    # Phase 4: Live session tracking (lazy load to prevent errors if tables don't exist)
+    participants = relationship("ArenaParticipant", back_populates="arena", lazy="noload", cascade="all, delete-orphan")
+    reactions = relationship("ArenaReaction", back_populates="arena", lazy="noload", cascade="all, delete-orphan")
     # Phase 5: Challenge pool relationships
     source_pool_challenge = relationship("Arena", remote_side="Arena.id", foreign_keys=[source_pool_challenge_id])
     published_by_user = relationship("User", foreign_keys=[published_by])
@@ -130,7 +135,7 @@ class ArenaWaitingRoom(BaseModel):
     rejection_reason = Column(Text, nullable=True)
 
     # Relationships
-    arena = relationship("Arena", backref="waiting_room_entries")
+    arena = relationship("Arena", back_populates="waiting_room_entries")
     student = relationship("User", foreign_keys=[student_id], backref="arena_waiting_entries")
     admitted_by_user = relationship("User", foreign_keys=[admitted_by])
 
@@ -156,7 +161,7 @@ class ArenaParticipant(BaseModel):
     last_activity = Column(DateTime, nullable=False)
 
     # Relationships
-    arena = relationship("Arena", backref="participants")
+    arena = relationship("Arena", back_populates="participants")
     student = relationship("User", backref="arena_participations")
 
     def __repr__(self) -> str:
@@ -177,7 +182,7 @@ class ArenaReaction(BaseModel):
     timestamp = Column(DateTime, nullable=False)
 
     # Relationships
-    arena = relationship("Arena", backref="reactions")
+    arena = relationship("Arena", back_populates="reactions")
     user = relationship("User", backref="sent_reactions")
     target_participant = relationship("ArenaParticipant", backref="received_reactions")
 
