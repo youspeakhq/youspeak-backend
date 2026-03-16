@@ -173,23 +173,29 @@ class ArenaService:
         """Search for students in a class by name."""
         q = (
             select(User)
-            .join(User.enrollments)
+            .join(User.enrolled_classes)
             .where(
-                User.enrollments.any(class_id=class_id),
+                User.enrolled_classes.any(class_id=class_id),
                 User.role == UserRole.STUDENT,
                 User.is_active == True
             )
         )
 
         if name:
-            q = q.where(User.name.ilike(f"%{name}%"))
+            # Search in first_name or last_name
+            q = q.where(
+                or_(
+                    User.first_name.ilike(f"%{name}%"),
+                    User.last_name.ilike(f"%{name}%")
+                )
+            )
 
         # Count total
         count_q = select(func.count()).select_from(q.subquery())
         total = (await db.execute(count_q)).scalar() or 0
 
         # Get paginated results
-        q = q.offset(skip).limit(limit).order_by(User.name)
+        q = q.offset(skip).limit(limit).order_by(User.first_name, User.last_name)
         result = await db.execute(q)
         students = list(result.scalars().all())
 
@@ -235,9 +241,9 @@ class ArenaService:
         # Get all active students in class
         q = (
             select(User)
-            .join(User.enrollments)
+            .join(User.enrolled_classes)
             .where(
-                User.enrollments.any(class_id=class_id),
+                User.enrolled_classes.any(class_id=class_id),
                 User.role == UserRole.STUDENT,
                 User.is_active == True
             )
@@ -270,9 +276,9 @@ class ArenaService:
         # Get remaining students (excluding manual selections)
         q = (
             select(User)
-            .join(User.enrollments)
+            .join(User.enrolled_classes)
             .where(
-                User.enrollments.any(class_id=class_id),
+                User.enrolled_classes.any(class_id=class_id),
                 User.role == UserRole.STUDENT,
                 User.is_active == True
             )
@@ -872,8 +878,8 @@ class ArenaService:
             participant_analytics.append({
                 'participant_id': str(participant.id),
                 'student_id': str(participant.student_id),
-                'student_name': user.name,
-                'avatar_url': user.avatar_url,
+                'student_name': f"{user.first_name} {user.last_name}",
+                'avatar_url': user.profile_picture_url,
                 'speaking_timeline': [],  # TODO: Track individual speaking sessions
                 'engagement_timeline': [],  # TODO: Track engagement changes over time
                 'reactions_timeline': reactions_timeline,
@@ -997,7 +1003,7 @@ class ArenaService:
         """
         # Base query: public arenas with published status
         q = (
-            select(Arena, User.name)
+            select(Arena, func.concat(User.first_name, ' ', User.last_name).label('publisher_name'))
             .outerjoin(User, User.id == Arena.published_by)
             .where(
                 Arena.is_public == True,
@@ -1042,7 +1048,7 @@ class ArenaService:
         Returns (arena, publisher_name) or None if not found/not public.
         """
         result = await db.execute(
-            select(Arena, User.name)
+            select(Arena, func.concat(User.first_name, ' ', User.last_name).label('publisher_name'))
             .outerjoin(User, User.id == Arena.published_by)
             .options(
                 selectinload(Arena.criteria),

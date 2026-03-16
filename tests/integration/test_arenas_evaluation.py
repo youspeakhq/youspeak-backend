@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from app.models.user import User
 from app.models.arena import Arena, ArenaWaitingRoom, ArenaParticipant, ArenaReaction
-from app.models.academic import Class, Enrollment
+from app.models.academic import Class
 from app.models.enums import UserRole, ArenaStatus
 from app.core.security import create_access_token
 from tests.integration.conftest import requires_db
@@ -31,11 +31,12 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     # Create teacher
     teacher = User(
         email="teacher@test.com",
-        name="Teacher Test",
+        first_name="Teacher",
+        last_name="Test",
         role=UserRole.TEACHER,
-        password_hash="fake_hash",
+        hashed_password="fake_hash",
         is_active=True,
-        lang_id=1
+        language_id=1
     )
     db.add(teacher)
     await db.flush()
@@ -54,19 +55,19 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     for i in range(3):
         student = User(
             email=f"student{i}@test.com",
-            name=f"Student {i}",
+            first_name=f"Student",
+            last_name=f"{i}",
             role=UserRole.STUDENT,
-            password_hash="fake_hash",
+            hashed_password="fake_hash",
             is_active=True,
-            lang_id=1
+            language_id=1
         )
         db.add(student)
         await db.flush()
         student_ids.append(student.id)
 
-        # Enroll student
-        enrollment = Enrollment(class_id=class_.id, student_id=student.id)
-        db.add(enrollment)
+        # Enroll student in class
+        class_.students.append(student)
 
     # Create arena in live state
     arena = Arena(
