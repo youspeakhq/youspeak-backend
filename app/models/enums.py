@@ -136,6 +136,7 @@ class ArenaStatus(str, enum.Enum):
     SCHEDULED = "scheduled"
     LIVE = "live"
     COMPLETED = "completed"
+    PUBLISHED = "published"
 
 
 # Domain 7: Communication
