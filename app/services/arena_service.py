@@ -1163,3 +1163,155 @@ class ArenaService:
         await db.refresh(cloned_arena)
 
         return cloned_arena
+
+    # =====================================================================
+    # Phase 6: Collaborative Mode - Team Management
+    # =====================================================================
+
+    @staticmethod
+    async def create_team(
+        db: AsyncSession,
+        arena_id: UUID,
+        teacher_id: UUID,
+        team_name: str,
+        student_ids: List[UUID],
+        leader_id: Optional[UUID] = None,
+    ) -> Optional["ArenaTeam"]:
+        """
+        Create a team for collaborative arena mode.
+
+        Args:
+            arena_id: Arena to create team for
+            teacher_id: Teacher making the request (must teach arena's class)
+            team_name: Name for the team
+            student_ids: List of student IDs to add to team
+            leader_id: Optional student ID to designate as team leader
+
+        Returns:
+            ArenaTeam if successful, None if arena not found or access denied
+        """
+        from app.models.arena import ArenaTeam, ArenaTeamMember
+
+        # Verify teacher has access
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            return None
+
+        # Verify arena is in collaborative mode
+        if arena.arena_mode != "collaborative":
+            raise ValueError("Arena must be in collaborative mode to create teams")
+
+        # Create team
+        team = ArenaTeam(
+            arena_id=arena_id,
+            team_name=team_name
+        )
+        db.add(team)
+        await db.flush()  # Get team ID
+
+        # Add team members
+        for student_id in student_ids:
+            role = "leader" if student_id == leader_id else "member"
+            member = ArenaTeamMember(
+                team_id=team.id,
+                student_id=student_id,
+                role=role
+            )
+            db.add(member)
+
+        await db.commit()
+        await db.refresh(team)
+
+        return team
+
+    @staticmethod
+    async def list_teams(
+        db: AsyncSession,
+        arena_id: UUID,
+        teacher_id: UUID,
+    ) -> Optional[List["ArenaTeam"]]:
+        """
+        List all teams for an arena.
+
+        Returns:
+            List of ArenaTeam objects with members loaded, or None if access denied
+        """
+        from app.models.arena import ArenaTeam, ArenaTeamMember
+        from app.models.user import User
+
+        # Verify teacher has access
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            return None
+
+        # Get teams with members
+        result = await db.execute(
+            select(ArenaTeam)
+            .options(
+                selectinload(ArenaTeam.members).selectinload(ArenaTeamMember.student)
+            )
+            .where(ArenaTeam.arena_id == arena_id)
+            .order_by(ArenaTeam.created_at)
+        )
+        teams = result.scalars().all()
+
+        return list(teams)
+
+    @staticmethod
+    async def list_history(
+        db: AsyncSession,
+        teacher_id: UUID,
+        skip: int = 0,
+        limit: int = 20,
+        status_filter: Optional[ArenaStatus] = None,
+    ) -> Tuple[List[Tuple[Arena, str, int]], int]:
+        """
+        List historical arenas for a teacher.
+
+        Args:
+            teacher_id: Teacher to get history for
+            skip: Pagination offset
+            limit: Max results
+            status_filter: Optional filter by arena status
+
+        Returns:
+            Tuple of (list of (Arena, class_name, participant_count), total_count)
+        """
+        from app.models.arena import Arena, ArenaParticipant
+        from app.models.academic import Class, teacher_assignments
+
+        # Base query: arenas taught by this teacher
+        q = (
+            select(
+                Arena,
+                Class.name.label("class_name"),
+                func.count(ArenaParticipant.id).label("participant_count")
+            )
+            .join(Class, Class.id == Arena.class_id)
+            .join(teacher_assignments, and_(
+                teacher_assignments.c.class_id == Class.id,
+                teacher_assignments.c.teacher_id == teacher_id,
+            ))
+            .outerjoin(ArenaParticipant, ArenaParticipant.arena_id == Arena.id)
+            .group_by(Arena.id, Class.name)
+        )
+
+        # Filter by status if provided
+        if status_filter:
+            q = q.where(Arena.status == status_filter)
+        else:
+            # Default: only show completed or cancelled arenas
+            q = q.where(Arena.session_state.in_(["completed", "cancelled"]))
+
+        # Count total
+        count_q = select(func.count()).select_from(q.subquery())
+        total = (await db.execute(count_q)).scalar() or 0
+
+        # Get paginated results
+        q = q.order_by(Arena.start_time.desc().nullslast(), Arena.created_at.desc())
+        q = q.offset(skip).limit(limit)
+
+        result = await db.execute(q)
+        rows = result.all()
+
+        return [(row[0], row[1], row[2]) for row in rows], total

@@ -61,6 +61,8 @@ class Arena(BaseModel):
     # Phase 5: Challenge pool relationships
     source_pool_challenge = relationship("Arena", remote_side="Arena.id", foreign_keys=[source_pool_challenge_id])
     published_by_user = relationship("User", foreign_keys=[published_by])
+    # Phase 6: Collaborative mode teams
+    teams = relationship("ArenaTeam", back_populates="arena", lazy="noload", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Arena {self.title}>"
@@ -188,6 +190,43 @@ class ArenaReaction(BaseModel):
 
     def __repr__(self) -> str:
         return f"<ArenaReaction {self.reaction_type} from {self.user_id}>"
+
+
+class ArenaTeam(BaseModel):
+    """
+    Teams for collaborative arena mode.
+    Phase 6: Groups students into teams for collaborative challenges.
+    """
+    __tablename__ = "arena_teams"
+
+    arena_id = Column(UUID(as_uuid=True), ForeignKey("arenas.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_name = Column(String(50), nullable=False)
+
+    # Relationships
+    arena = relationship("Arena", back_populates="teams")
+    members = relationship("ArenaTeamMember", back_populates="team", cascade="all, delete-orphan")
+
+    def __repr__(self) -> str:
+        return f"<ArenaTeam {self.team_name} (Arena {self.arena_id})>"
+
+
+class ArenaTeamMember(BaseModel):
+    """
+    Student membership in arena teams.
+    Phase 6: Tracks which students are in which teams.
+    """
+    __tablename__ = "arena_team_members"
+
+    team_id = Column(UUID(as_uuid=True), ForeignKey("arena_teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(50), default='member', nullable=False)  # 'leader' | 'member'
+
+    # Relationships
+    team = relationship("ArenaTeam", back_populates="members")
+    student = relationship("User", backref="team_memberships")
+
+    def __repr__(self) -> str:
+        return f"<ArenaTeamMember student={self.student_id} team={self.team_id} role={self.role}>"
 
 
 # Association table for Arena <-> Moderator (Teachers/Admins)

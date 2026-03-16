@@ -409,6 +409,70 @@ class CloneChallengeResponse(BaseModel):
     message: str
 
 
+# --- Phase 6: Collaborative Mode Teams ---
+
+
+class TeamMemberInfo(BaseModel):
+    """Team member information"""
+    student_id: UUID
+    student_name: str
+    role: str  # 'leader' | 'member'
+    avatar_url: Optional[str] = None
+
+
+class TeamInfo(BaseModel):
+    """Team information"""
+    team_id: UUID
+    team_name: str
+    members: List[TeamMemberInfo] = []
+    created_at: datetime
+
+
+class CreateTeamRequest(BaseModel):
+    """Request for POST /arenas/{id}/teams"""
+    team_name: str
+    student_ids: List[UUID]
+    leader_id: Optional[UUID] = None  # If provided, this student becomes team leader
+
+
+class CreateTeamResponse(BaseModel):
+    """Response for creating a team"""
+    success: bool
+    team: TeamInfo
+    message: str
+
+
+class ListTeamsResponse(BaseModel):
+    """Response for GET /arenas/{id}/teams"""
+    arena_id: UUID
+    arena_mode: str
+    teams: List[TeamInfo] = []
+    total_teams: int
+    total_students: int
+
+
+class ArenaHistoryItem(BaseModel):
+    """Historical arena entry"""
+    id: UUID
+    title: str
+    class_name: str
+    status: ArenaStatus
+    session_state: str
+    start_time: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
+    arena_mode: Optional[str] = None
+    participant_count: int
+    published_at: Optional[datetime] = None
+
+
+class ArenaHistoryResponse(BaseModel):
+    """Response for GET /arenas/history"""
+    arenas: List[ArenaHistoryItem]
+    total: int
+    page: int
+    page_size: int
+
+
 # --- Announcement ---
 
 

@@ -5,6 +5,7 @@ All routes require teacher auth and operate on arenas for classes the teacher te
 
 from typing import Any, Optional
 import json
+import structlog
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,6 +61,11 @@ from app.schemas.communication import (
     PublishToChallengePoolResponse,
     CloneChallengeRequest,
     CloneChallengeResponse,
+    # Phase 6: Collaborative Mode Teams
+    CreateTeamRequest,
+    CreateTeamResponse,
+    ListTeamsResponse,
+    ArenaHistoryResponse,
 )
 from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
 from app.services.arena_service import ArenaService
@@ -1300,4 +1306,302 @@ async def clone_challenge_from_pool(
             message="Challenge cloned successfully"
         ),
         message="Challenge cloned successfully. You can now customize and schedule it."
+    )
+
+
+# =====================================================================
+# Phase 6: Collaborative Mode - Teams
+# =====================================================================
+
+@router.post("/{arena_id}/teams", response_model=SuccessResponse[CreateTeamResponse])
+async def create_team(
+    arena_id: UUID,
+    request: CreateTeamRequest,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Create a team for collaborative arena mode.
+
+    **Requirements:**
+    - Arena must be in `collaborative` mode
+    - Teacher must teach the arena's class
+    - Team name must be unique within the arena
+    - All student_ids must be valid and enrolled in the class
+
+    **Request:**
+    ```json
+    {
+      "team_name": "Team Alpha",
+      "student_ids": ["uuid1", "uuid2", "uuid3"],
+      "leader_id": "uuid1"  // Optional: designate a team leader
+    }
+    ```
+
+    **Response:**
+    ```json
+    {
+      "data": {
+        "success": true,
+        "team": {
+          "team_id": "uuid",
+          "team_name": "Team Alpha",
+          "members": [
+            {"student_id": "uuid1", "student_name": "Alice", "role": "leader"},
+            {"student_id": "uuid2", "student_name": "Bob", "role": "member"}
+          ],
+          "created_at": "2026-03-16T10:00:00Z"
+        },
+        "message": "Team created successfully"
+      }
+    }
+    ```
+
+    **Errors:**
+    - 404: Arena not found or access denied
+    - 400: Arena not in collaborative mode
+    - 400: Duplicate team name
+    """
+    log = structlog.get_logger().bind(
+        endpoint="create_team",
+        arena_id=str(arena_id),
+        teacher_id=str(current_user.id),
+        team_name=request.team_name
+    )
+
+    try:
+        team = await ArenaService.create_team(
+            db=db,
+            arena_id=arena_id,
+            teacher_id=current_user.id,
+            team_name=request.team_name,
+            student_ids=request.student_ids,
+            leader_id=request.leader_id
+        )
+    except ValueError as e:
+        log.warning("team_creation_failed", reason=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not team:
+        log.warning("team_creation_failed", reason="arena_not_found_or_no_access")
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    # Build response with member info
+    from app.schemas.communication import TeamMemberInfo, TeamInfo
+
+    members_info = [
+        TeamMemberInfo(
+            student_id=member.student_id,
+            student_name=member.student.name,
+            role=member.role,
+            avatar_url=member.student.profile_pic_url
+        )
+        for member in team.members
+    ]
+
+    team_info = TeamInfo(
+        team_id=team.id,
+        team_name=team.team_name,
+        members=members_info,
+        created_at=team.created_at
+    )
+
+    log.info("team_created", team_id=str(team.id), member_count=len(members_info))
+
+    return SuccessResponse(
+        data=CreateTeamResponse(
+            success=True,
+            team=team_info,
+            message="Team created successfully"
+        ),
+        message="Team created successfully"
+    )
+
+
+@router.get("/{arena_id}/teams", response_model=SuccessResponse[ListTeamsResponse])
+async def list_teams(
+    arena_id: UUID,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    List all teams for an arena (collaborative mode).
+
+    **Response:**
+    ```json
+    {
+      "data": {
+        "arena_id": "uuid",
+        "arena_mode": "collaborative",
+        "teams": [
+          {
+            "team_id": "uuid",
+            "team_name": "Team Alpha",
+            "members": [
+              {"student_id": "uuid1", "student_name": "Alice", "role": "leader"},
+              {"student_id": "uuid2", "student_name": "Bob", "role": "member"}
+            ],
+            "created_at": "2026-03-16T10:00:00Z"
+          }
+        ],
+        "total_teams": 3,
+        "total_students": 12
+      }
+    }
+    ```
+
+    **Errors:**
+    - 404: Arena not found or access denied
+    """
+    log = structlog.get_logger().bind(
+        endpoint="list_teams",
+        arena_id=str(arena_id),
+        teacher_id=str(current_user.id)
+    )
+
+    teams = await ArenaService.list_teams(db, arena_id, current_user.id)
+
+    if teams is None:
+        log.warning("list_teams_failed", reason="arena_not_found_or_no_access")
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    # Get arena info
+    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
+
+    # Build response
+    from app.schemas.communication import TeamMemberInfo, TeamInfo
+
+    teams_info = []
+    total_students = 0
+
+    for team in teams:
+        members_info = [
+            TeamMemberInfo(
+                student_id=member.student_id,
+                student_name=member.student.name,
+                role=member.role,
+                avatar_url=member.student.profile_pic_url
+            )
+            for member in team.members
+        ]
+
+        teams_info.append(
+            TeamInfo(
+                team_id=team.id,
+                team_name=team.team_name,
+                members=members_info,
+                created_at=team.created_at
+            )
+        )
+
+        total_students += len(members_info)
+
+    log.info("teams_listed", total_teams=len(teams_info), total_students=total_students)
+
+    return SuccessResponse(
+        data=ListTeamsResponse(
+            arena_id=arena_id,
+            arena_mode=arena.arena_mode or "unknown",
+            teams=teams_info,
+            total_teams=len(teams_info),
+            total_students=total_students
+        ),
+        message=f"Found {len(teams_info)} teams with {total_students} total students"
+    )
+
+
+@router.get("/history", response_model=SuccessResponse[ArenaHistoryResponse])
+async def get_history(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    status: Optional[ArenaStatus] = Query(None, description="Filter by arena status"),
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Get historical arenas for the current teacher.
+
+    Returns completed and cancelled arenas, sorted by start time (most recent first).
+
+    **Query Parameters:**
+    - `page`: Page number (default: 1)
+    - `page_size`: Items per page (default: 20, max: 100)
+    - `status`: Optional filter by arena status
+
+    **Response:**
+    ```json
+    {
+      "data": {
+        "arenas": [
+          {
+            "id": "uuid",
+            "title": "Debate Competition 2026",
+            "class_name": "English Advanced",
+            "status": "published",
+            "session_state": "completed",
+            "start_time": "2026-03-10T10:00:00Z",
+            "duration_minutes": 60,
+            "arena_mode": "competitive",
+            "participant_count": 12,
+            "published_at": "2026-03-10T12:00:00Z"
+          }
+        ],
+        "total": 45,
+        "page": 1,
+        "page_size": 20
+      }
+    }
+    ```
+
+    **Use cases:**
+    - Teacher dashboard showing past arenas
+    - Analytics and reporting
+    - Re-running past challenges (clone from history)
+    """
+    log = structlog.get_logger().bind(
+        endpoint="get_history",
+        teacher_id=str(current_user.id),
+        page=page,
+        page_size=page_size
+    )
+
+    skip = (page - 1) * page_size
+
+    rows, total = await ArenaService.list_history(
+        db=db,
+        teacher_id=current_user.id,
+        skip=skip,
+        limit=page_size,
+        status_filter=status
+    )
+
+    # Build response
+    from app.schemas.communication import ArenaHistoryItem
+
+    history_items = [
+        ArenaHistoryItem(
+            id=arena.id,
+            title=arena.title,
+            class_name=class_name,
+            status=arena.status,
+            session_state=arena.session_state,
+            start_time=arena.start_time,
+            duration_minutes=arena.duration_minutes,
+            arena_mode=arena.arena_mode,
+            participant_count=participant_count,
+            published_at=arena.published_at
+        )
+        for arena, class_name, participant_count in rows
+    ]
+
+    log.info("history_retrieved", total=total, returned=len(history_items))
+
+    return SuccessResponse(
+        data=ArenaHistoryResponse(
+            arenas=history_items,
+            total=total,
+            page=page,
+            page_size=page_size
+        ),
+        message=f"Retrieved {len(history_items)} of {total} historical arenas"
     )
