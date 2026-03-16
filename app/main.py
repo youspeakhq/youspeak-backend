@@ -167,14 +167,64 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle validation errors"""
+
+    def make_json_serializable(obj):
+        """Convert any object to a JSON-serializable form."""
+        try:
+            if obj is None or isinstance(obj, (str, int, float, bool)):
+                return obj
+            if isinstance(obj, (list, tuple)):
+                return [make_json_serializable(item) for item in obj]
+            if isinstance(obj, dict):
+                return {k: make_json_serializable(v) for k, v in obj.items()}
+            return str(obj)
+        except Exception:
+            return "<non-serializable>"
+
+    # Clean up error dicts to remove non-JSON-serializable objects (like ValueError in ctx)
+    errors = []
+    try:
+        for error in exc.errors():
+            try:
+                clean_error = {
+                    "type": make_json_serializable(error.get("type")),
+                    "loc": make_json_serializable(error.get("loc")),
+                    "msg": make_json_serializable(error.get("msg")),
+                }
+                if "input" in error:
+                    try:
+                        input_val = error["input"]
+                        if isinstance(input_val, (str, int, float, bool, type(None))) or \
+                           (isinstance(input_val, (list, dict)) and len(str(input_val)) < 200):
+                            clean_error["input"] = make_json_serializable(input_val)
+                    except Exception:
+                        pass
+
+                # Convert ctx values to strings (THIS FIXES THE ValueError SERIALIZATION BUG)
+                if "ctx" in error:
+                    try:
+                        clean_error["ctx"] = make_json_serializable(error["ctx"])
+                    except Exception:
+                        pass
+
+                errors.append(clean_error)
+            except Exception:
+                errors.append({
+                    "type": "validation_error",
+                    "msg": str(error.get("msg", "Validation failed")),
+                })
+    except Exception:
+        errors = [{"type": "validation_error", "msg": "Validation failed"}]
+
     logger.warning(
         "Validation error",
         extra={
             "path": request.url.path,
-            "errors": exc.errors(),
+            "error_count": len(errors),
             "correlation_id": getattr(request.state, "request_id", None),
         }
     )
+
     # Handle FormData or other non-serializable body types
     body_value = exc.body
     if not isinstance(body_value, (dict, list, str, int, float, bool, type(None))):
@@ -183,7 +233,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
-            "detail": exc.errors(),
+            "detail": errors,  # Use cleaned errors, not exc.errors()
             "body": body_value
         },
     )
