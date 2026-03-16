@@ -52,6 +52,14 @@ from app.schemas.communication import (
     TeacherRatingResponse,
     PublishArenaRequest,
     PublishArenaResponse,
+    # Phase 5: Challenge Pool
+    ChallengePoolListItem,
+    ChallengePoolResponse,
+    ChallengePoolDetailResponse,
+    PublishToChallengePoolRequest,
+    PublishToChallengePoolResponse,
+    CloneChallengeRequest,
+    CloneChallengeResponse,
 )
 from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
 from app.services.arena_service import ArenaService
@@ -1073,4 +1081,223 @@ async def publish_arena_results(
             share_url=share_url
         ),
         message="Arena results published successfully"
+    )
+
+
+# ============================================================================
+# Phase 5: Challenge Pool
+# ============================================================================
+
+
+@router.get("/pool", response_model=SuccessResponse[ChallengePoolResponse])
+async def list_challenge_pool(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    arena_mode: Optional[str] = Query(None),
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Browse public challenges from the challenge pool.
+
+    Searchable and filterable catalog of reusable arena challenges.
+
+    **Teacher only** - accessible to all teachers.
+
+    Query Parameters:
+    - page: Page number (default: 1)
+    - page_size: Items per page (default: 20, max: 100)
+    - search: Search in title and description
+    - arena_mode: Filter by mode (competitive/collaborative)
+
+    Used by: Challenge pool browser UI
+    """
+    skip = (page - 1) * page_size
+
+    challenges, total = await ArenaService.list_challenge_pool(
+        db=db,
+        skip=skip,
+        limit=page_size,
+        search=search,
+        arena_mode=arena_mode
+    )
+
+    # Build response items
+    pool_items = []
+    for arena, publisher_name in challenges:
+        pool_items.append(
+            ChallengePoolListItem(
+                id=arena.id,
+                title=arena.title,
+                description=arena.description,
+                duration_minutes=arena.duration_minutes,
+                arena_mode=arena.arena_mode,
+                judging_mode=arena.judging_mode,
+                criteria=[
+                    {"name": c.name, "weight_percentage": c.weight_percentage}
+                    for c in arena.criteria
+                ],
+                rules=[r.description for r in arena.rules],
+                usage_count=arena.usage_count,
+                published_at=arena.published_at,
+                published_by_name=publisher_name
+            )
+        )
+
+    return SuccessResponse(
+        data=ChallengePoolResponse(
+            challenges=pool_items,
+            total=total,
+            page=page,
+            page_size=page_size
+        ),
+        message="Challenge pool retrieved successfully"
+    )
+
+
+@router.get("/pool/{pool_arena_id}", response_model=SuccessResponse[ChallengePoolDetailResponse])
+async def get_challenge_pool_detail(
+    pool_arena_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Get detailed information about a specific challenge from the pool.
+
+    **Teacher only** - accessible to all teachers.
+
+    Used by: Challenge preview before cloning
+    """
+    pool_item = await ArenaService.get_challenge_pool_item(db, pool_arena_id)
+
+    if not pool_item:
+        raise HTTPException(status_code=404, detail="Challenge not found in pool")
+
+    arena, publisher_name = pool_item
+
+    return SuccessResponse(
+        data=ChallengePoolDetailResponse(
+            id=arena.id,
+            title=arena.title,
+            description=arena.description,
+            duration_minutes=arena.duration_minutes,
+            arena_mode=arena.arena_mode,
+            judging_mode=arena.judging_mode,
+            ai_co_judge_enabled=arena.ai_co_judge_enabled,
+            team_size=arena.team_size,
+            criteria=[
+                {"name": c.name, "weight_percentage": c.weight_percentage}
+                for c in arena.criteria
+            ],
+            rules=[r.description for r in arena.rules],
+            usage_count=arena.usage_count,
+            published_at=arena.published_at,
+            published_by_name=publisher_name
+        ),
+        message="Challenge details retrieved successfully"
+    )
+
+
+@router.post("/{arena_id}/publish-to-pool", response_model=SuccessResponse[PublishToChallengePoolResponse])
+async def publish_to_challenge_pool(
+    arena_id: UUID,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Publish arena to public challenge pool.
+
+    Makes your arena available for other teachers to clone and use.
+    Only completed arenas can be published.
+
+    **Teacher only** - requires arena ownership.
+
+    Used by: Post-session publishing workflow
+    """
+    logger = get_logger(__name__)
+    log = logger.bind(
+        arena_id=str(arena_id),
+        teacher_id=str(current_user.id)
+    )
+
+    log.info("challenge_pool_publish_started")
+
+    arena = await ArenaService.publish_to_challenge_pool(
+        db=db,
+        arena_id=arena_id,
+        teacher_id=current_user.id
+    )
+
+    if not arena:
+        log.warning("challenge_pool_publish_failed", reason="arena_not_found_or_not_completed")
+        raise HTTPException(
+            status_code=404,
+            detail="Arena not found, not completed, or access denied"
+        )
+
+    log.info("challenge_pool_published", is_public=arena.is_public)
+
+    return SuccessResponse(
+        data=PublishToChallengePoolResponse(
+            success=True,
+            arena_id=arena_id,
+            published_at=arena.published_at,
+            message="Challenge published to pool successfully"
+        ),
+        message="Challenge published to pool successfully"
+    )
+
+
+@router.post("/pool/{pool_arena_id}/clone", response_model=SuccessResponse[CloneChallengeResponse])
+async def clone_challenge_from_pool(
+    pool_arena_id: UUID,
+    clone_data: CloneChallengeRequest,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Clone a challenge from the pool to your class.
+
+    Creates a copy of the challenge that you can customize and use with your students.
+    Increments the usage count on the original challenge.
+
+    **Teacher only** - must teach the target class.
+
+    Used by: Challenge pool browser (clone button)
+    """
+    logger = get_logger(__name__)
+    log = logger.bind(
+        pool_arena_id=str(pool_arena_id),
+        teacher_id=str(current_user.id),
+        class_id=str(clone_data.class_id)
+    )
+
+    log.info("challenge_clone_started")
+
+    cloned_arena = await ArenaService.clone_challenge_from_pool(
+        db=db,
+        pool_arena_id=pool_arena_id,
+        teacher_id=current_user.id,
+        class_id=clone_data.class_id,
+        customize_title=clone_data.customize_title
+    )
+
+    if not cloned_arena:
+        log.warning("challenge_clone_failed", reason="pool_challenge_not_found_or_no_access")
+        raise HTTPException(
+            status_code=404,
+            detail="Challenge not found in pool or you don't have access to the target class"
+        )
+
+    log.info("challenge_cloned", new_arena_id=str(cloned_arena.id))
+
+    return SuccessResponse(
+        data=CloneChallengeResponse(
+            success=True,
+            new_arena_id=cloned_arena.id,
+            source_arena_id=pool_arena_id,
+            message="Challenge cloned successfully"
+        ),
+        message="Challenge cloned successfully. You can now customize and schedule it."
     )

@@ -36,6 +36,13 @@ class Arena(BaseModel):
     qr_code_url = Column(Text, nullable=True)  # URL to QR code image
     join_code_expires_at = Column(DateTime, nullable=True)  # Expiration timestamp
 
+    # Phase 5: Challenge pool
+    is_public = Column(Boolean, default=False, nullable=False)  # Published to challenge pool
+    source_pool_challenge_id = Column(UUID(as_uuid=True), ForeignKey("arenas.id", ondelete="SET NULL"), nullable=True)  # Cloned from this arena
+    usage_count = Column(Integer, default=0, nullable=False)  # Times this arena was cloned
+    published_at = Column(DateTime, nullable=True)  # When published to pool
+    published_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # Teacher who published
+
     # Relationships
     class_ = relationship("Class", back_populates="arenas")
     criteria = relationship("ArenaCriteria", back_populates="arena", cascade="all, delete-orphan")
@@ -46,6 +53,9 @@ class Arena(BaseModel):
         secondary="arena_moderators",
         backref="moderated_arenas"
     )
+    # Phase 5: Challenge pool relationships
+    source_pool_challenge = relationship("Arena", remote_side="Arena.id", foreign_keys=[source_pool_challenge_id])
+    published_by_user = relationship("User", foreign_keys=[published_by])
 
     def __repr__(self) -> str:
         return f"<Arena {self.title}>"

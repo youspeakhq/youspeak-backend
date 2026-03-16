@@ -339,6 +339,76 @@ class PublishArenaResponse(BaseModel):
     share_url: Optional[str] = None
 
 
+# --- Phase 5: Challenge Pool ---
+
+
+class ChallengePoolListItem(BaseModel):
+    """Challenge pool item for browsing"""
+    id: UUID
+    title: str
+    description: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    arena_mode: Optional[str] = None
+    judging_mode: Optional[str] = None
+    criteria: List[Dict[str, object]] = []  # [{name, weight_percentage}]
+    rules: List[str] = []
+    usage_count: int = 0
+    published_at: datetime
+    published_by_name: Optional[str] = None
+
+
+class ChallengePoolResponse(BaseModel):
+    """Response for GET /arenas/pool"""
+    challenges: List[ChallengePoolListItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class ChallengePoolDetailResponse(BaseModel):
+    """Detailed challenge pool item"""
+    id: UUID
+    title: str
+    description: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    arena_mode: Optional[str] = None
+    judging_mode: Optional[str] = None
+    ai_co_judge_enabled: bool = False
+    team_size: Optional[int] = None
+    criteria: List[Dict[str, object]] = []
+    rules: List[str] = []
+    usage_count: int = 0
+    published_at: datetime
+    published_by_name: Optional[str] = None
+
+
+class PublishToChallengePoolRequest(BaseModel):
+    """Request for POST /arenas/{id}/publish-to-pool"""
+    pass  # Empty body
+
+
+class PublishToChallengePoolResponse(BaseModel):
+    """Response for publishing to challenge pool"""
+    success: bool
+    arena_id: UUID
+    published_at: datetime
+    message: str
+
+
+class CloneChallengeRequest(BaseModel):
+    """Request for POST /arenas/pool/{id}/clone"""
+    class_id: UUID
+    customize_title: Optional[str] = None
+
+
+class CloneChallengeResponse(BaseModel):
+    """Response for cloning challenge"""
+    success: bool
+    new_arena_id: UUID
+    source_arena_id: UUID
+    message: str
+
+
 # --- Announcement ---
 
 

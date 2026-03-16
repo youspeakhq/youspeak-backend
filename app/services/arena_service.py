@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import io
 import base64
 
-from sqlalchemy import select, and_, delete, insert, func, update
+from sqlalchemy import select, and_, or_, delete, insert, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -978,3 +978,188 @@ class ArenaService:
         await db.refresh(arena)
 
         return arena
+
+    # ========================================================================
+    # Phase 5: Challenge Pool
+    # ========================================================================
+
+    @staticmethod
+    async def list_challenge_pool(
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 20,
+        search: Optional[str] = None,
+        arena_mode: Optional[str] = None,
+    ) -> Tuple[List[Tuple[Arena, Optional[str]]], int]:
+        """
+        List public challenges from the challenge pool.
+        Returns (challenges_with_publisher_name, total).
+        """
+        # Base query: public arenas with published status
+        q = (
+            select(Arena, User.name)
+            .outerjoin(User, User.id == Arena.published_by)
+            .where(
+                Arena.is_public == True,
+                Arena.status == ArenaStatus.PUBLISHED
+            )
+        )
+
+        # Apply filters
+        if search:
+            q = q.where(
+                or_(
+                    Arena.title.ilike(f"%{search}%"),
+                    Arena.description.ilike(f"%{search}%")
+                )
+            )
+
+        if arena_mode:
+            q = q.where(Arena.arena_mode == arena_mode)
+
+        # Count total
+        count_q = select(func.count()).select_from(q.subquery())
+        total = (await db.execute(count_q)).scalar() or 0
+
+        # Order by popularity (usage_count) and recent (published_at)
+        q = q.order_by(
+            Arena.usage_count.desc(),
+            Arena.published_at.desc()
+        ).offset(skip).limit(limit)
+
+        result = await db.execute(q)
+        rows = result.all()
+
+        return [(row[0], row[1]) for row in rows], total
+
+    @staticmethod
+    async def get_challenge_pool_item(
+        db: AsyncSession,
+        arena_id: UUID,
+    ) -> Optional[Tuple[Arena, Optional[str]]]:
+        """
+        Get a specific challenge from the pool.
+        Returns (arena, publisher_name) or None if not found/not public.
+        """
+        result = await db.execute(
+            select(Arena, User.name)
+            .outerjoin(User, User.id == Arena.published_by)
+            .options(
+                selectinload(Arena.criteria),
+                selectinload(Arena.rules)
+            )
+            .where(
+                Arena.id == arena_id,
+                Arena.is_public == True,
+                Arena.status == ArenaStatus.PUBLISHED
+            )
+        )
+        row = result.first()
+        if not row:
+            return None
+
+        return (row[0], row[1])
+
+    @staticmethod
+    async def publish_to_challenge_pool(
+        db: AsyncSession,
+        arena_id: UUID,
+        teacher_id: UUID,
+    ) -> Optional[Arena]:
+        """
+        Publish arena to public challenge pool.
+        Only completed arenas can be published.
+        """
+        # Verify teacher owns arena
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            return None
+
+        # Verify arena is completed
+        if arena.session_state not in ('completed', 'cancelled'):
+            return None
+
+        # Mark as public
+        arena.is_public = True
+        arena.published_at = datetime.utcnow()
+        arena.published_by = teacher_id
+        arena.status = ArenaStatus.PUBLISHED
+
+        await db.commit()
+        await db.refresh(arena)
+
+        return arena
+
+    @staticmethod
+    async def clone_challenge_from_pool(
+        db: AsyncSession,
+        pool_arena_id: UUID,
+        teacher_id: UUID,
+        class_id: UUID,
+        customize_title: Optional[str] = None,
+    ) -> Optional[Arena]:
+        """
+        Clone a challenge from the pool to teacher's class.
+        Increments usage_count on source arena.
+        """
+        # Get source arena from pool
+        pool_item = await ArenaService.get_challenge_pool_item(db, pool_arena_id)
+        if not pool_item:
+            return None
+
+        source_arena, _ = pool_item
+
+        # Verify teacher teaches the target class
+        if not await ArenaService._teacher_teaches_class(db, teacher_id, class_id):
+            return None
+
+        # Create cloned arena
+        cloned_arena = Arena(
+            class_id=class_id,
+            title=customize_title or f"{source_arena.title} (Copy)",
+            description=source_arena.description,
+            status=ArenaStatus.DRAFT,
+            start_time=None,  # Teacher will schedule
+            duration_minutes=source_arena.duration_minutes,
+            arena_mode=source_arena.arena_mode,
+            judging_mode=source_arena.judging_mode,
+            ai_co_judge_enabled=source_arena.ai_co_judge_enabled,
+            student_selection_mode=source_arena.student_selection_mode,
+            team_size=source_arena.team_size,
+            session_state='not_started',
+            # Phase 5: Track source
+            source_pool_challenge_id=pool_arena_id,
+            is_public=False,  # Clones start as private
+        )
+        db.add(cloned_arena)
+        await db.flush()
+
+        # Clone criteria
+        for criterion in source_arena.criteria:
+            cloned_criterion = ArenaCriteria(
+                arena_id=cloned_arena.id,
+                name=criterion.name,
+                weight_percentage=criterion.weight_percentage
+            )
+            db.add(cloned_criterion)
+
+        # Clone rules
+        for rule in source_arena.rules:
+            cloned_rule = ArenaRule(
+                arena_id=cloned_arena.id,
+                description=rule.description
+            )
+            db.add(cloned_rule)
+
+        # Increment usage count on source
+        source_arena.usage_count += 1
+
+        # Add teacher as moderator
+        await db.execute(
+            insert(arena_moderators).values(arena_id=cloned_arena.id, user_id=teacher_id)
+        )
+
+        await db.commit()
+        await db.refresh(cloned_arena)
+
+        return cloned_arena
