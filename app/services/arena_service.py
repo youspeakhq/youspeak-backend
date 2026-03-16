@@ -74,6 +74,23 @@ class ArenaService:
         return [(row[0], row[1]) for row in rows], total
 
     @staticmethod
+    async def get_arena_by_id(
+        db: AsyncSession,
+        arena_id: UUID,
+    ) -> Optional[Arena]:
+        """Get arena by id without authorization check."""
+        result = await db.execute(
+            select(Arena)
+            .options(
+                selectinload(Arena.criteria),
+                selectinload(Arena.rules),
+                selectinload(Arena.class_),
+            )
+            .where(Arena.id == arena_id)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def get_arena(
         db: AsyncSession,
         arena_id: UUID,

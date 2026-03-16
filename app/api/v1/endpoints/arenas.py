@@ -292,12 +292,16 @@ async def randomize_student_selection(
     Used by: "Randomize" tab in Student Selection screen
     Returns selected students but does NOT save them (that happens in /initialize)
     """
-    # Verify teacher has access to this arena
-    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
+    # Check if arena exists
+    arena = await ArenaService.get_arena_by_id(db, arena_id)
     if not arena:
-        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+        raise HTTPException(status_code=404, detail="Arena not found")
 
-    # Verify teacher teaches the class
+    # Verify teacher has access to this arena
+    if not await ArenaService._teacher_teaches_class(db, current_user.id, arena.class_id):
+        raise HTTPException(status_code=403, detail="You do not teach the class for this arena")
+
+    # Verify teacher teaches the requested class
     teaches = await ArenaService._teacher_teaches_class(db, current_user.id, body.class_id)
     if not teaches:
         raise HTTPException(status_code=403, detail="You do not teach this class")
@@ -335,12 +339,16 @@ async def hybrid_student_selection(
     Used by: "Hybrid" tab in Student Selection screen
     Returns combined list but does NOT save (that happens in /initialize)
     """
-    # Verify teacher has access to this arena
-    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
+    # Check if arena exists
+    arena = await ArenaService.get_arena_by_id(db, arena_id)
     if not arena:
-        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+        raise HTTPException(status_code=404, detail="Arena not found")
 
-    # Verify teacher teaches the class
+    # Verify teacher has access to this arena
+    if not await ArenaService._teacher_teaches_class(db, current_user.id, arena.class_id):
+        raise HTTPException(status_code=403, detail="You do not teach the class for this arena")
+
+    # Verify teacher teaches the requested class
     teaches = await ArenaService._teacher_teaches_class(db, current_user.id, body.class_id)
     if not teaches:
         raise HTTPException(status_code=403, detail="You do not teach this class")
