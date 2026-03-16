@@ -39,6 +39,8 @@ def upgrade() -> None:
         sa.Column('admitted_at', sa.DateTime(), nullable=True),
         sa.Column('admitted_by', UUID(as_uuid=True), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
         sa.Column('rejection_reason', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP'), onupdate=sa.text('CURRENT_TIMESTAMP')),
         sa.UniqueConstraint('arena_id', 'student_id', name='uq_arena_student_waiting_room')
     )
 
