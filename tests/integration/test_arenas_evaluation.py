@@ -55,10 +55,25 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     db.add(teacher)
     await db.flush()
 
+    # Create term for the class
+    from app.models.academic import Term
+    from datetime import date
+    term = Term(
+        school_id=fake_school_id,
+        name="Test Term 2026",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+        is_active=True
+    )
+    db.add(term)
+    await db.flush()
+
     # Create class
     class_ = Class(
         name="Test Class",
         school_id=fake_school_id,
+        term_id=term.id,
+        language_id=1,
         description="Test class for arena"
     )
     db.add(class_)
