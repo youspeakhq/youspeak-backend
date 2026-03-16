@@ -30,11 +30,13 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     """
     # Create a fake school first
     from app.models.onboarding import School
+    from app.models.enums import SchoolType, ProgramType
     fake_school_id = UUID("00000000-0000-0000-0000-000000000001")
     school = School(
         id=fake_school_id,
         name="Test School",
-        subdomain="test-school"
+        school_type=SchoolType.PRIVATE,
+        program_type=ProgramType.GENERAL
     )
     db.add(school)
     await db.flush()
