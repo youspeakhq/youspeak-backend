@@ -92,46 +92,26 @@ async def teacher_with_class_and_students(
     class_id = resp.json()["data"]["id"]
 
     # Create 5 students enrolled in this class
+    # Create students using direct creation (no invite code flow)
+    from tests.conftest import create_student_direct
+
     student_ids = []
     for i in range(5):
         student_email = f"ws_student_{unique_suffix}_{i}@test.com"
 
-        # Admin invites student
-        resp = await async_client.post(
-            f"{api_base}/students",
-            headers=registered_school["headers"],
-            json={
-                "first_name": f"WSStudent{i}",
-                "last_name": "Test",
-                "email": student_email,
-                "lang_id": 1,
-            },
+        # Create student directly (already enrolled via class_id)
+        student_data = await create_student_direct(
+            async_client=async_client,
+            api_base=api_base,
+            admin_headers=registered_school["headers"],
+            class_id=str(class_id),
+            first_name=f"WSStudent{i}",
+            last_name="Test",
+            email=student_email,
+            password="Pass123!",
+            lang_id=1,
         )
-        assert resp.status_code == 200, resp.text
-        invite_code = resp.json()["data"]["invite_code"]
-
-        # Register student
-        resp = await async_client.post(
-            f"{api_base}/auth/register/student",
-            json={
-                "invite_code": invite_code,
-                "email": student_email,
-                "password": "Pass123!",
-                "first_name": f"WSStudent{i}",
-                "last_name": "Test",
-            },
-        )
-        assert resp.status_code == 200, resp.text
-        student_id = resp.json()["data"]["user_id"]
-        student_ids.append(student_id)
-
-        # Enroll student in class
-        resp = await async_client.post(
-            f"{api_base}/classes/{class_id}/students",
-            headers=teacher_headers,
-            json={"student_ids": [student_id]},
-        )
-        assert resp.status_code == 200, resp.text
+        student_ids.append(student_data["student_id"])
 
     return {
         "headers": teacher_headers,
@@ -227,42 +207,23 @@ async def admitted_student_token(
     arena_id = live_arena["arena_id"]
     teacher_headers = live_arena["headers"]
 
-    # Create student
+    # Create student using direct creation
+    from tests.conftest import create_student_direct
+
     student_email = f"ws_student_{unique_suffix}@test.com"
-    resp = await async_client.post(
-        f"{api_base}/students",
-        headers=registered_school["headers"],
-        json={
-            "first_name": "WSStudent",
-            "last_name": "Test",
-            "email": student_email,
-            "lang_id": 1,
-        },
+    student_data = await create_student_direct(
+        async_client=async_client,
+        api_base=api_base,
+        admin_headers=registered_school["headers"],
+        class_id=str(class_id),
+        first_name="WSStudent",
+        last_name="Test",
+        email=student_email,
+        password="Pass123!",
+        lang_id=1,
     )
-    assert resp.status_code == 200
-    invite_code = resp.json()["data"]["invite_code"]
-
-    # Register student
-    resp = await async_client.post(
-        f"{api_base}/auth/register/student",
-        json={
-            "invite_code": invite_code,
-            "email": student_email,
-            "password": "Pass123!",
-            "first_name": "WSStudent",
-            "last_name": "Test",
-        },
-    )
-    assert resp.status_code == 200
-    student_id = resp.json()["data"]["user_id"]
-
-    # Login student
-    resp = await async_client.post(
-        f"{api_base}/auth/login",
-        json={"email": student_email, "password": "Pass123!"},
-    )
-    assert resp.status_code == 200
-    student_token = resp.json()["data"]["access_token"]
+    student_id = student_data["student_id"]
+    student_token = student_data["token"]
 
     # Generate join code
     resp = await async_client.post(
@@ -571,8 +532,11 @@ async def test_websocket_connection_unadmitted_student_rejected(
     """
     arena_id = live_arena["arena_id"]
 
-    # Create student but DON'T admit to arena
+    # Create student but DON'T admit to arena or enroll in class
+    from tests.conftest import create_student_direct
+
     student_email = f"unadmitted_{unique_suffix}@test.com"
+    # Create student without class enrollment (pass empty class_id)
     resp = await async_client.post(
         f"{api_base}/students",
         headers=registered_school["headers"],
@@ -581,23 +545,11 @@ async def test_websocket_connection_unadmitted_student_rejected(
             "last_name": "Student",
             "email": student_email,
             "lang_id": 1,
-        },
-    )
-    assert resp.status_code == 200
-    invite_code = resp.json()["data"]["invite_code"]
-
-    # Register student
-    resp = await async_client.post(
-        f"{api_base}/auth/register/student",
-        json={
-            "invite_code": invite_code,
-            "email": student_email,
             "password": "Pass123!",
-            "first_name": "Unadmitted",
-            "last_name": "Student",
         },
     )
     assert resp.status_code == 200
+    student_id = resp.json()["data"]["id"]
 
     # Login student
     resp = await async_client.post(

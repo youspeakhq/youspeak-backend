@@ -43,6 +43,15 @@ from app.schemas.communication import (
     ArenaSessionEndRequest,
     WSClientEvent,
     WSServerEvent,
+    # Phase 4: Evaluation & Publishing
+    ParticipantScoreCard,
+    ArenaScoresResponse,
+    ParticipantAnalytics,
+    ArenaAnalyticsResponse,
+    TeacherRatingRequest,
+    TeacherRatingResponse,
+    PublishArenaRequest,
+    PublishArenaResponse,
 )
 from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
 from app.services.arena_service import ArenaService
@@ -867,4 +876,201 @@ async def get_arena_session_state(
             ],
         ),
         message="Session state retrieved successfully"
+    )
+
+
+# ============================================================================
+# Phase 4: Evaluation & Publishing
+# ============================================================================
+
+
+@router.get("/{arena_id}/scores", response_model=SuccessResponse[ArenaScoresResponse])
+async def get_arena_scores(
+    arena_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Get live scoring data for arena.
+
+    Returns participant scores, speaking time, engagement, reactions.
+
+    **Teacher only** - requires arena ownership.
+
+    Used by: Teacher dashboard during live session
+    """
+    result = await ArenaService.get_arena_scores(db, arena_id, current_user.id)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    arena, participants_data = result
+
+    # Build score cards
+    score_cards = []
+    for participant, user, reactions_count in participants_data:
+        score_cards.append(
+            ParticipantScoreCard(
+                participant_id=participant.id,
+                student_id=participant.student_id,
+                student_name=user.name,
+                avatar_url=user.avatar_url,
+                total_speaking_duration_seconds=participant.total_speaking_duration_seconds,
+                engagement_score=float(participant.engagement_score),
+                reactions_received=reactions_count,
+                ai_pronunciation_score=None,  # TODO: AI scoring
+                ai_fluency_score=None,  # TODO: AI scoring
+                teacher_rating=None,  # TODO: Fetch teacher rating
+            )
+        )
+
+    # Determine top performers (top 3 by engagement score)
+    top_performers = [card.participant_id for card in sorted(
+        score_cards,
+        key=lambda x: x.engagement_score,
+        reverse=True
+    )[:3]]
+
+    return SuccessResponse(
+        data=ArenaScoresResponse(
+            arena_id=arena_id,
+            session_state=arena.session_state,
+            participants=score_cards,
+            top_performers=top_performers
+        ),
+        message="Scores retrieved successfully"
+    )
+
+
+@router.get("/{arena_id}/analytics", response_model=SuccessResponse[ArenaAnalyticsResponse])
+async def get_arena_analytics(
+    arena_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Get detailed analytics for arena session.
+
+    Returns comprehensive analytics including timelines, reaction breakdowns,
+    and aggregate statistics.
+
+    **Teacher only** - requires arena ownership.
+
+    Used by: Post-session analytics dashboard
+    """
+    analytics_data = await ArenaService.get_arena_analytics(db, arena_id, current_user.id)
+
+    if not analytics_data:
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    return SuccessResponse(
+        data=ArenaAnalyticsResponse(
+            arena_id=UUID(analytics_data['arena_id']),
+            session_duration_minutes=analytics_data['session_duration_minutes'],
+            total_participants=analytics_data['total_participants'],
+            participants=[
+                ParticipantAnalytics(**p) for p in analytics_data['participants']
+            ],
+            aggregate_stats=analytics_data['aggregate_stats']
+        ),
+        message="Analytics retrieved successfully"
+    )
+
+
+@router.post("/{arena_id}/participants/{participant_id}/rate", response_model=SuccessResponse[TeacherRatingResponse])
+async def rate_participant(
+    arena_id: UUID,
+    participant_id: UUID,
+    rating_data: TeacherRatingRequest,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Submit teacher rating for participant.
+
+    Allows teacher to rate participant performance based on defined criteria.
+
+    **Teacher only** - requires arena ownership.
+
+    Used by: Post-session evaluation
+    """
+    logger = get_logger(__name__)
+    correlation_id = f"rate-{arena_id}-{participant_id}"
+    log = logger.bind(correlation_id=correlation_id, arena_id=str(arena_id), teacher_id=str(current_user.id))
+
+    log.info("teacher_rating_submission_started", participant_id=str(participant_id))
+
+    participant = await ArenaService.save_teacher_rating(
+        db=db,
+        participant_id=participant_id,
+        teacher_id=current_user.id,
+        overall_rating=rating_data.overall_rating,
+        criteria_scores=rating_data.criteria_scores,
+        feedback=rating_data.feedback
+    )
+
+    if not participant:
+        log.warning("teacher_rating_failed", reason="participant_not_found_or_no_access")
+        raise HTTPException(status_code=404, detail="Participant not found or access denied")
+
+    log.info("teacher_rating_saved", overall_rating=rating_data.overall_rating)
+
+    return SuccessResponse(
+        data=TeacherRatingResponse(
+            success=True,
+            participant_id=participant_id,
+            overall_rating=rating_data.overall_rating
+        ),
+        message="Rating submitted successfully"
+    )
+
+
+@router.post("/{arena_id}/publish", response_model=SuccessResponse[PublishArenaResponse])
+async def publish_arena_results(
+    arena_id: UUID,
+    publish_data: PublishArenaRequest,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Publish arena results for student viewing.
+
+    Makes session results visible to participants based on visibility settings.
+    Optionally triggers AI analysis.
+
+    **Teacher only** - requires arena ownership.
+
+    Used by: Post-session publishing workflow
+    """
+    logger = get_logger(__name__)
+    correlation_id = f"publish-{arena_id}"
+    log = logger.bind(correlation_id=correlation_id, arena_id=str(arena_id), teacher_id=str(current_user.id))
+
+    log.info("arena_publish_started", visibility=publish_data.visibility, include_ai=publish_data.include_ai_analysis)
+
+    arena = await ArenaService.publish_arena_results(
+        db=db,
+        arena_id=arena_id,
+        teacher_id=current_user.id,
+        include_ai_analysis=publish_data.include_ai_analysis,
+        visibility=publish_data.visibility
+    )
+
+    if not arena:
+        log.warning("arena_publish_failed", reason="arena_not_found_or_not_completed")
+        raise HTTPException(status_code=404, detail="Arena not found, not completed, or access denied")
+
+    # TODO: Generate share URL based on visibility setting
+    share_url = f"https://youspeak.com/arenas/{arena_id}/results"
+
+    log.info("arena_published", status=arena.status.value)
+
+    return SuccessResponse(
+        data=PublishArenaResponse(
+            success=True,
+            arena_id=arena_id,
+            published_at=datetime.utcnow(),
+            share_url=share_url
+        ),
+        message="Arena results published successfully"
     )

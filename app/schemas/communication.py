@@ -263,6 +263,82 @@ class WSServerEvent(BaseModel):
     data: Dict  # Event-specific payload
 
 
+# --- Phase 4: Evaluation & Publishing ---
+
+
+class ParticipantScoreCard(BaseModel):
+    """Individual participant scoring data"""
+    participant_id: UUID
+    student_id: UUID
+    student_name: str
+    avatar_url: Optional[str] = None
+    total_speaking_duration_seconds: int
+    engagement_score: float  # 0.00 to 100.00
+    reactions_received: int
+    ai_pronunciation_score: Optional[float] = None
+    ai_fluency_score: Optional[float] = None
+    teacher_rating: Optional[float] = None
+
+
+class ArenaScoresResponse(BaseModel):
+    """Response for GET /arenas/{id}/scores - Live scoring data"""
+    arena_id: UUID
+    session_state: str
+    participants: List[ParticipantScoreCard]
+    top_performers: List[UUID]  # Ranked by engagement_score
+
+
+class ParticipantAnalytics(BaseModel):
+    """Detailed analytics for a single participant"""
+    participant_id: UUID
+    student_id: UUID
+    speaking_timeline: List[Dict]  # [{start_time, end_time, duration_seconds}]
+    engagement_timeline: List[Dict]  # [{timestamp, score}]
+    reactions_timeline: List[Dict]  # [{timestamp, reaction_type, from_user_id}]
+    total_speaking_time_seconds: int
+    average_engagement_score: float
+    peak_engagement_score: float
+    total_reactions_received: int
+    reaction_breakdown: Dict[str, int]  # reaction_type -> count
+
+
+class ArenaAnalyticsResponse(BaseModel):
+    """Response for GET /arenas/{id}/analytics - Detailed analytics"""
+    arena_id: UUID
+    session_duration_minutes: Optional[int] = None
+    total_participants: int
+    participants: List[ParticipantAnalytics]
+    aggregate_stats: Dict  # Overall session statistics
+
+
+class TeacherRatingRequest(BaseModel):
+    """Request for POST /arenas/{id}/participants/{participant_id}/rate"""
+    criteria_scores: Dict[str, float]  # criterion_name -> score (0-100)
+    overall_rating: float  # 0-100
+    feedback: Optional[str] = None
+
+
+class TeacherRatingResponse(BaseModel):
+    """Response for teacher rating submission"""
+    success: bool
+    participant_id: UUID
+    overall_rating: float
+
+
+class PublishArenaRequest(BaseModel):
+    """Request for POST /arenas/{id}/publish"""
+    include_ai_analysis: bool = True
+    visibility: Literal["class", "school", "public"] = "class"
+
+
+class PublishArenaResponse(BaseModel):
+    """Response for publishing arena results"""
+    success: bool
+    arena_id: UUID
+    published_at: datetime
+    share_url: Optional[str] = None
+
+
 # --- Announcement ---
 
 

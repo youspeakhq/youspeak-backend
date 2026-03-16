@@ -79,47 +79,26 @@ async def teacher_with_class_and_students(
     assert resp.status_code == 200, resp.text
     class_id = resp.json()["data"]["id"]
 
-    # Create 5 students enrolled in this class
+    # Create 5 students enrolled in this class (using direct creation)
+    from tests.conftest import create_student_direct
+
     student_ids = []
     for i in range(5):
         student_email = f"student_{unique_suffix}_{i}@test.com"
 
-        # Admin invites student
-        resp = await async_client.post(
-            f"{api_base}/students",
-            headers=registered_school["headers"],
-            json={
-                "first_name": f"Student{i}",
-                "last_name": "Test",
-                "email": student_email,
-                "lang_id": 1,
-            },
+        # Create student directly (already enrolled via class_id)
+        student_data = await create_student_direct(
+            async_client=async_client,
+            api_base=api_base,
+            admin_headers=registered_school["headers"],
+            class_id=str(class_id),
+            first_name=f"Student{i}",
+            last_name="Test",
+            email=student_email,
+            password="Pass123!",
+            lang_id=1,
         )
-        assert resp.status_code == 200, resp.text
-        invite_code = resp.json()["data"]["invite_code"]
-
-        # Register student
-        resp = await async_client.post(
-            f"{api_base}/auth/register/student",
-            json={
-                "invite_code": invite_code,
-                "email": student_email,
-                "password": "Pass123!",
-                "first_name": f"Student{i}",
-                "last_name": "Test",
-            },
-        )
-        assert resp.status_code == 200, resp.text
-        student_id = resp.json()["data"]["user_id"]
-        student_ids.append(student_id)
-
-        # Enroll student in class
-        resp = await async_client.post(
-            f"{api_base}/classes/{class_id}/students",
-            headers=teacher_headers,
-            json={"student_ids": [student_id]},
-        )
-        assert resp.status_code == 200, resp.text
+        student_ids.append(student_data["student_id"])
 
     return {
         "headers": teacher_headers,

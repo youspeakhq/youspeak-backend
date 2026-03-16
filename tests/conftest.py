@@ -220,3 +220,57 @@ async def teacher_headers(
     assert resp.status_code == 200, resp.text
     token = resp.json()["data"]["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+async def create_student_direct(
+    async_client: AsyncClient,
+    api_base: str,
+    admin_headers: dict,
+    class_id: str,
+    first_name: str,
+    last_name: str,
+    email: str,
+    password: str = "Pass123!",
+    lang_id: int = 1,
+) -> dict:
+    """
+    Helper function to create a student using the current direct creation flow.
+
+    Returns dict with:
+        - student_id: UUID of created student
+        - email: Student email
+        - password: Student password
+        - token: Auth token (after login)
+
+    NOTE: This replaces the old invite-based flow that tests were expecting.
+    """
+    # Admin creates student directly (already enrolled if class_id provided)
+    resp = await async_client.post(
+        f"{api_base}/students",
+        headers=admin_headers,
+        json={
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "lang_id": lang_id,
+            "class_id": class_id,  # Enroll directly
+            "password": password,  # Set password directly
+        },
+    )
+    assert resp.status_code == 200, f"Student creation failed: {resp.text}"
+    student_id = resp.json()["data"]["id"]
+
+    # Login student to get token
+    resp = await async_client.post(
+        f"{api_base}/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert resp.status_code == 200, f"Student login failed: {resp.text}"
+    token = resp.json()["data"]["access_token"]
+
+    return {
+        "student_id": student_id,
+        "email": email,
+        "password": password,
+        "token": token,
+    }

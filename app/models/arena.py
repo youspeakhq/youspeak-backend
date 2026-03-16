@@ -128,6 +128,53 @@ class ArenaWaitingRoom(BaseModel):
         return f"<ArenaWaitingRoom arena={self.arena_id} student={self.student_id} status={self.status}>"
 
 
+class ArenaParticipant(BaseModel):
+    """
+    Live session participant tracking.
+    Phase 4: Tracks speaking time, engagement, and real-time state.
+    """
+    __tablename__ = "arena_participants"
+
+    arena_id = Column(UUID(as_uuid=True), ForeignKey("arenas.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(50), default='participant', nullable=False)  # 'participant' | 'audience'
+    team_id = Column(UUID(as_uuid=True), nullable=True)  # For Phase 6 collaborative mode
+    is_speaking = Column(Boolean, default=False, nullable=False)
+    speaking_start_time = Column(DateTime, nullable=True)
+    total_speaking_duration_seconds = Column(Integer, default=0, nullable=False)
+    engagement_score = Column(Numeric(5, 2), default=0.00, nullable=False)  # 0.00 to 100.00
+    last_activity = Column(DateTime, nullable=False)
+
+    # Relationships
+    arena = relationship("Arena", backref="participants")
+    student = relationship("User", backref="arena_participations")
+
+    def __repr__(self) -> str:
+        return f"<ArenaParticipant arena={self.arena_id} student={self.student_id} speaking={self.is_speaking}>"
+
+
+class ArenaReaction(BaseModel):
+    """
+    Real-time reactions sent during live sessions.
+    Phase 4: Emoji reactions, applause, etc.
+    """
+    __tablename__ = "arena_reactions"
+
+    arena_id = Column(UUID(as_uuid=True), ForeignKey("arenas.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    target_participant_id = Column(UUID(as_uuid=True), ForeignKey("arena_participants.id", ondelete="CASCADE"), nullable=True)
+    reaction_type = Column(String(20), nullable=False)  # 'heart' | 'clap' | 'laugh' | 'thumbs_up'
+    timestamp = Column(DateTime, nullable=False)
+
+    # Relationships
+    arena = relationship("Arena", backref="reactions")
+    user = relationship("User", backref="sent_reactions")
+    target_participant = relationship("ArenaParticipant", backref="received_reactions")
+
+    def __repr__(self) -> str:
+        return f"<ArenaReaction {self.reaction_type} from {self.user_id}>"
+
+
 # Association table for Arena <-> Moderator (Teachers/Admins)
 arena_moderators = Table(
     "arena_moderators",
