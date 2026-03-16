@@ -205,7 +205,7 @@ async def teacher_headers(
     async_client: AsyncClient, api_base: str, registered_school: dict, unique_suffix: str
 ):
     """Create a teacher and return auth headers for teacher-console endpoints."""
-    email = f"teacher_{unique_suffix}@test.com"
+    email = f"thdr_{unique_suffix}@test.com"
     resp = await async_client.post(
         f"{api_base}/teachers",
         headers=registered_school["headers"],
@@ -298,7 +298,7 @@ async def teacher_with_class_and_students(
     Returns: dict with teacher_id, headers, class_id, student_ids
     """
     # Create teacher
-    teacher_email = f"teacher_{unique_suffix}@test.com"
+    teacher_email = f"twcs_{unique_suffix}@test.com"
     resp = await async_client.post(
         f"{api_base}/teachers",
         headers=registered_school["headers"],

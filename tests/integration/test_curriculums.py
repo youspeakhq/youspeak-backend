@@ -238,7 +238,7 @@ async def test_curriculum_merge_proposal(
     
     # Extract topics to populate the teacher curriculum
     await async_client.post(f"{api_base}/curriculums/{teacher_curriculum_id}/extract", headers=headers)
-    
+
     # Upload Curriculum 2 (Library Mock)
     files2 = {"file": ("c2.pdf", b"test", "application/pdf")}
     data2 = {"title": f"Library Curric {unique_suffix}", "language_id": "1"}
