@@ -115,7 +115,7 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
         class_id=class_.id,
         title="Live Arena Session",
         description="Test arena for evaluation",
-        status=ArenaStatus.ACTIVE,
+        status=ArenaStatus.LIVE,
         session_state='live',
         start_time=datetime.utcnow() - timedelta(minutes=10),
         duration_minutes=30,
