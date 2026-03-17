@@ -187,38 +187,115 @@ async def get_history(
     )
 
 
-@router.get("/{arena_id}", response_model=SuccessResponse[ArenaResponse])
-async def get_arena(
-    arena_id: UUID,
-    current_user: User = Depends(deps.require_teacher),
+@router.get("/pool", response_model=SuccessResponse[ChallengePoolResponse])
+async def list_challenge_pool(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    arena_mode: Optional[str] = Query(None),
+    current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
-    """Get arena by id (teacher must teach the arena's class)."""
-    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
-    if not arena:
-        raise HTTPException(status_code=404, detail="Arena not found")
-    return SuccessResponse(data=ArenaResponse(**_arena_to_response(arena)))
+    """
+    Browse public challenges from the challenge pool.
 
+    Searchable and filterable catalog of reusable arena challenges.
 
-@router.patch("/{arena_id}", response_model=SuccessResponse[ArenaResponse])
-async def update_arena(
-    arena_id: UUID,
-    body: ArenaUpdate,
-    current_user: User = Depends(deps.require_teacher),
-    db: AsyncSession = Depends(deps.get_db),
-) -> Any:
-    """Update arena (teacher must teach the arena's class)."""
-    arena = await ArenaService.update_arena(db, arena_id, current_user.id, body)
-    if not arena:
-        raise HTTPException(status_code=404, detail="Arena not found")
-    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
+    **Teacher only** - accessible to all teachers.
+
+    Query Parameters:
+    - page: Page number (default: 1)
+    - page_size: Items per page (default: 20, max: 100)
+    - search: Search in title and description
+    - arena_mode: Filter by mode (competitive/collaborative)
+
+    Used by: Challenge pool browser UI
+    """
+    skip = (page - 1) * page_size
+
+    challenges, total = await ArenaService.list_challenge_pool(
+        db=db,
+        skip=skip,
+        limit=page_size,
+        search=search,
+        arena_mode=arena_mode
+    )
+
+    # Build response items
+    pool_items = []
+    for arena, publisher_name in challenges:
+        pool_items.append(
+            ChallengePoolListItem(
+                id=arena.id,
+                title=arena.title,
+                description=arena.description,
+                duration_minutes=arena.duration_minutes,
+                arena_mode=arena.arena_mode,
+                judging_mode=arena.judging_mode,
+                criteria=[
+                    {"name": c.name, "weight_percentage": c.weight_percentage}
+                    for c in arena.criteria
+                ],
+                rules=[r.description for r in arena.rules],
+                usage_count=arena.usage_count,
+                published_at=arena.published_at,
+                published_by_name=publisher_name
+            )
+        )
+
     return SuccessResponse(
-        data=ArenaResponse(**_arena_to_response(arena)),
-        message="Arena updated successfully",
+        data=ChallengePoolResponse(
+            challenges=pool_items,
+            total=total,
+            page=page,
+            page_size=page_size
+        ),
+        message="Challenge pool retrieved successfully"
     )
 
 
-# --- Phase 1: Session Configuration Endpoints ---
+@router.get("/pool/{pool_arena_id}", response_model=SuccessResponse[ChallengePoolDetailResponse])
+async def get_challenge_pool_detail(
+    pool_arena_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Get detailed information about a specific challenge from the pool.
+
+    **Teacher only** - accessible to all teachers.
+
+    Used by: Challenge preview before cloning
+    """
+    pool_item = await ArenaService.get_challenge_pool_item(db, pool_arena_id)
+
+    if not pool_item:
+        raise HTTPException(status_code=404, detail="Challenge not found in pool")
+
+    arena, publisher_name = pool_item
+
+    return SuccessResponse(
+        data=ChallengePoolDetailResponse(
+            id=arena.id,
+            title=arena.title,
+            description=arena.description,
+            duration_minutes=arena.duration_minutes,
+            arena_mode=arena.arena_mode,
+            judging_mode=arena.judging_mode,
+            ai_co_judge_enabled=arena.ai_co_judge_enabled,
+            team_size=arena.team_size,
+            criteria=[
+                {"name": c.name, "weight_percentage": c.weight_percentage}
+                for c in arena.criteria
+            ],
+            rules=[r.description for r in arena.rules],
+            usage_count=arena.usage_count,
+            published_at=arena.published_at,
+            published_by_name=publisher_name
+        ),
+        message="Challenge details retrieved successfully"
+    )
+
 
 
 @router.get("/students/search", response_model=SuccessResponse[StudentSearchResponse])
@@ -262,6 +339,41 @@ async def search_students(
             page_size=page_size
         )
     )
+
+
+
+@router.get("/{arena_id}", response_model=SuccessResponse[ArenaResponse])
+async def get_arena(
+    arena_id: UUID,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """Get arena by id (teacher must teach the arena's class)."""
+    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
+    if not arena:
+        raise HTTPException(status_code=404, detail="Arena not found")
+    return SuccessResponse(data=ArenaResponse(**_arena_to_response(arena)))
+
+
+@router.patch("/{arena_id}", response_model=SuccessResponse[ArenaResponse])
+async def update_arena(
+    arena_id: UUID,
+    body: ArenaUpdate,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """Update arena (teacher must teach the arena's class)."""
+    arena = await ArenaService.update_arena(db, arena_id, current_user.id, body)
+    if not arena:
+        raise HTTPException(status_code=404, detail="Arena not found")
+    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
+    return SuccessResponse(
+        data=ArenaResponse(**_arena_to_response(arena)),
+        message="Arena updated successfully",
+    )
+
+
+# --- Phase 1: Session Configuration Endpoints ---
 
 
 @router.post("/{arena_id}/initialize", response_model=SuccessResponse[ArenaInitializeResponse])
@@ -1124,116 +1236,6 @@ async def publish_arena_results(
 # ============================================================================
 # Phase 5: Challenge Pool
 # ============================================================================
-
-
-@router.get("/pool", response_model=SuccessResponse[ChallengePoolResponse])
-async def list_challenge_pool(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    search: Optional[str] = Query(None),
-    arena_mode: Optional[str] = Query(None),
-    current_user: User = Depends(deps.get_current_user),
-    db: AsyncSession = Depends(deps.get_db),
-) -> Any:
-    """
-    Browse public challenges from the challenge pool.
-
-    Searchable and filterable catalog of reusable arena challenges.
-
-    **Teacher only** - accessible to all teachers.
-
-    Query Parameters:
-    - page: Page number (default: 1)
-    - page_size: Items per page (default: 20, max: 100)
-    - search: Search in title and description
-    - arena_mode: Filter by mode (competitive/collaborative)
-
-    Used by: Challenge pool browser UI
-    """
-    skip = (page - 1) * page_size
-
-    challenges, total = await ArenaService.list_challenge_pool(
-        db=db,
-        skip=skip,
-        limit=page_size,
-        search=search,
-        arena_mode=arena_mode
-    )
-
-    # Build response items
-    pool_items = []
-    for arena, publisher_name in challenges:
-        pool_items.append(
-            ChallengePoolListItem(
-                id=arena.id,
-                title=arena.title,
-                description=arena.description,
-                duration_minutes=arena.duration_minutes,
-                arena_mode=arena.arena_mode,
-                judging_mode=arena.judging_mode,
-                criteria=[
-                    {"name": c.name, "weight_percentage": c.weight_percentage}
-                    for c in arena.criteria
-                ],
-                rules=[r.description for r in arena.rules],
-                usage_count=arena.usage_count,
-                published_at=arena.published_at,
-                published_by_name=publisher_name
-            )
-        )
-
-    return SuccessResponse(
-        data=ChallengePoolResponse(
-            challenges=pool_items,
-            total=total,
-            page=page,
-            page_size=page_size
-        ),
-        message="Challenge pool retrieved successfully"
-    )
-
-
-@router.get("/pool/{pool_arena_id}", response_model=SuccessResponse[ChallengePoolDetailResponse])
-async def get_challenge_pool_detail(
-    pool_arena_id: UUID,
-    current_user: User = Depends(deps.get_current_user),
-    db: AsyncSession = Depends(deps.get_db),
-) -> Any:
-    """
-    Get detailed information about a specific challenge from the pool.
-
-    **Teacher only** - accessible to all teachers.
-
-    Used by: Challenge preview before cloning
-    """
-    pool_item = await ArenaService.get_challenge_pool_item(db, pool_arena_id)
-
-    if not pool_item:
-        raise HTTPException(status_code=404, detail="Challenge not found in pool")
-
-    arena, publisher_name = pool_item
-
-    return SuccessResponse(
-        data=ChallengePoolDetailResponse(
-            id=arena.id,
-            title=arena.title,
-            description=arena.description,
-            duration_minutes=arena.duration_minutes,
-            arena_mode=arena.arena_mode,
-            judging_mode=arena.judging_mode,
-            ai_co_judge_enabled=arena.ai_co_judge_enabled,
-            team_size=arena.team_size,
-            criteria=[
-                {"name": c.name, "weight_percentage": c.weight_percentage}
-                for c in arena.criteria
-            ],
-            rules=[r.description for r in arena.rules],
-            usage_count=arena.usage_count,
-            published_at=arena.published_at,
-            published_by_name=publisher_name
-        ),
-        message="Challenge details retrieved successfully"
-    )
 
 
 @router.post("/{arena_id}/publish-to-pool", response_model=SuccessResponse[PublishToChallengePoolResponse])
