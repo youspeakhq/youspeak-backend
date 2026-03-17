@@ -166,6 +166,21 @@ class ClassroomService:
         return True, None
 
     @staticmethod
+    async def teacher_teaches_classroom(
+        db: AsyncSession,
+        teacher_id: UUID,
+        classroom_id: UUID,
+    ) -> bool:
+        """Check if a teacher teaches a specific classroom."""
+        result = await db.execute(
+            select(classroom_teachers).where(
+                classroom_teachers.c.classroom_id == classroom_id,
+                classroom_teachers.c.teacher_id == teacher_id,
+            )
+        )
+        return result.first() is not None
+
+    @staticmethod
     async def get_classroom_students(
         db: AsyncSession,
         classroom_id: UUID,

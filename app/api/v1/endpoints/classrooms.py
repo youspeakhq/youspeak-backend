@@ -107,20 +107,35 @@ def _user_to_response(u: User) -> UserResponse:
 @router.get("/{classroom_id}/students", response_model=SuccessResponse)
 async def get_classroom_students(
     classroom_id: UUID,
-    current_user: User = Depends(deps.require_admin),
+    current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
-    """List students in a classroom. Admin only."""
-    classroom = await ClassroomService.get_classroom_by_id(
-        db, classroom_id, current_user.school_id
-    )
-    if not classroom:
-        raise HTTPException(status_code=404, detail="Classroom not found")
+    """List students in a classroom. Admins see all classrooms, teachers see only classrooms they teach."""
+    from app.models.enums import UserRole
+
+    # Authorization: Admin or teacher who teaches this classroom
+    if current_user.role == UserRole.SCHOOL_ADMIN:
+        # Admin: verify classroom belongs to their school
+        classroom = await ClassroomService.get_classroom_by_id(
+            db, classroom_id, current_user.school_id
+        )
+        if not classroom:
+            raise HTTPException(status_code=404, detail="Classroom not found")
+    elif current_user.role == UserRole.TEACHER:
+        # Teacher: verify they teach this classroom
+        teaches = await ClassroomService.teacher_teaches_classroom(
+            db, current_user.id, classroom_id
+        )
+        if not teaches:
+            raise HTTPException(status_code=403, detail="You do not teach this classroom")
+    else:
+        raise HTTPException(status_code=403, detail="Teacher or admin access required")
+
     students = await ClassroomService.get_classroom_students(
         db, classroom_id, current_user.school_id
     )
     data = [_user_to_response(u) for u in students]
-    return SuccessResponse(data=data)
+    return SuccessResponse(data=data, message=f"Retrieved {len(students)} students")
 
 
 @router.get("/{classroom_id}/teachers", response_model=SuccessResponse)
