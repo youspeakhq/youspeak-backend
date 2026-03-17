@@ -44,6 +44,7 @@ def _assignment_to_list_row(
     a,
     class_name: Optional[str] = None,
     active_students: Optional[int] = None,
+    task_topic: Optional[str] = None,
     average_score: Optional[float] = None,
 ) -> dict:
     return {
@@ -55,7 +56,7 @@ def _assignment_to_list_row(
         "due_date": a.due_date,
         "class_name": class_name,
         "active_students": active_students,
-        "task_topic": None,
+        "task_topic": task_topic,
         "average_score": average_score,
         "enable_ai_marking": getattr(a, "enable_ai_marking", False),
     }
@@ -307,10 +308,18 @@ async def list_assessments(
 ) -> Any:
     """List assignments for the teacher (Task Management table)."""
     skip = (page - 1) * page_size
-    assignments, total = await AssessmentService.list_assignments(
+    assignment_rows, total = await AssessmentService.list_assignments(
         db, current_user.id, class_id=class_id, type_filter=type_filter, search=search, skip=skip, limit=page_size
     )
-    items = [_assignment_to_list_row(a) for a in assignments]
+    items = []
+    for assignment, active_count in assignment_rows:
+        # Format topics as comma-separated string
+        task_topic = ", ".join(assignment.topics) if assignment.topics else None
+        items.append(_assignment_to_list_row(
+            assignment,
+            active_students=active_count,
+            task_topic=task_topic
+        ))
     total_pages = (total + page_size - 1) // page_size if total else 0
     return PaginatedResponse(
         data=[AssessmentListRow(**x) for x in items],

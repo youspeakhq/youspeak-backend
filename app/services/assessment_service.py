@@ -40,10 +40,21 @@ class AssessmentService:
         search: Optional[str] = None,
         skip: int = 0,
         limit: int = 20,
-    ) -> Tuple[List[Assignment], int]:
-        """List assignments for the teacher (Task Management table)."""
+    ) -> Tuple[List[Tuple[Assignment, int]], int]:
+        """List assignments for the teacher (Task Management table). Returns (assignment, active_students_count)."""
+        # Subquery to count distinct students who have submitted for each assignment
+        active_students_subq = (
+            select(
+                StudentSubmission.assignment_id,
+                func.count(func.distinct(StudentSubmission.student_id)).label("active_count")
+            )
+            .group_by(StudentSubmission.assignment_id)
+            .subquery()
+        )
+
         q = (
-            select(Assignment)
+            select(Assignment, func.coalesce(active_students_subq.c.active_count, 0).label("active_count"))
+            .outerjoin(active_students_subq, Assignment.id == active_students_subq.c.assignment_id)
             .where(Assignment.teacher_id == teacher_id)
         )
         if class_id is not None:
@@ -58,7 +69,8 @@ class AssessmentService:
 
         q = q.offset(skip).limit(limit).order_by(Assignment.created_at.desc())
         result = await db.execute(q)
-        return list(result.scalars().unique().all()), total
+        rows = [(row[0], int(row[1])) for row in result.all()]
+        return rows, total
 
     @staticmethod
     async def get_assignment(
