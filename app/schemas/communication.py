@@ -17,6 +17,15 @@ class ArenaCreate(BaseModel):
     start_time: Optional[datetime] = None
     duration_minutes: Optional[int] = None
 
+    @field_validator('start_time')
+    @classmethod
+    def normalize_start_time(cls, v: Optional[datetime]) -> Optional[datetime]:
+        """Strip timezone info from start_time to match DB TIMESTAMP WITHOUT TIME ZONE."""
+        if v is not None and v.tzinfo is not None:
+            # Convert to UTC and strip timezone
+            return v.replace(tzinfo=None)
+        return v
+
 
 class ArenaSchedule(BaseModel):
     start_time: datetime
@@ -31,6 +40,14 @@ class ArenaUpdate(BaseModel):
     criteria: Optional[Dict[str, int]] = None
     start_time: Optional[datetime] = None
     duration_minutes: Optional[int] = None
+
+    @field_validator('start_time')
+    @classmethod
+    def normalize_start_time(cls, v: Optional[datetime]) -> Optional[datetime]:
+        """Strip timezone info from start_time to match DB TIMESTAMP WITHOUT TIME ZONE."""
+        if v is not None and v.tzinfo is not None:
+            return v.replace(tzinfo=None)
+        return v
 
 
 class ArenaListRow(BaseModel):
