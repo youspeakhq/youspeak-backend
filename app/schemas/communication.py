@@ -459,6 +459,18 @@ class CreateTeamResponse(BaseModel):
     message: str
 
 
+class BatchCreateTeamRequest(BaseModel):
+    """Request for POST /arenas/{id}/teams/batch"""
+    teams: List[CreateTeamRequest]
+
+
+class BatchCreateTeamResponse(BaseModel):
+    """Response for batch creating teams"""
+    success: bool
+    created_teams: List[TeamInfo]
+    message: str
+
+
 class ListTeamsResponse(BaseModel):
     """Response for GET /arenas/{id}/teams"""
     arena_id: UUID

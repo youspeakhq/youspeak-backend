@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.arena import Arena, ArenaCriteria, ArenaRule, arena_moderators, ArenaWaitingRoom, ArenaParticipant, ArenaReaction, ArenaTeam, ArenaTeamMember
-from app.models.academic import Class, teacher_assignments
+from app.models.academic import Class, teacher_assignments, class_enrollments
 from app.models.user import User
 from app.models.enums import ArenaStatus, UserRole
 from app.schemas.communication import ArenaCreate, ArenaUpdate, ArenaSessionConfig
@@ -1213,16 +1213,76 @@ class ArenaService:
         Returns:
             ArenaTeam if successful, None if arena not found or access denied
         """
-        from app.models.arena import ArenaTeam, ArenaTeamMember
-
         # Verify teacher has access
         arena = await ArenaService.get_arena(db, arena_id, teacher_id)
         if not arena:
-            return None
+            raise ValueError("Arena not found or access denied")
 
-        # Verify arena is in collaborative mode
-        if arena.arena_mode != "collaborative":
-            raise ValueError("Arena must be in collaborative mode to create teams")
+        team = await ArenaService._create_team_logic(
+            db=db,
+            arena_id=arena_id,
+            arena_class_id=arena.class_id,
+            arena_mode=arena.arena_mode,
+            team_name=team_name,
+            student_ids=student_ids,
+            leader_id=leader_id
+        )
+        
+        await db.commit()
+        await db.refresh(team)
+        return team
+
+    @staticmethod
+    async def _create_team_logic(
+        db: AsyncSession,
+        arena_id: UUID,
+        arena_class_id: UUID,
+        arena_mode: str,
+        team_name: str,
+        student_ids: List[UUID],
+        leader_id: Optional[UUID] = None,
+    ) -> ArenaTeam:
+        """
+        Internal logic for team creation without commit/refresh.
+        """
+        if arena_mode != "collaborative":
+            raise ValueError("Teams can only be created for collaborative arenas")
+
+        # Check if team name already exists in this arena
+        existing_team = await db.execute(
+            select(ArenaTeam).where(
+                ArenaTeam.arena_id == arena_id,
+                ArenaTeam.team_name == team_name
+            )
+        )
+        if existing_team.first():
+            raise ValueError(f"Team name '{team_name}' already exists in this arena")
+
+        # Verify all students are enrolled in the class
+        enrollment_check = await db.execute(
+            select(class_enrollments.c.student_id)
+            .where(
+                class_enrollments.c.class_id == arena_class_id,
+                class_enrollments.c.student_id.in_(student_ids)
+            )
+        )
+        found_student_ids = {row[0] for row in enrollment_check.all()}
+        if len(found_student_ids) != len(student_ids):
+            missing = set(student_ids) - found_student_ids
+            raise ValueError(f"Some students are not enrolled in this class")
+
+        # Check if any student is already in a team for this arena
+        already_in_team = await db.execute(
+            select(ArenaTeamMember.student_id)
+            .join(ArenaTeam, ArenaTeam.id == ArenaTeamMember.team_id)
+            .where(
+                ArenaTeam.arena_id == arena_id,
+                ArenaTeamMember.student_id.in_(student_ids)
+            )
+        )
+        dupes = already_in_team.scalars().all()
+        if dupes:
+            raise ValueError(f"Some students are already members of other teams in this arena")
 
         # Create team
         team = ArenaTeam(
@@ -1242,10 +1302,73 @@ class ArenaService:
             )
             db.add(member)
 
-        await db.commit()
-        await db.refresh(team)
-
         return team
+
+    @staticmethod
+    async def create_teams_batch(
+        db: AsyncSession,
+        arena_id: UUID,
+        teacher_id: UUID,
+        teams_data: List[dict]  # List of {"team_name": str, "student_ids": List[UUID], "leader_id": Optional[UUID]}
+    ) -> List[ArenaTeam]:
+        """
+        Create multiple teams for an arena in a single transaction.
+        
+        Args:
+            db: Database session
+            arena_id: Arena ID
+            teacher_id: Teacher performing the action
+            teams_data: List of team creation requests
+            
+        Returns:
+            List of created ArenaTeam objects
+            
+        Raises:
+            ValueError: If validation fails for any team
+        """
+        # Verify teacher ownership
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            raise ValueError("Arena not found or access denied")
+
+        if arena.arena_mode != "collaborative":
+            raise ValueError("Teams can only be created for collaborative arenas")
+
+        created_teams = []
+        
+        try:
+            # Check for duplicate team names in the batch itself
+            batch_team_names = {t["team_name"] for t in teams_data}
+            if len(batch_team_names) != len(teams_data):
+                raise ValueError("Duplicate team names found in batch")
+
+            # Check for duplicate students in the batch itself
+            all_student_ids = []
+            for t in teams_data:
+                all_student_ids.extend(t["student_ids"])
+            if len(set(all_student_ids)) != len(all_student_ids):
+                raise ValueError("Duplicate student IDs found across teams in batch")
+
+            for data in teams_data:
+                team = await ArenaService._create_team_logic(
+                    db=db,
+                    arena_id=arena_id,
+                    arena_class_id=arena.class_id,
+                    arena_mode=arena.arena_mode,
+                    team_name=data["team_name"],
+                    student_ids=data["student_ids"],
+                    leader_id=data.get("leader_id")
+                )
+                created_teams.append(team)
+            
+            await db.commit()
+            for t in created_teams:
+                await db.refresh(t)
+            return created_teams
+            
+        except Exception:
+            await db.rollback()
+            raise
 
     @staticmethod
     async def list_teams(

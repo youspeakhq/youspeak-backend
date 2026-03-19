@@ -63,7 +63,10 @@ from app.schemas.communication import (
     # Phase 6: Collaborative Mode Teams
     CreateTeamRequest,
     CreateTeamResponse,
+    BatchCreateTeamRequest,
+    BatchCreateTeamResponse,
     ListTeamsResponse,
+    ArenaHistoryItem,
     ArenaHistoryResponse,
 )
 from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
@@ -1342,7 +1345,7 @@ async def clone_challenge_from_pool(
 @router.post("/{arena_id}/teams", response_model=SuccessResponse[CreateTeamResponse])
 async def create_team(
     arena_id: UUID,
-    request: CreateTeamRequest,
+    team_data: CreateTeamRequest,
     current_user: User = Depends(deps.require_teacher),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
@@ -1384,32 +1387,30 @@ async def create_team(
     ```
 
     **Errors:**
+    - 400: Validation error (duplicate name, students already in team, etc)
     - 404: Arena not found or access denied
-    - 400: Arena not in collaborative mode
-    - 400: Duplicate team name
     """
     log = get_logger(__name__)
+    log.info("team_create_started")
 
     try:
         team = await ArenaService.create_team(
             db=db,
             arena_id=arena_id,
             teacher_id=current_user.id,
-            team_name=request.team_name,
-            student_ids=request.student_ids,
-            leader_id=request.leader_id
+            team_name=team_data.team_name,
+            student_ids=team_data.student_ids,
+            leader_id=team_data.leader_id
         )
     except ValueError as e:
-        log.warning("team_creation_failed")
+        log.warning(f"team_create_failed: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
     if not team:
-        log.warning("team_creation_failed")
+        log.warning("team_create_failed: access_denied")
         raise HTTPException(status_code=404, detail="Arena not found or access denied")
 
-    # Build response with member info
     from app.schemas.communication import TeamMemberInfo, TeamInfo
-
     members_info = [
         TeamMemberInfo(
             student_id=member.student_id,
@@ -1420,22 +1421,87 @@ async def create_team(
         for member in team.members
     ]
 
-    team_info = TeamInfo(
-        team_id=team.id,
-        team_name=team.team_name,
-        members=members_info,
-        created_at=team.created_at
-    )
-
     log.info("team_created")
 
     return SuccessResponse(
         data=CreateTeamResponse(
             success=True,
-            team=team_info,
+            team=TeamInfo(
+                team_id=team.id,
+                team_name=team.team_name,
+                members=members_info,
+                created_at=team.created_at
+            ),
             message="Team created successfully"
         ),
         message="Team created successfully"
+    )
+
+
+@router.post("/{arena_id}/teams/batch", response_model=SuccessResponse[BatchCreateTeamResponse])
+async def create_teams_batch(
+    arena_id: UUID,
+    batch_data: BatchCreateTeamRequest,
+    current_user: User = Depends(deps.require_teacher),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Create multiple teams for a collaborative arena in a single batch.
+    
+    This endpoint is more efficient and ensures all teams are created together.
+    It performs validation to ensure unique team names and that students are 
+    not assigned to multiple teams.
+    
+    **Teacher only** - requires arena ownership.
+    """
+    log = get_logger(__name__)
+    log.info("teams_batch_create_started")
+
+    # Convert Pydantic models to dicts for the service
+    teams_list = [t.model_dump() for t in batch_data.teams]
+
+    try:
+        teams = await ArenaService.create_teams_batch(
+            db=db,
+            arena_id=arena_id,
+            teacher_id=current_user.id,
+            teams_data=teams_list
+        )
+    except ValueError as e:
+        log.warning(f"teams_batch_create_failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+    from app.schemas.communication import TeamMemberInfo, TeamInfo
+    
+    created_teams_info = []
+    for team in teams:
+        members_info = [
+            TeamMemberInfo(
+                student_id=member.student_id,
+                student_name=f"{member.student.first_name} {member.student.last_name}",
+                role=member.role,
+                avatar_url=member.student.profile_picture_url
+            )
+            for member in team.members
+        ]
+        created_teams_info.append(
+            TeamInfo(
+                team_id=team.id,
+                team_name=team.team_name,
+                members=members_info,
+                created_at=team.created_at
+            )
+        )
+
+    log.info("teams_batch_created")
+
+    return SuccessResponse(
+        data=BatchCreateTeamResponse(
+            success=True,
+            created_teams=created_teams_info,
+            message=f"Successfully created {len(created_teams_info)} teams"
+        ),
+        message=f"Successfully created {len(created_teams_info)} teams"
     )
 
 
