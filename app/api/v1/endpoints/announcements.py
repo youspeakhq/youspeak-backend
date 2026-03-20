@@ -17,7 +17,7 @@ async def list_announcements(
     class_id: Optional[UUID] = Query(None, description="Filter by class ID"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """
