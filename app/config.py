@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "YouSpeak Backend"
-    APP_VERSION: str = "1.0.8"
+    APP_VERSION: str = "1.0.9"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     API_V1_PREFIX: str = "/api/v1"

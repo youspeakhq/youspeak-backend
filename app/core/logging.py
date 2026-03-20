@@ -55,6 +55,43 @@ def setup_logging() -> None:
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
 
+class StructuredLogger(logging.Logger):
+    """
+    Custom logger that supports structured data via keyword arguments.
+    Example: logger.info("message", user_id=123)
+    """
+
+    def _log(
+        self,
+        level: int,
+        msg: object,
+        args: Any,
+        exc_info: Any = None,
+        extra: Any = None,
+        stack_info: bool = False,
+        stacklevel: int = 1,
+        **kwargs: Any,
+    ) -> None:
+        if kwargs:
+            if extra is None:
+                extra = {}
+            extra.update(kwargs)
+
+        super()._log(
+            level,
+            msg,
+            args,
+            exc_info=exc_info,
+            extra=extra,
+            stack_info=stack_info,
+            stacklevel=stacklevel,
+        )
+
+
+# Register the custom logger class
+logging.setLoggerClass(StructuredLogger)
+
+
 def get_logger(name: str) -> logging.Logger:
     """
     Get a logger instance.
