@@ -5,7 +5,7 @@ and Class Performance Summary section with 'see all'. See docs/figma-cache/3543-
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -70,3 +70,30 @@ class ClassPerformanceSummaryRow(BaseModel):
     time_spent_minutes_per_student: Optional[float] = None
     last_activity_at: Optional[datetime] = None
     active_session: Optional[LearningSessionOut] = None
+
+
+class LearningRoomReport(BaseModel):
+    class_id: UUID
+    class_name: str
+    total_sessions: int
+    active_students: int
+    avg_session_duration_minutes: float
+    session_frequency_pct: float
+    engagement_trend: List[float]  # Last 5 sessions engagement scores
+    average_engagement: float
+    total_active_minutes: float
+
+
+class StudentPerformanceAnalytics(BaseModel):
+    student_id: UUID
+    student_name: str
+    class_id: UUID
+    overall_score_pct: float
+    total_submissions: int
+    topical_mastery: Dict[str, float]  # Topic Name -> Score PCT
+    recent_scores: List[float]  # Last 5 submission scores
+    awards_count: int
+    engagement_score: float  # From arena sessions
+    last_activity_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)

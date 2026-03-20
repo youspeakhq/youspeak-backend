@@ -505,20 +505,35 @@ class ArenaHistoryResponse(BaseModel):
 # --- Announcement ---
 
 
+# --- Announcement ---
+
+
 class AnnouncementCreate(BaseModel):
-    title: str
-    body: str
-    class_ids: List[UUID] = []
-    attachments: List[str] = []  # URLs
-    is_reminder: bool = False
-    reminder_date: Optional[datetime] = None
+    class_id: Optional[UUID] = None
+    assignment_id: Optional[UUID] = None
+    type: AnnouncementType
+    message: str
+    send_notification: bool = False  # If true, triggers immediate notification
+
+
+class AnnouncementUpdate(BaseModel):
+    message: Optional[str] = None
+    type: Optional[AnnouncementType] = None
 
 
 class AnnouncementResponse(BaseModel):
     id: UUID
+    author_id: UUID
+    class_id: Optional[UUID] = None
+    assignment_id: Optional[UUID] = None
     type: AnnouncementType
     message: str
     created_at: datetime
-    author_name: str
+    author_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AnnouncementListResponse(BaseModel):
+    announcements: List[AnnouncementResponse]
+    total: int

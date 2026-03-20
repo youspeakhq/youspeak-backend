@@ -8,10 +8,13 @@ from app.api import deps
 from app.models.user import User
 from app.models.enums import UserRole
 from app.schemas.academic import ClassroomBrief
+from app.schemas.analytics import StudentPerformanceAnalytics
 from app.schemas.responses import SuccessResponse, PaginatedResponse
 from app.schemas.student import StudentCreate
 from app.schemas.user import UserResponse
 from app.services.academic_service import AcademicService
+from app.services.analytics_service import AnalyticsService
+from app.services.learning_session_service import LearningSessionService
 from app.services.user_service import UserService
 
 router = APIRouter()
@@ -206,3 +209,30 @@ async def cleanup_trash(
     """
     count = await UserService.cleanup_expired_trash(db)
     return SuccessResponse(data=None, message=f"Cleaned up {count} expired student records")
+
+
+@router.get("/{student_id}/analytics", response_model=SuccessResponse[StudentPerformanceAnalytics])
+async def get_student_analytics(
+    student_id: UUID,
+    class_id: UUID,
+    current_user: User = Depends(deps.require_teacher_or_admin),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Get detailed performance analytics for a student in a class.
+    """
+    if not await LearningSessionService._user_has_class_access(db, current_user, class_id):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this class"
+        )
+
+    data = await AnalyticsService.get_student_performance_analytics(
+        db, student_id=student_id, class_id=class_id
+    )
+    if not data:
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found in this class or analytics unavailable"
+        )
+    return SuccessResponse(data=data, message="Student analytics retrieved successfully")

@@ -12,6 +12,7 @@ from app.schemas.admin import LeaderboardResponse
 from app.schemas.analytics import (
     ClassPerformanceSummary,
     ClassPerformanceSummaryRow,
+    LearningRoomReport,
     LearningSessionCreate,
     LearningSessionOut,
     RoomMonitorCard,
@@ -397,6 +398,22 @@ async def get_room_monitor(
         performance_summary=performance_summary,
     )
     return SuccessResponse(data=data, message="Room monitor retrieved successfully")
+
+
+@router.get("/{class_id}/report", response_model=SuccessResponse[LearningRoomReport])
+async def get_class_report(
+    class_id: UUID,
+    current_user: User = Depends(deps.require_teacher_or_admin),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Detailed session report for a class (Learning room report).
+    """
+    report = await LearningSessionService.get_learning_room_report(db, class_id, current_user)
+    if not report:
+        raise HTTPException(status_code=404, detail="Class not found or report unavailable")
+    
+    return SuccessResponse(data=report, message="Learning room report retrieved successfully")
 
 
 @router.get("/{class_id}/sessions", response_model=SuccessResponse[List[LearningSessionOut]])
