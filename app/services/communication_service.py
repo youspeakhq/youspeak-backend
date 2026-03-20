@@ -79,7 +79,8 @@ class CommunicationService:
     async def create_announcement(
         db: AsyncSession,
         announcement_in: AnnouncementCreate,
-        author_id: UUID
+        author_id: UUID,
+        school_id: UUID
     ) -> Announcement:
         """
         Create a new announcement and associate it with classes.
@@ -87,28 +88,18 @@ class CommunicationService:
         logger.info(
             "announcement_creation_started",
             author_id=author_id,
-            class_ids=announcement_in.class_ids
+            class_id=announcement_in.class_id
         )
         try:
             db_obj = Announcement(
-                title=announcement_in.title,
-                body=announcement_in.body,
+                message=announcement_in.message,
+                type=announcement_in.type,
                 author_id=author_id,
-                announcement_type=announcement_in.announcement_type,
+                school_id=school_id,
+                class_id=announcement_in.class_id,
+                assignment_id=announcement_in.assignment_id,
             )
             db.add(db_obj)
-            await db.flush()  # Get ID
-
-            # Associate with classes
-            if announcement_in.class_ids:
-                from app.models.communication import announcement_classes
-                for class_id in announcement_in.class_ids:
-                    stmt = announcement_classes.insert().values(
-                        announcement_id=db_obj.id,
-                        class_id=class_id
-                    )
-                    await db.execute(stmt)
-
             await db.commit()
             await db.refresh(db_obj)
             logger.info("announcement_created", announcement_id=db_obj.id)

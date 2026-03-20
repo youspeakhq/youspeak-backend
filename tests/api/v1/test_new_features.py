@@ -14,10 +14,9 @@ async def test_announcements_full_cycle(
     
     # 1. Create Announcement
     payload = {
-        "title": "Welcome to Class",
-        "body": "This is a test announcement.",
-        "announcement_type": "general",
-        "class_ids": [class_id]
+        "message": "Welcome to Class. This is a test announcement.",
+        "type": "general",
+        "class_id": class_id
     }
     resp = await async_client.post(f"{api_base}/announcements", headers=headers, json=payload)
     assert resp.status_code == 200, resp.text

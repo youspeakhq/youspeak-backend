@@ -46,9 +46,9 @@ async def create_announcement(
     """
     announcement = await CommunicationService.create_announcement(
         db,
+        announcement_in=announcement_in,
         author_id=current_user.id,
         school_id=current_user.school_id,
-        payload=announcement_in,
     )
     
     return SuccessResponse(
