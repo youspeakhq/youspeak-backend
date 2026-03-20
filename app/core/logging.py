@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from typing import Any
 from pythonjsonlogger import jsonlogger
 
 from app.config import settings
