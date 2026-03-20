@@ -161,4 +161,5 @@ async def test_curriculum_merge_proposal_teacher_permission(
     )
     
     assert resp.status_code == 404
-    assert resp.json()["detail"] != "Admin access required"
+    # The curriculum proxy wraps errors in a standardized ErrorResponse
+    assert resp.json()["error"]["message"] != "Admin access required"
