@@ -534,6 +534,5 @@ class AnnouncementResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class AnnouncementListResponse(BaseModel):
-    announcements: List[AnnouncementResponse]
-    total: int
+
+# (end of file)

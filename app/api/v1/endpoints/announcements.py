@@ -5,14 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.models.user import User
-from app.schemas.communication import AnnouncementCreate, AnnouncementResponse, AnnouncementListResponse
-from app.schemas.responses import SuccessResponse
+from app.schemas.communication import AnnouncementCreate, AnnouncementResponse
+from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
 from app.services.communication_service import CommunicationService
 
 router = APIRouter()
 
 
-@router.get("", response_model=AnnouncementListResponse)
+@router.get("", response_model=PaginatedResponse[AnnouncementResponse])
 async def list_announcements(
     class_id: Optional[UUID] = Query(None, description="Filter by class ID"),
     page: int = Query(1, ge=1),
@@ -32,7 +32,17 @@ async def list_announcements(
         page_size=page_size,
     )
     
-    return AnnouncementListResponse(announcements=items, total=total)
+    total_pages = (total + page_size - 1) // page_size if total else 0
+    return PaginatedResponse(
+        data=[AnnouncementResponse.model_validate(a) for a in items],
+        meta=PaginationMeta(
+            page=page,
+            page_size=page_size,
+            total=total,
+            total_pages=total_pages
+        ),
+        message="Announcements retrieved successfully"
+    )
 
 
 @router.post("", response_model=SuccessResponse[AnnouncementResponse])
