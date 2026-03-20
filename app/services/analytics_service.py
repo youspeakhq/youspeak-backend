@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 from app.models.assessment import StudentSubmission, Assignment
 from app.models.academic import class_enrollments
-from app.models.award import Award
+from app.models.analytics import Award, LearningSession
 from app.models.user import User
 
 
