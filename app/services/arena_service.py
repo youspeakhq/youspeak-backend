@@ -1229,8 +1229,17 @@ class ArenaService:
         )
         
         await db.commit()
-        await db.refresh(team)
-        return team
+        
+        # Eagerly load members and their students for the response
+        stmt = (
+            select(ArenaTeam)
+            .options(
+                selectinload(ArenaTeam.members).selectinload(ArenaTeamMember.student)
+            )
+            .where(ArenaTeam.id == team.id)
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one()
 
     @staticmethod
     async def _create_team_logic(
@@ -1362,9 +1371,22 @@ class ArenaService:
                 created_teams.append(team)
             
             await db.commit()
+            
+            # Eagerly load members and their students for the response
+            final_teams = []
             for t in created_teams:
-                await db.refresh(t)
-            return created_teams
+                # Re-query with selectinload to ensure everything is loaded for the response
+                stmt = (
+                    select(ArenaTeam)
+                    .options(
+                        selectinload(ArenaTeam.members).selectinload(ArenaTeamMember.student)
+                    )
+                    .where(ArenaTeam.id == t.id)
+                )
+                res = await db.execute(stmt)
+                final_teams.append(res.scalar_one())
+            
+            return final_teams
             
         except Exception:
             await db.rollback()

@@ -70,7 +70,16 @@
       "Bash(git reset:*)",
       "Bash(git checkout:*)",
       "Bash(/tmp/fix_logger.py:*)",
-      "Bash(__NEW_LINE_a518bc83ce3dd6db__ python3 /tmp/fix_logger.py)"
+      "Bash(__NEW_LINE_a518bc83ce3dd6db__ python3 /tmp/fix_logger.py)",
+      "Bash(aws ecs list-services:*)",
+      "Bash(aws ecs list-tasks:*)",
+      "Bash(aws ecs describe-tasks:*)",
+      "Bash(aws logs describe-log-groups:*)",
+      "Bash(find:*)",
+      "Bash(python:*)",
+      "Bash(source:*)",
+      "Bash(PYTHONPATH=. python:*)",
+      "Bash(./register_teacher_staging.sh:*)"
     ]
   }
 }

@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "YouSpeak Backend"
-    APP_VERSION: str = "1.0.3"
+    APP_VERSION: str = "1.0.4"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     API_V1_PREFIX: str = "/api/v1"
@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     CURRICULUM_INTERNAL_SECRET: str = ""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        version="1.0.4",
         env_file_encoding="utf-8",
         case_sensitive=True
     )
