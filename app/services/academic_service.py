@@ -144,10 +144,34 @@ class AcademicService:
         db: AsyncSession,
         class_id: UUID,
         student_id: UUID,
+        school_id: UUID,
         role: StudentRole = StudentRole.STUDENT,
         auto_commit: bool = True,
-    ) -> bool:
-        """Add student to class roster"""
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Add student to class roster.
+        Validates that students belong to the same school as the class.
+        Returns (success, error_message).
+        """
+        from app.models.user import User
+
+        # Verify student exists and belongs to the school
+        stmt = select(User).where(User.id == student_id)
+        result = await db.execute(stmt)
+        student = result.scalar_one_or_none()
+
+        if not student:
+            return False, "Student not found"
+
+        if student.school_id != school_id:
+            other_school = await SchoolService.get_school_by_id(db, student.school_id)
+            school_name = other_school.name if other_school else "another school"
+            return False, f"Student belongs to school '{school_name}'"
+
+        if student.role != UserRole.STUDENT:
+            return False, "User is not a student"
+
+        # Check if already enrolled
         stmt = select(class_enrollments).where(
             and_(
                 class_enrollments.c.class_id == class_id,
@@ -156,8 +180,9 @@ class AcademicService:
         )
         result = await db.execute(stmt)
         if result.first():
-            return False
+            return False, "Student already enrolled in this class"
 
+        # Enroll student
         stmt = insert(class_enrollments).values(
             class_id=class_id,
             student_id=student_id,
@@ -167,7 +192,7 @@ class AcademicService:
         await db.execute(stmt)
         if auto_commit:
             await db.commit()
-        return True
+        return True, None
 
     @staticmethod
     async def remove_student_from_class(
@@ -435,8 +460,8 @@ class AcademicService:
             skipped += skipped_d
             if student_id is None:
                 continue  # was skipped duplicate
-            added = await AcademicService.add_student_to_class(
-                db, class_id, student_id, auto_commit=False
+            added, add_err = await AcademicService.add_student_to_class(
+                db, class_id, student_id, school_id, auto_commit=False
             )
             if added:
                 enrolled += 1
@@ -466,8 +491,10 @@ class AcademicService:
         cls = await AcademicService.get_class_by_id(db, cid, cache=class_cache)
         if not cls or cls.school_id != school_id:
             return None, f"Row {row_index + 2}: invalid or inaccessible class_id"
-        added = await AcademicService.add_student_to_class(db, cid, student_id, auto_commit=False)
-        return added, None
+        added, enroll_err = await AcademicService.add_student_to_class(
+            db, cid, student_id, school_id, auto_commit=False
+        )
+        return added, enroll_err
 
     @staticmethod
     async def import_students_from_csv(

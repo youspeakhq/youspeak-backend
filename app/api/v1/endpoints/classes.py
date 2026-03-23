@@ -25,6 +25,8 @@ from app.services.academic_service import AcademicService
 from app.services.award_service import AwardService
 from app.services.learning_session_service import LearningSessionService
 from app.services.school_service import SchoolService
+from app.services.user_service import UserService
+from app.schemas.user import UserResponse
 
 router = APIRouter()
 
@@ -515,14 +517,26 @@ async def add_student_to_roster(
 ) -> Any:
     """
     Add single student to class roster with specific role.
+    Verifies teacher ownership and student school affiliation.
     """
-    success = await AcademicService.add_student_to_class(
-        db, class_id, roster_in.student_id, roster_in.role
+    # Check class exists and teacher has access
+    cls = await AcademicService.get_class_by_id(db, class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+    if not any(c.id == class_id for c in teacher_classes):
+        raise HTTPException(status_code=403, detail="You do not teach this class")
+
+    success, error = await AcademicService.add_student_to_class(
+        db, class_id, roster_in.student_id, current_user.school_id, roster_in.role
     )
     if not success:
-        raise HTTPException(status_code=400, detail="Could not add student")
+        raise HTTPException(status_code=400, detail=error or "Could not add student")
 
-    return SuccessResponse(message="Student added to class")
+    # Fetch student to return in response
+    student = await UserService.get_user_by_id(db, roster_in.student_id)
+    return SuccessResponse(data=UserResponse.model_validate(student), message="Student added to class")
 
 
 @router.post("/{class_id}/roster/import", response_model=SuccessResponse)
