@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "YouSpeak Backend"
-    APP_VERSION: str = "1.0.11"
+    APP_VERSION: str = "1.0.12"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     API_V1_PREFIX: str = "/api/v1"
@@ -32,8 +32,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # CORS (5173 = Vite default dev server)
+    # CORS - Allow all origins (wildcard) or specific domains
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:5173"
+    # Regex pattern to allow all youspeakhq.com subdomains
+    ALLOWED_ORIGINS_REGEX: str = r"https://.*\.youspeakhq\.com"
     ALLOWED_METHODS: str = "GET,POST,PUT,DELETE,PATCH,OPTIONS"
     ALLOWED_HEADERS: str = "*"
 
@@ -79,6 +81,8 @@ class Settings(BaseSettings):
     @classmethod
     def parse_origins(cls, v: str) -> List[str]:
         """Parse comma-separated origins into a list"""
+        if v.strip() == "*":
+            return ["*"]
         return [origin.strip() for origin in v.split(",")]
 
     @field_validator("ALLOWED_METHODS")

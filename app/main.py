@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="YouSpeak Platform API",
-    version="1.0.3",
+    version="1.0.12",
     description="Backend API for YouSpeak Education Platform",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -87,6 +87,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origin_regex=settings.ALLOWED_ORIGINS_REGEX,
     allow_credentials=True,
     allow_methods=settings.ALLOWED_METHODS,
     allow_headers=[settings.ALLOWED_HEADERS],
