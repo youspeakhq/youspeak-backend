@@ -14,13 +14,6 @@ from app.models.enums import UserRole, EmailSendStatus
 class TestEmailSendingAPI:
     """Test email sending endpoint"""
 
-    async def test_emails_router_accessible(self, async_client: AsyncClient):
-        """Test that emails router is accessible at all"""
-        response = await async_client.get("/api/v1/emails/test")
-        assert response.status_code == 200, f"Debug endpoint returned {response.status_code}: {response.text}"
-        data = response.json()
-        assert data["message"] == "Emails router is working"
-
     @pytest.fixture
     async def teacher_user(self, db: AsyncSession, registered_school, unique_suffix: str):
         """Create a test teacher user"""

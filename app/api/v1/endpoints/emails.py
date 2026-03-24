@@ -16,12 +16,6 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("/test", tags=["Debug"])
-async def test_emails_router():
-    """Debug endpoint to verify emails router is accessible"""
-    return {"message": "Emails router is working"}
-
-
 def get_email_rate_limit(request: Request) -> str:
     """
     Get dynamic rate limit based on user role from JWT token.
@@ -67,8 +61,7 @@ def get_email_rate_limit(request: Request) -> str:
 
 
 @router.post("/send", response_model=SuccessResponse[SendEmailResponse])
-# NOTE: Rate limiting temporarily disabled to debug 404 issue
-# @limiter.limit(get_email_rate_limit)  # Dynamic rate limit based on user role
+@limiter.limit(get_email_rate_limit)  # Dynamic rate limit based on user role
 async def send_email_endpoint(
     request: Request,
     email_request: SendEmailRequest,
