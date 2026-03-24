@@ -15,7 +15,7 @@ class TestEmailSendingAPI:
     """Test email sending endpoint"""
 
     @pytest.fixture
-    async def teacher_user(self, db: AsyncSession, test_school):
+    async def teacher_user(self, db: AsyncSession, registered_school):
         """Create a test teacher user"""
         from app.models.user import User
         from app.core.security import get_password_hash
@@ -27,7 +27,7 @@ class TestEmailSendingAPI:
             first_name="Test",
             last_name="Teacher",
             role=UserRole.TEACHER,
-            school_id=test_school.id,
+            school_id=registered_school.id,
         )
         db.add(user)
         await db.commit()
@@ -292,7 +292,7 @@ class TestEmailSendingAPI:
             assert response.status_code == 429
 
     async def test_send_email_rate_limit_student(
-        self, async_client: AsyncClient, db: AsyncSession, test_school
+        self, async_client: AsyncClient, db: AsyncSession, registered_school
     ):
         """Test rate limiting for students (3 emails per hour)"""
         # Create a student user
@@ -306,7 +306,7 @@ class TestEmailSendingAPI:
             first_name="Test",
             last_name="Student",
             role=UserRole.STUDENT,
-            school_id=test_school.id,
+            school_id=registered_school.id,
         )
         db.add(student)
         await db.commit()
