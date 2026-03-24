@@ -25,11 +25,14 @@ async def list_students(
     page: int = 1,
     limit: int = 50,
     status: str = "active",
-    current_user: User = Depends(deps.require_admin),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
-    List all students.
+    List all students in the school.
+
+    Accessible by: Teachers and Admins
+    Teachers and admins can see all students in their school.
     """
     # Simplified pagination - robust implementation would use offset/limit query
     all_students = await UserService.get_users_by_school_and_role(

@@ -49,9 +49,11 @@ async def lifespan(app: FastAPI):
     app.state.curriculum_http = None
     if settings.CURRICULUM_SERVICE_URL:
         import httpx
+        # Reduced timeout from 120s to 30s to fail faster and prevent 504 Gateway Timeouts
+        # ALB/nginx typically timeout at 60s, so we fail before that
         app.state.curriculum_http = httpx.AsyncClient(
             base_url=settings.CURRICULUM_SERVICE_URL.rstrip("/"),
-            timeout=120.0,
+            timeout=30.0,
         )
 
     yield

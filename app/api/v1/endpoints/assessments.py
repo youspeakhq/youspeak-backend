@@ -257,17 +257,43 @@ async def list_topics_from_curriculum(
     current_user: User = Depends(deps.require_teacher),
 ) -> Any:
     """Topics from curriculum for 'Select question topics' / 'Detected from [class]'. Optional class_id filter."""
+    import httpx
+    from app.core.logging import get_logger
+    logger = get_logger(__name__)
+
     client = getattr(request.app.state, "curriculum_http", None)
     if not client:
         raise HTTPException(status_code=503, detail="Curriculum service is not configured (CURRICULUM_SERVICE_URL)")
-    r = await client.get(
-        "/curriculums",
-        params={"page": 1, "page_size": 100},
-        headers=_curriculum_headers(current_user),
-    )
+
+    try:
+        r = await client.get(
+            "/curriculums",
+            params={"page": 1, "page_size": 100},
+            headers=_curriculum_headers(current_user),
+        )
+    except httpx.TimeoutException:
+        logger.error(
+            "Curriculum service timeout when fetching topics",
+            extra={"class_id": str(class_id) if class_id else None, "teacher_id": str(current_user.id)}
+        )
+        raise HTTPException(
+            status_code=504,
+            detail="Curriculum service is taking too long to respond. Please try again later."
+        )
+    except httpx.RequestError as e:
+        logger.error(
+            f"Curriculum service request error: {e}",
+            extra={"class_id": str(class_id) if class_id else None, "teacher_id": str(current_user.id)}
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Could not connect to curriculum service. Please try again later."
+        )
+
     if r.status_code >= 400:
         detail = r.json().get("detail", r.text) if r.headers.get("content-type", "").startswith("application/json") else r.text
         raise HTTPException(status_code=r.status_code, detail=detail)
+
     data = r.json().get("data", [])
     topics_out: List[dict] = []
     for curr in data:
