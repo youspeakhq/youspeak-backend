@@ -19,7 +19,7 @@ depends_on = None
 
 def upgrade() -> None:
     # Create enum reference (for use in table definition)
-    email_send_status = postgresql.ENUM('pending', 'sent', 'failed', name='email_send_status', create_type=False)
+    email_send_status = postgresql.ENUM('PENDING', 'SENT', 'FAILED', name='email_send_status', create_type=False)
 
     # Create email_send_status enum if it doesn't exist
     conn = op.get_bind()
@@ -38,7 +38,7 @@ def upgrade() -> None:
         sa.Column('recipients', postgresql.ARRAY(sa.Text()), nullable=False),
         sa.Column('subject', sa.Text(), nullable=False),
         sa.Column('html_body_sha256', sa.String(64), nullable=False),
-        sa.Column('send_status', email_send_status, nullable=False, server_default='pending'),
+        sa.Column('send_status', email_send_status, nullable=False, server_default='PENDING'),
         sa.Column('error_message', sa.Text(), nullable=True),
         sa.Column('sent_at', sa.DateTime(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False),
@@ -68,5 +68,5 @@ def downgrade() -> None:
         "SELECT 1 FROM pg_type WHERE typname = 'email_send_status'"
     ))
     if result.fetchone():
-        email_send_status = postgresql.ENUM('pending', 'sent', 'failed', name='email_send_status', create_type=False)
+        email_send_status = postgresql.ENUM('PENDING', 'SENT', 'FAILED', name='email_send_status', create_type=False)
         email_send_status.drop(conn, checkfirst=True)
