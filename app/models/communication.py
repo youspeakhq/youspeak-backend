@@ -71,7 +71,7 @@ class EmailLog(BaseModel):
     recipients = Column(ARRAY(Text), nullable=False)
     subject = Column(Text, nullable=False)
     html_body_sha256 = Column(String(64), nullable=False)
-    send_status = Column(ENUM(EmailSendStatus, name="email_send_status", values_callable=lambda obj: [e.value for e in obj]), default=EmailSendStatus.PENDING, nullable=False, index=True)
+    send_status = Column(ENUM(EmailSendStatus, name="email_send_status", native_enum=True, values_callable=lambda obj: [e.value for e in obj]), default=EmailSendStatus.PENDING, nullable=False, index=True)
     error_message = Column(Text, nullable=True)
     sent_at = Column(DateTime, nullable=True)
 

@@ -205,7 +205,7 @@ async def send_bulk_email(
         recipients=recipients,
         subject=subject,
         html_body_sha256=_hash_html_body(html_body),
-        send_status=EmailSendStatus.PENDING,
+        send_status=EmailSendStatus.PENDING.value,
     )
     db.add(email_log)
     await db.flush()  # Get ID before sending
@@ -236,12 +236,12 @@ async def send_bulk_email(
 
     # Update email log status
     if failed == 0:
-        email_log.send_status = EmailSendStatus.SENT
+        email_log.send_status = EmailSendStatus.SENT.value
     elif successful == 0:
-        email_log.send_status = EmailSendStatus.FAILED
+        email_log.send_status = EmailSendStatus.FAILED.value
         email_log.error_message = "All recipients failed"
     else:
-        email_log.send_status = EmailSendStatus.SENT
+        email_log.send_status = EmailSendStatus.SENT.value
         email_log.error_message = f"{failed}/{len(recipients)} recipients failed"
 
     email_log.sent_at = get_utc_now()
