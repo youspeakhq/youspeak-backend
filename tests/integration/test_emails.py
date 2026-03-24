@@ -15,7 +15,7 @@ class TestEmailSendingAPI:
     """Test email sending endpoint"""
 
     @pytest.fixture
-    async def teacher_user(self, db_session: AsyncSession, test_school):
+    async def teacher_user(self, db: AsyncSession, test_school):
         """Create a test teacher user"""
         from app.models.user import User
         from app.core.security import get_password_hash
@@ -29,9 +29,9 @@ class TestEmailSendingAPI:
             role=UserRole.TEACHER,
             school_id=test_school.id,
         )
-        db_session.add(user)
-        await db_session.commit()
-        await db_session.refresh(user)
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
         return user
 
     @pytest.fixture
@@ -45,7 +45,7 @@ class TestEmailSendingAPI:
         return {"Authorization": f"Bearer {token}"}
 
     async def test_send_email_single_recipient_success(
-        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
+        self, async_client: AsyncClient, auth_headers, db: AsyncSession, teacher_user
     ):
         """Test sending email to single recipient"""
         with patch("app.services.email_service.send_email") as mock_send:
@@ -74,7 +74,7 @@ class TestEmailSendingAPI:
         # Verify email log was created
         from sqlalchemy import select
         stmt = select(EmailLog).where(EmailLog.sender_id == teacher_user.id)
-        result = await db_session.execute(stmt)
+        result = await db.execute(stmt)
         email_log = result.scalar_one()
         assert email_log.send_status == EmailSendStatus.SENT
         assert email_log.recipients == ["student@example.com"]
@@ -82,7 +82,7 @@ class TestEmailSendingAPI:
         assert email_log.sent_at is not None
 
     async def test_send_email_multiple_recipients_success(
-        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
+        self, async_client: AsyncClient, auth_headers, db: AsyncSession, teacher_user
     ):
         """Test sending email to multiple recipients"""
         with patch("app.services.email_service.send_email") as mock_send:
@@ -112,7 +112,7 @@ class TestEmailSendingAPI:
             assert result["status"] == "sent"
 
     async def test_send_email_partial_failure(
-        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
+        self, async_client: AsyncClient, auth_headers, db: AsyncSession, teacher_user
     ):
         """Test sending email with partial failures"""
         def mock_send_side_effect(to_email, subject, html, reply_to=None):
@@ -152,13 +152,13 @@ class TestEmailSendingAPI:
         # Verify email log status
         from sqlalchemy import select
         stmt = select(EmailLog).where(EmailLog.sender_id == teacher_user.id)
-        result = await db_session.execute(stmt)
+        result = await db.execute(stmt)
         email_log = result.scalar_one()
         assert email_log.send_status == EmailSendStatus.SENT  # Mixed status still sent
         assert "1/3 recipients failed" in email_log.error_message
 
     async def test_send_email_with_reply_to(
-        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession
+        self, async_client: AsyncClient, auth_headers, db: AsyncSession
     ):
         """Test sending email with reply_to address"""
         with patch("app.services.email_service.send_email") as mock_send:
@@ -260,7 +260,7 @@ class TestEmailSendingAPI:
         assert response.status_code == 401
 
     async def test_send_email_rate_limit_teacher(
-        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession
+        self, async_client: AsyncClient, auth_headers, db: AsyncSession
     ):
         """Test rate limiting for teachers (10 emails per hour)"""
         with patch("app.services.email_service.send_email") as mock_send:
@@ -292,7 +292,7 @@ class TestEmailSendingAPI:
             assert response.status_code == 429
 
     async def test_send_email_rate_limit_student(
-        self, async_client: AsyncClient, db_session: AsyncSession, test_school
+        self, async_client: AsyncClient, db: AsyncSession, test_school
     ):
         """Test rate limiting for students (3 emails per hour)"""
         # Create a student user
@@ -308,9 +308,9 @@ class TestEmailSendingAPI:
             role=UserRole.STUDENT,
             school_id=test_school.id,
         )
-        db_session.add(student)
-        await db_session.commit()
-        await db_session.refresh(student)
+        db.add(student)
+        await db.commit()
+        await db.refresh(student)
 
         # Create token with role
         token = create_access_token({"sub": str(student.id), "role": UserRole.STUDENT.value})
@@ -345,7 +345,7 @@ class TestEmailSendingAPI:
             assert response.status_code == 429
 
     async def test_send_email_audit_trail(
-        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
+        self, async_client: AsyncClient, auth_headers, db: AsyncSession, teacher_user
     ):
         """Test that email audit trail is created correctly"""
         with patch("app.services.email_service.send_email") as mock_send:
@@ -368,7 +368,7 @@ class TestEmailSendingAPI:
         # Verify email log in database
         from sqlalchemy import select
         stmt = select(EmailLog).where(EmailLog.id == email_log_id)
-        result = await db_session.execute(stmt)
+        result = await db.execute(stmt)
         email_log = result.scalar_one()
 
         assert email_log.sender_id == teacher_user.id
@@ -381,7 +381,7 @@ class TestEmailSendingAPI:
         assert email_log.error_message is None
 
     async def test_send_email_all_failures(
-        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
+        self, async_client: AsyncClient, auth_headers, db: AsyncSession, teacher_user
     ):
         """Test sending email when all recipients fail"""
         with patch("app.services.email_service.send_email") as mock_send:
@@ -405,7 +405,7 @@ class TestEmailSendingAPI:
         # Verify email log status is FAILED
         from sqlalchemy import select
         stmt = select(EmailLog).where(EmailLog.sender_id == teacher_user.id)
-        result = await db_session.execute(stmt)
+        result = await db.execute(stmt)
         email_log = result.scalar_one()
         assert email_log.send_status == EmailSendStatus.FAILED
         assert email_log.error_message == "All recipients failed"
