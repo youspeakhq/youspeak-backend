@@ -18,14 +18,16 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create email_send_status enum (check if exists first)
+    # Create enum reference (for use in table definition)
+    email_send_status = postgresql.ENUM('pending', 'sent', 'failed', name='email_send_status', create_type=False)
+
+    # Create email_send_status enum if it doesn't exist
     conn = op.get_bind()
     result = conn.execute(sa.text(
         "SELECT 1 FROM pg_type WHERE typname = 'email_send_status'"
     ))
     if not result.fetchone():
-        email_send_status = postgresql.ENUM('pending', 'sent', 'failed', name='email_send_status')
-        email_send_status.create(conn)
+        email_send_status.create(conn, checkfirst=True)
 
     # Create email_logs table
     op.create_table(
@@ -60,11 +62,11 @@ def downgrade() -> None:
     # Drop table
     op.drop_table('email_logs')
 
-    # Drop enum (check if exists first)
+    # Drop enum if it exists
     conn = op.get_bind()
     result = conn.execute(sa.text(
         "SELECT 1 FROM pg_type WHERE typname = 'email_send_status'"
     ))
     if result.fetchone():
-        email_send_status = postgresql.ENUM('pending', 'sent', 'failed', name='email_send_status')
-        email_send_status.drop(conn)
+        email_send_status = postgresql.ENUM('pending', 'sent', 'failed', name='email_send_status', create_type=False)
+        email_send_status.drop(conn, checkfirst=True)
