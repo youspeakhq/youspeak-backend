@@ -45,13 +45,13 @@ class TestEmailSendingAPI:
         return {"Authorization": f"Bearer {token}"}
 
     async def test_send_email_single_recipient_success(
-        self, client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
+        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
     ):
         """Test sending email to single recipient"""
         with patch("app.services.email_service.send_email") as mock_send:
             mock_send.return_value = True
 
-            response = await client.post(
+            response = await async_client.post(
                 "/api/v1/emails/send",
                 json={
                     "recipients": ["student@example.com"],
@@ -82,13 +82,13 @@ class TestEmailSendingAPI:
         assert email_log.sent_at is not None
 
     async def test_send_email_multiple_recipients_success(
-        self, client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
+        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
     ):
         """Test sending email to multiple recipients"""
         with patch("app.services.email_service.send_email") as mock_send:
             mock_send.return_value = True
 
-            response = await client.post(
+            response = await async_client.post(
                 "/api/v1/emails/send",
                 json={
                     "recipients": [
@@ -112,7 +112,7 @@ class TestEmailSendingAPI:
             assert result["status"] == "sent"
 
     async def test_send_email_partial_failure(
-        self, client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
+        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
     ):
         """Test sending email with partial failures"""
         def mock_send_side_effect(to_email, subject, html, reply_to=None):
@@ -124,7 +124,7 @@ class TestEmailSendingAPI:
         with patch("app.services.email_service.send_email") as mock_send:
             mock_send.side_effect = mock_send_side_effect
 
-            response = await client.post(
+            response = await async_client.post(
                 "/api/v1/emails/send",
                 json={
                     "recipients": [
@@ -158,13 +158,13 @@ class TestEmailSendingAPI:
         assert "1/3 recipients failed" in email_log.error_message
 
     async def test_send_email_with_reply_to(
-        self, client: AsyncClient, auth_headers, db_session: AsyncSession
+        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession
     ):
         """Test sending email with reply_to address"""
         with patch("app.services.email_service.send_email") as mock_send:
             mock_send.return_value = True
 
-            response = await client.post(
+            response = await async_client.post(
                 "/api/v1/emails/send",
                 json={
                     "recipients": ["student@example.com"],
@@ -182,12 +182,12 @@ class TestEmailSendingAPI:
         assert call_kwargs["reply_to"] == "teacher@school.com"
 
     async def test_send_email_validation_errors(
-        self, client: AsyncClient, auth_headers
+        self, async_client: AsyncClient, auth_headers
     ):
         """Test validation errors for email requests"""
 
         # Test: no recipients
-        response = await client.post(
+        response = await async_client.post(
             "/api/v1/emails/send",
             json={
                 "recipients": [],
@@ -199,7 +199,7 @@ class TestEmailSendingAPI:
         assert response.status_code == 422
 
         # Test: too many recipients (>10)
-        response = await client.post(
+        response = await async_client.post(
             "/api/v1/emails/send",
             json={
                 "recipients": [f"user{i}@example.com" for i in range(15)],
@@ -211,7 +211,7 @@ class TestEmailSendingAPI:
         assert response.status_code == 422
 
         # Test: subject too long (>200 chars)
-        response = await client.post(
+        response = await async_client.post(
             "/api/v1/emails/send",
             json={
                 "recipients": ["test@example.com"],
@@ -224,7 +224,7 @@ class TestEmailSendingAPI:
 
         # Test: HTML body too large (>500KB)
         large_html = "<html><body>" + "X" * 500_001 + "</body></html>"
-        response = await client.post(
+        response = await async_client.post(
             "/api/v1/emails/send",
             json={
                 "recipients": ["test@example.com"],
@@ -236,7 +236,7 @@ class TestEmailSendingAPI:
         assert response.status_code == 422
 
         # Test: invalid email format
-        response = await client.post(
+        response = await async_client.post(
             "/api/v1/emails/send",
             json={
                 "recipients": ["invalid-email"],
@@ -247,9 +247,9 @@ class TestEmailSendingAPI:
         )
         assert response.status_code == 422
 
-    async def test_send_email_requires_authentication(self, client: AsyncClient):
+    async def test_send_email_requires_authentication(self, async_client: AsyncClient):
         """Test that endpoint requires authentication"""
-        response = await client.post(
+        response = await async_client.post(
             "/api/v1/emails/send",
             json={
                 "recipients": ["test@example.com"],
@@ -260,7 +260,7 @@ class TestEmailSendingAPI:
         assert response.status_code == 401
 
     async def test_send_email_rate_limit_teacher(
-        self, client: AsyncClient, auth_headers, db_session: AsyncSession
+        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession
     ):
         """Test rate limiting for teachers (10 emails per hour)"""
         with patch("app.services.email_service.send_email") as mock_send:
@@ -268,7 +268,7 @@ class TestEmailSendingAPI:
 
             # Send 10 emails (should all succeed for teacher)
             for i in range(10):
-                response = await client.post(
+                response = await async_client.post(
                     "/api/v1/emails/send",
                     json={
                         "recipients": [f"test{i}@example.com"],
@@ -280,7 +280,7 @@ class TestEmailSendingAPI:
                 assert response.status_code == 200
 
             # 11th email should be rate limited
-            response = await client.post(
+            response = await async_client.post(
                 "/api/v1/emails/send",
                 json={
                     "recipients": ["test11@example.com"],
@@ -292,7 +292,7 @@ class TestEmailSendingAPI:
             assert response.status_code == 429
 
     async def test_send_email_rate_limit_student(
-        self, client: AsyncClient, db_session: AsyncSession, test_school
+        self, async_client: AsyncClient, db_session: AsyncSession, test_school
     ):
         """Test rate limiting for students (3 emails per hour)"""
         # Create a student user
@@ -321,7 +321,7 @@ class TestEmailSendingAPI:
 
             # Send 3 emails (should all succeed for student)
             for i in range(3):
-                response = await client.post(
+                response = await async_client.post(
                     "/api/v1/emails/send",
                     json={
                         "recipients": [f"test{i}@example.com"],
@@ -333,7 +333,7 @@ class TestEmailSendingAPI:
                 assert response.status_code == 200
 
             # 4th email should be rate limited
-            response = await client.post(
+            response = await async_client.post(
                 "/api/v1/emails/send",
                 json={
                     "recipients": ["test4@example.com"],
@@ -345,13 +345,13 @@ class TestEmailSendingAPI:
             assert response.status_code == 429
 
     async def test_send_email_audit_trail(
-        self, client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
+        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
     ):
         """Test that email audit trail is created correctly"""
         with patch("app.services.email_service.send_email") as mock_send:
             mock_send.return_value = True
 
-            response = await client.post(
+            response = await async_client.post(
                 "/api/v1/emails/send",
                 json={
                     "recipients": ["student1@example.com", "student2@example.com"],
@@ -381,13 +381,13 @@ class TestEmailSendingAPI:
         assert email_log.error_message is None
 
     async def test_send_email_all_failures(
-        self, client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
+        self, async_client: AsyncClient, auth_headers, db_session: AsyncSession, teacher_user
     ):
         """Test sending email when all recipients fail"""
         with patch("app.services.email_service.send_email") as mock_send:
             mock_send.return_value = False
 
-            response = await client.post(
+            response = await async_client.post(
                 "/api/v1/emails/send",
                 json={
                     "recipients": ["fail1@example.com", "fail2@example.com"],

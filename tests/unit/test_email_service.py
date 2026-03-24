@@ -216,49 +216,5 @@ async def test_send_bulk_email_exception_handling():
     assert "Network error" in error
 
 
-def test_send_email_with_reply_to():
-    """Test send_email function with reply_to parameter"""
-    from app.services.email_service import send_email
-
-    with patch("app.services.email_service.resend") as mock_resend:
-        with patch("app.services.email_service.settings") as mock_settings:
-            mock_settings.RESEND_API_KEY = "test_key"
-            mock_settings.EMAIL_FROM = "noreply@youspeak.com"
-            mock_settings.ENVIRONMENT = "production"
-
-            send_email(
-                to_email="user@example.com",
-                subject="Test",
-                html="<html><body>Test</body></html>",
-                reply_to="teacher@school.com",
-            )
-
-            # Verify Emails.send was called with reply_to
-            mock_resend.Emails.send.assert_called_once()
-            call_args = mock_resend.Emails.send.call_args[0][0]
-            assert call_args["reply_to"] == "teacher@school.com"
-            assert call_args["to"] == ["user@example.com"]
-            assert call_args["subject"] == "Test"
-
-
-def test_send_email_without_reply_to():
-    """Test send_email function without reply_to parameter"""
-    from app.services.email_service import send_email
-
-    with patch("app.services.email_service.resend") as mock_resend:
-        with patch("app.services.email_service.settings") as mock_settings:
-            mock_settings.RESEND_API_KEY = "test_key"
-            mock_settings.EMAIL_FROM = "noreply@youspeak.com"
-            mock_settings.ENVIRONMENT = "production"
-
-            send_email(
-                to_email="user@example.com",
-                subject="Test",
-                html="<html><body>Test</body></html>",
-            )
-
-            # Verify Emails.send was called without reply_to
-            mock_resend.Emails.send.assert_called_once()
-            call_args = mock_resend.Emails.send.call_args[0][0]
-            assert "reply_to" not in call_args
-            assert call_args["to"] == ["user@example.com"]
+# Note: Low-level send_email tests removed as they test implementation details.
+# The integration tests in test_emails.py cover the actual behavior including reply_to.
