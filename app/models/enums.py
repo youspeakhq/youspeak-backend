@@ -158,6 +158,13 @@ class NotificationChannel(str, enum.Enum):
     PUSH = "PUSH"
 
 
+class EmailSendStatus(str, enum.Enum):
+    """Email send status for audit trail"""
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+
 # Domain 8: Analytics
 
 

@@ -70,6 +70,7 @@ class User(BaseModel, SchoolScopedMixin, SoftDeleteMixin):
 
     # Communication
     authored_announcements = relationship("Announcement", back_populates="author")
+    sent_emails = relationship("EmailLog", back_populates="sender")
     started_sessions = relationship("LearningSession", back_populates="started_by_user")
     activity_logs = relationship("ActivityLog", back_populates="performed_by")
 

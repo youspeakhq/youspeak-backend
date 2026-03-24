@@ -53,9 +53,15 @@ def _should_skip_email(to_email: str) -> bool:
     return any(to_email.lower().endswith(d) for d in test_domains)
 
 
-def send_email(to_email: str, subject: str, html: str) -> bool:
+def send_email(to_email: str, subject: str, html: str, reply_to: str = None) -> bool:
     """
     Send a single HTML email via Resend. Call this from any service that needs to send mail.
+
+    Args:
+        to_email: Recipient email address
+        subject: Email subject line
+        html: HTML email body
+        reply_to: Optional reply-to email address
 
     Returns True if sent, False if skipped (no API key, test env) or failed.
     """
@@ -68,12 +74,16 @@ def send_email(to_email: str, subject: str, html: str) -> bool:
     try:
         import resend
         resend.api_key = settings.RESEND_API_KEY
-        resend.Emails.send({
+        email_data = {
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": subject,
             "html": html,
-        })
+        }
+        if reply_to:
+            email_data["reply_to"] = reply_to
+
+        resend.Emails.send(email_data)
         logger.info("Email sent to %s: %s", to_email, subject)
         return True
     except Exception as e:
@@ -143,3 +153,111 @@ def send_password_reset(to_email: str, reset_link: str) -> bool:
 </html>
 """
     return send_email(to_email, "Reset your YouSpeak password", html)
+
+
+# --- Bulk Email with Audit Trail ---
+
+import hashlib
+from typing import List, Tuple, Dict, Optional
+from uuid import UUID
+from datetime import datetime
+from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _hash_html_body(html: str) -> str:
+    """Hash HTML body for audit trail (SHA256)."""
+    return hashlib.sha256(html.encode('utf-8')).hexdigest()
+
+
+async def send_bulk_email(
+    db: AsyncSession,
+    sender_id: UUID,
+    school_id: Optional[UUID],
+    recipients: List[str],
+    subject: str,
+    html_body: str,
+    reply_to: Optional[str] = None,
+) -> Tuple[object, Dict[str, Tuple[bool, Optional[str]]]]:
+    """
+    Send email to multiple recipients and log to database.
+
+    Args:
+        db: Database session
+        sender_id: UUID of user sending the email
+        school_id: UUID of sender's school (nullable)
+        recipients: List of recipient email addresses
+        subject: Email subject line
+        html_body: HTML email content
+        reply_to: Optional reply-to email address
+
+    Returns:
+        Tuple of (EmailLog object, results dict)
+        results dict: {recipient_email: (success: bool, error: Optional[str])}
+    """
+    from app.models.communication import EmailLog
+    from app.models.enums import EmailSendStatus
+    from app.utils.time import get_utc_now
+
+    # Create email log entry
+    email_log = EmailLog(
+        sender_id=sender_id,
+        school_id=school_id,
+        recipients=recipients,
+        subject=subject,
+        html_body_sha256=_hash_html_body(html_body),
+        send_status=EmailSendStatus.PENDING,
+    )
+    db.add(email_log)
+    await db.flush()  # Get ID before sending
+
+    # Send to each recipient
+    results: Dict[str, Tuple[bool, Optional[str]]] = {}
+    successful = 0
+    failed = 0
+
+    for recipient_email in recipients:
+        try:
+            success = send_email(
+                to_email=recipient_email,
+                subject=subject,
+                html=html_body,
+                reply_to=reply_to,
+            )
+            if success:
+                results[recipient_email] = (True, None)
+                successful += 1
+            else:
+                results[recipient_email] = (False, "Email service returned false")
+                failed += 1
+        except Exception as e:
+            logger.exception(f"Failed to send to {recipient_email}")
+            results[recipient_email] = (False, str(e))
+            failed += 1
+
+    # Update email log status
+    if failed == 0:
+        email_log.send_status = EmailSendStatus.SENT
+    elif successful == 0:
+        email_log.send_status = EmailSendStatus.FAILED
+        email_log.error_message = "All recipients failed"
+    else:
+        email_log.send_status = EmailSendStatus.SENT
+        email_log.error_message = f"{failed}/{len(recipients)} recipients failed"
+
+    email_log.sent_at = get_utc_now()
+
+    await db.commit()
+    await db.refresh(email_log)
+
+    logger.info(
+        f"Bulk email sent: {successful} succeeded, {failed} failed",
+        extra={
+            "sender_id": str(sender_id),
+            "recipient_count": len(recipients),
+            "successful": successful,
+            "failed": failed,
+            "email_log_id": str(email_log.id),
+        }
+    )
+
+    return email_log, results

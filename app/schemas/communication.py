@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Literal
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, EmailStr, Field
 from uuid import UUID
 from datetime import datetime
 
@@ -533,6 +533,41 @@ class AnnouncementResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+
+# --- Email Sending ---
+
+
+class SendEmailRequest(BaseModel):
+    """Request schema for sending emails via API"""
+    recipients: List[EmailStr] = Field(..., min_length=1, max_length=10, description="Recipient email addresses (max 10)")
+    subject: str = Field(..., min_length=1, max_length=200, description="Email subject line")
+    html_body: str = Field(..., min_length=1, description="HTML email body (max 500KB)")
+    reply_to: Optional[EmailStr] = Field(None, description="Optional reply-to email address")
+
+    @field_validator("html_body")
+    @classmethod
+    def validate_html_size(cls, v):
+        size_bytes = len(v.encode('utf-8'))
+        if size_bytes > 500_000:  # 500KB
+            raise ValueError(f"HTML body exceeds 500KB limit (current: {size_bytes} bytes)")
+        return v
+
+
+class EmailSendResult(BaseModel):
+    """Result for a single recipient"""
+    recipient: str
+    status: str  # "sent" or "failed"
+    error: Optional[str] = None
+
+
+class SendEmailResponse(BaseModel):
+    """Response schema for email sending"""
+    total_recipients: int
+    successful_sends: int
+    failed_sends: int
+    results: List[EmailSendResult]
+    email_log_id: UUID
 
 
 # (end of file)

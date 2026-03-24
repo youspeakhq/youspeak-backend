@@ -79,7 +79,8 @@
       "Bash(python:*)",
       "Bash(source:*)",
       "Bash(PYTHONPATH=. python:*)",
-      "Bash(./register_teacher_staging.sh:*)"
+      "Bash(./register_teacher_staging.sh:*)",
+      "Bash(alembic revision:*)"
     ]
   }
 }

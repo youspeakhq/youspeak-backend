@@ -64,6 +64,7 @@ class School(BaseModel, StatusMixin):
     classes = relationship("Class", back_populates="school", cascade="all, delete-orphan")
     classrooms = relationship("Classroom", back_populates="school", cascade="all, delete-orphan")
     announcements = relationship("Announcement", back_populates="school", cascade="all, delete-orphan")
+    email_logs = relationship("EmailLog", back_populates="school", cascade="all, delete-orphan")
     bills = relationship("Bill", back_populates="school", cascade="all, delete-orphan")
     activity_logs = relationship("ActivityLog", back_populates="school", cascade="all, delete-orphan")
 

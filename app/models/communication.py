@@ -1,11 +1,11 @@
 """Domain 7: Communication Models (Announcements & Notifications)"""
 
-from sqlalchemy import Column, Text, DateTime, Boolean, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, ENUM
+from sqlalchemy import Column, Text, DateTime, Boolean, ForeignKey, String
+from sqlalchemy.dialects.postgresql import UUID, ENUM, ARRAY
 from sqlalchemy.orm import relationship
 
 from app.models.base import BaseModel, SchoolScopedMixin
-from app.models.enums import AnnouncementType, NotificationChannel
+from app.models.enums import AnnouncementType, NotificationChannel, EmailSendStatus
 
 
 class Announcement(BaseModel, SchoolScopedMixin):
@@ -57,3 +57,27 @@ class AnnouncementReminder(BaseModel):
 
     def __repr__(self) -> str:
         return f"<AnnouncementReminder {self.channel} - {'Sent' if self.is_sent else 'Pending'}>"
+
+
+class EmailLog(BaseModel):
+    """
+    Email audit trail for all emails sent through the API.
+    Tracks sender, recipients, and delivery status for compliance and debugging.
+    """
+    __tablename__ = "email_logs"
+
+    school_id = Column(UUID(as_uuid=True), ForeignKey("schools.id", ondelete="CASCADE"), nullable=True, index=True)
+    sender_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipients = Column(ARRAY(Text), nullable=False)
+    subject = Column(Text, nullable=False)
+    html_body_sha256 = Column(String(64), nullable=False)
+    send_status = Column(ENUM(EmailSendStatus, name="email_send_status"), default=EmailSendStatus.PENDING, nullable=False, index=True)
+    error_message = Column(Text, nullable=True)
+    sent_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    sender = relationship("User", back_populates="sent_emails")
+    school = relationship("School", back_populates="email_logs")
+
+    def __repr__(self) -> str:
+        return f"<EmailLog {self.send_status} to {len(self.recipients)} recipients>"
