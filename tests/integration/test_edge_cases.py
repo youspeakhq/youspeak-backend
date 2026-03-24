@@ -259,11 +259,15 @@ async def test_teacher_cannot_access_admin_stats(
 
 
 @pytest.mark.asyncio
-async def test_teacher_cannot_list_students(
+async def test_teacher_can_list_students_in_their_school(
     async_client: AsyncClient, api_base: str, teacher_headers: dict
 ):
+    """Teachers can now list students in their school (changed from admin-only)."""
     resp = await async_client.get(f"{api_base}/students", headers=teacher_headers)
-    assert resp.status_code == 403
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "data" in data
+    assert "meta" in data
 
 
 @pytest.mark.asyncio

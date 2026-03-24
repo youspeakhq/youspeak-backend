@@ -271,38 +271,12 @@ async def test_student_without_classroom_has_empty_classrooms_list(
 async def test_teacher_can_list_students(
     async_client: AsyncClient,
     api_base: str,
-    registered_school: dict,
-    unique_suffix: str,
+    teacher_headers: dict,
 ):
     """
     Teachers should be able to list all students in their school.
     This tests the authorization fix that changed require_admin to require_teacher_or_admin.
     """
-    from app.core.security import create_access_token
-    from app.models.enums import UserRole
-
-    # Create a teacher user
-    teacher_email = f"teacher_{unique_suffix}@test.com"
-    teacher_resp = await async_client.post(
-        f"{api_base}/teachers",
-        headers=registered_school["headers"],
-        json={
-            "email": teacher_email,
-            "password": "Teacher123!",
-            "first_name": "Test",
-            "last_name": "Teacher",
-        },
-    )
-    assert teacher_resp.status_code == 200, teacher_resp.text
-    teacher_id = teacher_resp.json()["data"]["id"]
-
-    # Create teacher auth token
-    teacher_token = create_access_token({
-        "sub": teacher_id,
-        "role": UserRole.TEACHER.value,
-    })
-    teacher_headers = {"Authorization": f"Bearer {teacher_token}"}
-
     # Teacher should be able to list students
     list_resp = await async_client.get(
         f"{api_base}/students",
