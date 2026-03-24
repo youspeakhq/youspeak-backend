@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     R2_SECRET_ACCESS_KEY: str = ""
     R2_BUCKET_NAME: str = "youspeak"
 
+    # Cloudflare RealtimeKit (Audio Conferencing)
+    CLOUDFLARE_ACCOUNT_ID: str = ""  # Same as R2_ACCOUNT_ID
+    CLOUDFLARE_REALTIMEKIT_APP_ID: str = ""
+    CLOUDFLARE_API_TOKEN: str = ""  # API token with Realtime Admin permissions
+    CLOUDFLARE_R2_BUCKET_NAME: str = "youspeak"  # For audio recordings
+
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_PER_MINUTE: int = 60

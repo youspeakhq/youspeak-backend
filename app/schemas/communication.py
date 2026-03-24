@@ -238,13 +238,14 @@ class ArenaSessionEndRequest(BaseModel):
 # WebSocket event schemas
 
 class WSClientEvent(BaseModel):
-    """Base schema for client→server WebSocket events"""
+    """Base schema for client→server WebSocket events
+
+    Note: Audio mute/unmute is handled by RealtimeKit, not WebSocket
+    """
     event_type: Literal[
         "speaking_started",
         "speaking_stopped",
-        "reaction_sent",
-        "audio_muted",
-        "audio_unmuted"
+        "reaction_sent"
     ]
     timestamp: Optional[datetime] = None
 
@@ -260,11 +261,6 @@ class WSReactionEvent(WSClientEvent):
     reaction_type: str  # "thumbs_up", "clap", etc.
 
 
-class WSAudioEvent(WSClientEvent):
-    """Client mutes/unmutes audio"""
-    event_type: Literal["audio_muted", "audio_unmuted"]
-
-
 class WSServerEvent(BaseModel):
     """Base schema for server→client WebSocket broadcasts"""
     event_type: Literal[
@@ -278,6 +274,18 @@ class WSServerEvent(BaseModel):
     ]
     timestamp: datetime
     data: Dict  # Event-specific payload
+
+
+# --- Audio Conferencing (Cloudflare RealtimeKit) ---
+
+
+class AudioTokenResponse(BaseModel):
+    """Response for POST /arenas/{id}/audio/token - RealtimeKit access token"""
+    token: str  # authToken from Cloudflare (used by frontend SDK)
+    participant_id: str  # RealtimeKit participant ID
+    meeting_id: str  # RealtimeKit meeting ID
+    preset_name: str  # "teacher-host" or "student-audience"
+    name: str  # User display name
 
 
 # --- Phase 4: Evaluation & Publishing ---

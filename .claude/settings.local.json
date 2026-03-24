@@ -80,7 +80,13 @@
       "Bash(source:*)",
       "Bash(PYTHONPATH=. python:*)",
       "Bash(./register_teacher_staging.sh:*)",
-      "Bash(alembic revision:*)"
+      "Bash(alembic revision:*)",
+      "Bash(terraform plan:*)",
+      "Bash(terraform apply:*)",
+      "Bash(terraform import:*)",
+      "Bash(DATABASE_URL=\"postgresql://test:test@localhost/test\" SECRET_KEY=\"test-key-at-least-32-characters-long\" ENVIRONMENT=\"test\" python3:*)",
+      "Bash(./test-email-staging.sh:*)",
+      "Bash(pip install:*)"
     ]
   }
 }

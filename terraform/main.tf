@@ -109,6 +109,20 @@ variable "storage_public_base_url" {
   default     = "https://pub-2dc65d0e715b43b5ab0985e9c0eb514c.r2.dev"
 }
 
+# Cloudflare RealtimeKit (Audio Conferencing) - optional
+variable "cloudflare_realtimekit_app_id" {
+  description = "Cloudflare RealtimeKit App ID"
+  type        = string
+  default     = ""
+}
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token with Realtime Admin permissions"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Optional: enable HTTPS with a custom domain (e.g. youspeak.com).
 # Requires a Route53 hosted zone for the domain in this AWS account.
 variable "domain_name" {
@@ -718,6 +732,11 @@ resource "aws_ecs_task_definition" "curriculum_staging" {
         { name = "R2_ACCESS_KEY_ID", valueFrom = aws_secretsmanager_secret.r2_access_key_id[0].arn },
         { name = "R2_SECRET_ACCESS_KEY", valueFrom = aws_secretsmanager_secret.r2_secret_access_key[0].arn },
         { name = "R2_BUCKET_NAME", valueFrom = aws_secretsmanager_secret.r2_bucket_name[0].arn }
+      ] : [],
+      var.cloudflare_api_token != "" ? [
+        { name = "CLOUDFLARE_ACCOUNT_ID", valueFrom = aws_secretsmanager_secret.cloudflare_account_id[0].arn },
+        { name = "CLOUDFLARE_REALTIMEKIT_APP_ID", valueFrom = aws_secretsmanager_secret.cloudflare_realtimekit_app_id[0].arn },
+        { name = "CLOUDFLARE_API_TOKEN", valueFrom = aws_secretsmanager_secret.cloudflare_api_token[0].arn }
       ] : []
     )
     logConfiguration = {
@@ -823,6 +842,11 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
           aws_secretsmanager_secret.r2_access_key_id[0].arn,
           aws_secretsmanager_secret.r2_secret_access_key[0].arn,
           aws_secretsmanager_secret.r2_bucket_name[0].arn
+        ] : [],
+        var.cloudflare_api_token != "" ? [
+          aws_secretsmanager_secret.cloudflare_account_id[0].arn,
+          aws_secretsmanager_secret.cloudflare_realtimekit_app_id[0].arn,
+          aws_secretsmanager_secret.cloudflare_api_token[0].arn
         ] : []
       )
     }]
@@ -998,6 +1022,40 @@ resource "aws_secretsmanager_secret_version" "r2_bucket_name" {
   secret_string = var.r2_bucket_name
 }
 
+# Cloudflare RealtimeKit secrets (optional - set cloudflare_api_token to enable)
+resource "aws_secretsmanager_secret" "cloudflare_account_id" {
+  count = var.cloudflare_api_token != "" ? 1 : 0
+  name  = "${var.app_name}/cloudflare-account-id-${var.environment}"
+}
+
+resource "aws_secretsmanager_secret_version" "cloudflare_account_id" {
+  count         = var.cloudflare_api_token != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.cloudflare_account_id[0].id
+  secret_string = var.r2_account_id  # Same as R2 account ID
+}
+
+resource "aws_secretsmanager_secret" "cloudflare_realtimekit_app_id" {
+  count = var.cloudflare_api_token != "" ? 1 : 0
+  name  = "${var.app_name}/cloudflare-realtimekit-app-id-${var.environment}"
+}
+
+resource "aws_secretsmanager_secret_version" "cloudflare_realtimekit_app_id" {
+  count         = var.cloudflare_api_token != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.cloudflare_realtimekit_app_id[0].id
+  secret_string = var.cloudflare_realtimekit_app_id
+}
+
+resource "aws_secretsmanager_secret" "cloudflare_api_token" {
+  count = var.cloudflare_api_token != "" ? 1 : 0
+  name  = "${var.app_name}/cloudflare-api-token-${var.environment}"
+}
+
+resource "aws_secretsmanager_secret_version" "cloudflare_api_token" {
+  count         = var.cloudflare_api_token != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.cloudflare_api_token[0].id
+  secret_string = var.cloudflare_api_token
+}
+
 # Data Sources
 data "aws_availability_zones" "available" {
   state = "available"
@@ -1138,6 +1196,21 @@ output "secret_r2_secret_access_key_arn" {
 output "secret_r2_bucket_name_arn" {
   description = "ARN of the R2 bucket name secret (empty if R2 not configured)"
   value       = var.r2_access_key_id != "" ? aws_secretsmanager_secret.r2_bucket_name[0].arn : ""
+}
+
+output "secret_cloudflare_account_id_arn" {
+  description = "ARN of the Cloudflare account ID secret (empty if RealtimeKit not configured)"
+  value       = var.cloudflare_api_token != "" ? aws_secretsmanager_secret.cloudflare_account_id[0].arn : ""
+}
+
+output "secret_cloudflare_realtimekit_app_id_arn" {
+  description = "ARN of the Cloudflare RealtimeKit app ID secret (empty if RealtimeKit not configured)"
+  value       = var.cloudflare_api_token != "" ? aws_secretsmanager_secret.cloudflare_realtimekit_app_id[0].arn : ""
+}
+
+output "secret_cloudflare_api_token_arn" {
+  description = "ARN of the Cloudflare API token secret (empty if RealtimeKit not configured)"
+  value       = var.cloudflare_api_token != "" ? aws_secretsmanager_secret.cloudflare_api_token[0].arn : ""
 }
 
 output "storage_public_base_url" {

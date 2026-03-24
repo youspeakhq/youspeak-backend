@@ -36,6 +36,15 @@ class Arena(BaseModel):
     qr_code_url = Column(Text, nullable=True)  # URL to QR code image
     join_code_expires_at = Column(DateTime, nullable=True)  # Expiration timestamp
 
+    # Phase 3: Audio conferencing (Cloudflare RealtimeKit)
+    realtimekit_meeting_id = Column(String(255), nullable=True)  # RealtimeKit meeting ID (reusable room)
+    recording_started_at = Column(DateTime, nullable=True)  # When recording started
+    recording_stopped_at = Column(DateTime, nullable=True)  # When recording stopped
+    recording_url = Column(Text, nullable=True)  # R2 URL to recording file
+    recording_status = Column(String(20), default='not_started', nullable=False)  # 'not_started' | 'recording' | 'completed' | 'failed'
+    transcription_status = Column(String(20), default='not_started', nullable=False)  # 'not_started' | 'processing' | 'completed' | 'failed'
+    transcription_url = Column(Text, nullable=True)  # URL to transcription file
+
     # Phase 5: Challenge pool
     is_public = Column(Boolean, default=False, nullable=False)  # Published to challenge pool
     source_pool_challenge_id = Column(UUID(as_uuid=True), ForeignKey("arenas.id", ondelete="SET NULL"), nullable=True)  # Cloned from this arena

@@ -148,6 +148,8 @@ jobs:
           SECRET_KEY: test-secret-key-for-ci-pipeline-min-32-chars
           ENVIRONMENT: test
           CURRICULUM_SERVICE_URL: http://localhost:8001
+          RESEND_API_KEY: test_resend_key_for_ci
+          EMAIL_FROM: "YouSpeak <noreply@youspeakhq.com>"
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}

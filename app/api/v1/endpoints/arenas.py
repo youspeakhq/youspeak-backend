@@ -43,6 +43,8 @@ from app.schemas.communication import (
     ArenaSessionEndRequest,
     WSClientEvent,
     WSServerEvent,
+    # Audio Conferencing
+    AudioTokenResponse,
     # Phase 4: Evaluation & Publishing
     ParticipantScoreCard,
     ArenaScoresResponse,
@@ -71,6 +73,7 @@ from app.schemas.communication import (
 )
 from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
 from app.services.arena_service import ArenaService
+from app.services.cloudflare_realtimekit_service import realtimekit_service
 from app.websocket.arena_connection_manager import connection_manager
 from app.core.logging import get_logger
 
@@ -701,6 +704,117 @@ async def reject_student(
 # ============================================================================
 
 
+@router.post("/{arena_id}/audio/token", response_model=SuccessResponse[AudioTokenResponse])
+async def generate_audio_token(
+    arena_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Generate Cloudflare RealtimeKit audio token for arena session.
+
+    Flow:
+    1. Get or create RealtimeKit meeting for this arena
+    2. Add user as participant to meeting
+    3. Return authToken from Cloudflare for frontend SDK
+
+    Teachers use "teacher-host" preset (can publish audio).
+    Students use "student-audience" preset (receive-only).
+
+    **Authentication required** - teacher or admitted student.
+
+    Used by: Audio join flow before WebSocket connection
+    """
+    logger = get_logger(__name__)
+
+    # Verify arena exists
+    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
+    if not arena:
+        logger.warning("audio_token_denied_arena_not_found", extra={"arena_id": str(arena_id)})
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    # Verify arena session is live or initialized
+    if arena.session_state not in ["initialized", "live"]:
+        logger.warning("audio_token_denied_session_not_active", extra={
+            "arena_id": str(arena_id),
+            "session_state": arena.session_state
+        })
+        raise HTTPException(status_code=400, detail="Arena session is not active")
+
+    # Determine user preset based on role
+    from app.models.enums import UserRole
+    is_teacher = current_user.role in [UserRole.TEACHER, UserRole.SCHOOL_ADMIN]
+
+    if is_teacher:
+        preset_name = "teacher-host"
+    else:
+        # Verify student was admitted from waiting room
+        is_admitted = await ArenaService.is_arena_participant(db, arena_id, current_user.id)
+        if not is_admitted:
+            logger.warning("audio_token_denied_not_participant", extra={
+                "arena_id": str(arena_id),
+                "user_id": str(current_user.id)
+            })
+            raise HTTPException(status_code=403, detail="Not authorized for this arena")
+        preset_name = "student-audience"
+
+    # Get or create RealtimeKit meeting
+    meeting_data = await realtimekit_service.get_or_create_meeting(
+        arena_id=arena_id,
+        arena_title=arena.title,
+        existing_meeting_id=arena.realtimekit_meeting_id
+    )
+
+    if not meeting_data:
+        logger.error("failed_to_create_meeting", extra={"arena_id": str(arena_id)})
+        raise HTTPException(status_code=500, detail="Failed to create audio meeting")
+
+    meeting_id = meeting_data["id"]
+
+    # Save meeting ID to arena if new
+    if not arena.realtimekit_meeting_id:
+        arena.realtimekit_meeting_id = meeting_id
+        await db.commit()
+        logger.info("meeting_created_and_saved", extra={
+            "arena_id": str(arena_id),
+            "meeting_id": meeting_id
+        })
+
+    # Add user as participant to meeting
+    user_name = f"{current_user.first_name} {current_user.last_name}"
+    participant_data = await realtimekit_service.add_participant(
+        meeting_id=meeting_id,
+        user_id=current_user.id,
+        user_name=user_name,
+        preset_name=preset_name
+    )
+
+    if not participant_data:
+        logger.error("failed_to_add_participant", extra={
+            "arena_id": str(arena_id),
+            "user_id": str(current_user.id)
+        })
+        raise HTTPException(status_code=500, detail="Failed to add participant to meeting")
+
+    logger.info("audio_token_generated", extra={
+        "arena_id": str(arena_id),
+        "user_id": str(current_user.id),
+        "preset": preset_name,
+        "meeting_id": meeting_id
+    })
+
+    return SuccessResponse(
+        data=AudioTokenResponse(
+            token=participant_data["token"],
+            participant_id=participant_data["id"],
+            meeting_id=meeting_id,
+            preset_name=preset_name,
+            name=user_name
+        ),
+        message=f"Audio token generated ({preset_name})"
+    )
+
+
 @router.websocket("/{arena_id}/live")
 async def arena_live_session(
     websocket: WebSocket,
@@ -708,11 +822,14 @@ async def arena_live_session(
     db: AsyncSession = Depends(deps.get_db),
 ):
     """
-    WebSocket endpoint for real-time arena session.
+    WebSocket endpoint for real-time arena session coordination.
 
     Client connects after being admitted to waiting room or as teacher.
     Receives: speaking updates, engagement metrics, reactions, session events
-    Sends: speaking events, reactions, audio mute events
+    Sends: speaking events, reactions
+
+    Note: Audio transmission is handled separately by Cloudflare RealtimeKit (WebRTC).
+    This WebSocket is for session coordination and metadata only.
 
     Architecture: Uses Redis Pub/Sub for horizontal scaling across multiple servers.
 
@@ -858,21 +975,6 @@ async def arena_live_session(
                 )
                 log.debug("websocket_reaction_broadcasted")
 
-            elif event_type in ["audio_muted", "audio_unmuted"]:
-                # Broadcast audio state change
-                await connection_manager.broadcast(
-                    arena_id,
-                    {
-                        "event_type": "engagement_update",
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "data": {
-                            "user_id": str(user_id),
-                            "audio_muted": event_type == "audio_muted",
-                        },
-                    },
-                )
-                log.debug("websocket_audio_state_broadcasted")
-
             else:
                 log.warning("websocket_unknown_event_type")
 
@@ -912,6 +1014,15 @@ async def start_arena_session(
         raise HTTPException(status_code=404, detail="Arena not found or access denied")
 
     log.info("arena_session_started")
+
+    # Recording auto-starts when first participant joins (record_on_start=True)
+    # Mark recording as started
+    arena.recording_status = "recording"
+    arena.recording_started_at = datetime.utcnow()
+    await db.commit()
+    log.info("cloud_recording_will_auto_start", extra={
+        "meeting_id": arena.realtimekit_meeting_id
+    })
 
     # Broadcast session start to all connected clients
     await connection_manager.broadcast(
@@ -973,6 +1084,18 @@ async def end_arena_session(
         raise HTTPException(status_code=404, detail="Arena not found or access denied")
 
     log.info("arena_session_ended")
+
+    # Recording auto-stops when last participant leaves
+    # Mark recording as completed
+    if arena.recording_status == "recording":
+        arena.recording_status = "completed"
+        arena.recording_stopped_at = datetime.utcnow()
+        # TODO: Trigger AWS Transcribe job here (background task)
+        # arena.transcription_status = "processing"
+        await db.commit()
+        log.info("cloud_recording_will_auto_stop", extra={
+            "meeting_id": arena.realtimekit_meeting_id
+        })
 
     # Broadcast session end to all connected clients
     await connection_manager.broadcast(
