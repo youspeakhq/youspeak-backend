@@ -20,6 +20,7 @@ class TestEmailSendingAPI:
         from app.models.user import User
         from app.core.security import get_password_hash
         from app.models.enums import UserRole
+        from uuid import UUID
 
         user = User(
             email="teacher@test.com",
@@ -27,7 +28,7 @@ class TestEmailSendingAPI:
             first_name="Test",
             last_name="Teacher",
             role=UserRole.TEACHER,
-            school_id=registered_school.id,
+            school_id=UUID(registered_school["school_id"]),
         )
         db.add(user)
         await db.commit()
@@ -299,6 +300,7 @@ class TestEmailSendingAPI:
         from app.models.user import User
         from app.core.security import get_password_hash, create_access_token
         from app.models.enums import UserRole
+        from uuid import UUID
 
         student = User(
             email="student@test.com",
@@ -306,7 +308,7 @@ class TestEmailSendingAPI:
             first_name="Test",
             last_name="Student",
             role=UserRole.STUDENT,
-            school_id=registered_school.id,
+            school_id=UUID(registered_school["school_id"]),
         )
         db.add(student)
         await db.commit()
