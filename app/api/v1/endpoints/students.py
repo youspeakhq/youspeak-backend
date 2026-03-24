@@ -130,7 +130,11 @@ async def create_student(
 
     # Enroll in class
     if student_in.class_id:
-        await AcademicService.add_student_to_class(db, student_in.class_id, user.id)
+        success, error = await AcademicService.add_student_to_class(
+            db, student_in.class_id, user.id, current_user.school_id
+        )
+        if not success:
+            raise HTTPException(status_code=400, detail=f"Student created but class enrollment failed: {error}")
 
     return SuccessResponse(data=UserResponse.model_validate(user), message="Student created successfully")
 
