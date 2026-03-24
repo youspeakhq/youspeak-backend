@@ -7,8 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import ValidationError as PydanticValidationError
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from sqlalchemy import text
@@ -16,6 +15,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.database import init_db, close_db, engine
 from app.core.logging import setup_logging, get_logger
+from app.core.rate_limit import limiter
 from app.core.middleware import (
     RequestIDMiddleware,
     RequestTimingMiddleware,
@@ -27,10 +27,6 @@ from app.websocket.arena_connection_manager import connection_manager
 # Setup logging
 setup_logging()
 logger = get_logger(__name__)
-
-
-# Rate limiter
-limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager

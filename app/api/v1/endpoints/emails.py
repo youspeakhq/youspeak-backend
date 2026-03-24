@@ -9,7 +9,7 @@ from app.models.enums import UserRole
 from app.schemas.communication import SendEmailRequest, SendEmailResponse, EmailSendResult
 from app.schemas.responses import SuccessResponse
 from app.services.email_service import send_bulk_email
-from app.main import limiter
+from app.core.rate_limit import limiter
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
