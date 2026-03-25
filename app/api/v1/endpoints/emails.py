@@ -61,7 +61,7 @@ def get_email_rate_limit(request: Request) -> str:
 
 
 @router.post("/send", response_model=SuccessResponse[SendEmailResponse])
-@limiter.limit(get_email_rate_limit)  # Dynamic rate limit based on user role
+@limiter.limit("50/hour")  # Fixed rate limit (TODO: implement dynamic limits properly)
 async def send_email_endpoint(
     request: Request,
     email_request: SendEmailRequest,
