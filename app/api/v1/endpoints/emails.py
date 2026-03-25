@@ -9,59 +9,55 @@ from app.models.enums import UserRole
 from app.schemas.communication import SendEmailRequest, SendEmailResponse, EmailSendResult
 from app.schemas.responses import SuccessResponse
 from app.services.email_service import send_bulk_email
-from app.core.rate_limit import limiter
+from app.core.rate_limit import user_limiter
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
 
 
-def get_email_rate_limit(request: Request) -> str:
+def get_email_rate_limit_by_key(key: str) -> str:
     """
-    Get dynamic rate limit based on user role from JWT token.
+    Dynamic rate limit based on user role from key.
+
+    Key format: "user_id:role" for authenticated users, or IP address for unauthenticated.
 
     Rate limits:
     - Students: 3 emails per hour
     - Teachers: 10 emails per hour
-    - Admins: 50 emails per hour (higher for administrative tasks)
+    - School Admins: 50 emails per hour (higher for administrative tasks)
+    - Unauthenticated/Unknown: 3 emails per hour (most restrictive)
 
-    Note: Role is read directly from JWT claims (no database query needed).
+    Note: This function receives the key from slowapi's key_func (get_user_key_with_role).
+    The role is extracted from the JWT token without additional database queries.
     """
     try:
-        # Get Authorization header
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            return "3/hour"  # Default to most restrictive
+        # Check if key contains role (format: "user_id:role")
+        if ":" not in key:
+            # IP-based key (unauthenticated), use most restrictive limit
+            return "3/hour"
 
-        token = auth_header.replace("Bearer ", "")
-
-        # Decode token to get user role
-        from app.core.security import decode_token
-        payload = decode_token(token)
-
-        if not payload:
-            return "3/hour"  # Default to most restrictive
-
-        # Get role from JWT claims
-        role = payload.get("role")
-        if not role:
-            return "3/hour"  # Default if role not in token
+        # Extract role from key
+        _, role = key.rsplit(":", 1)
 
         # Return rate limit based on role
         if role == UserRole.SCHOOL_ADMIN.value:
             return "50/hour"  # Admins get higher limit for administrative tasks
         elif role == UserRole.TEACHER.value:
             return "10/hour"  # Teachers need moderate limits for class communications
-        else:  # UserRole.STUDENT or any other role
+        elif role == UserRole.STUDENT.value:
             return "3/hour"  # Students get lowest limit to prevent spam
+        else:
+            # Unknown role, use most restrictive
+            return "3/hour"
 
     except Exception as e:
-        logger.warning(f"Failed to get dynamic rate limit: {e}")
+        logger.warning(f"Failed to parse rate limit key: {e}")
         return "3/hour"  # Default to most restrictive on error
 
 
 @router.post("/send", response_model=SuccessResponse[SendEmailResponse])
-@limiter.limit("50/hour")  # Fixed rate limit (TODO: implement dynamic limits properly)
+@user_limiter.limit(get_email_rate_limit_by_key)  # Dynamic rate limit based on user role
 async def send_email_endpoint(
     request: Request,
     email_request: SendEmailRequest,
