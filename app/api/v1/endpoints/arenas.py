@@ -727,11 +727,12 @@ async def generate_audio_token(
     """
     logger = get_logger(__name__)
 
-    # Verify arena exists
-    arena = await ArenaService.get_arena(db, arena_id, current_user.id)
+    # Verify arena exists — use get_arena_by_id (no teacher join) so both teachers
+    # and admitted students can reach this endpoint.
+    arena = await ArenaService.get_arena_by_id(db, arena_id)
     if not arena:
         logger.warning("audio_token_denied_arena_not_found", extra={"arena_id": str(arena_id)})
-        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+        raise HTTPException(status_code=404, detail="Arena not found")
 
     # Verify arena session is live or initialized
     if arena.session_state not in ["initialized", "live"]:
@@ -741,12 +742,12 @@ async def generate_audio_token(
         })
         raise HTTPException(status_code=400, detail="Arena session is not active")
 
-    # Determine user preset based on role
+    # Role-based authorization
     from app.models.enums import UserRole
     is_teacher = current_user.role in [UserRole.TEACHER, UserRole.SCHOOL_ADMIN]
 
     if is_teacher:
-        preset_name = "teacher-host"
+        preset_name = "group_call_host"
     else:
         # Verify student was admitted from waiting room
         is_admitted = await ArenaService.is_arena_participant(db, arena_id, current_user.id)
@@ -756,7 +757,7 @@ async def generate_audio_token(
                 "user_id": str(current_user.id)
             })
             raise HTTPException(status_code=403, detail="Not authorized for this arena")
-        preset_name = "student-audience"
+        preset_name = "group_call_participant"
 
     # Get or create RealtimeKit meeting
     meeting_data = await realtimekit_service.get_or_create_meeting(

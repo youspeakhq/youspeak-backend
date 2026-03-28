@@ -93,7 +93,10 @@ class CloudflareRealtimeKitService:
                     })
                     return meeting_data
                 else:
-                    logger.error(f"Failed to create meeting: {response.status_code} {response.text}")
+                    logger.error(
+                        f"Failed to create meeting: HTTP {response.status_code}",
+                        extra={"response_body": response.text, "arena_id": str(arena_id)}
+                    )
                     return None
 
         except Exception as e:
@@ -105,7 +108,7 @@ class CloudflareRealtimeKitService:
         meeting_id: str,
         user_id: UUID,
         user_name: str,
-        preset_name: str = "student-audience"  # "teacher-host" or "student-audience"
+        preset_name: str = "group_call_participant"  # "group_call_host" or "group_call_participant"
     ) -> Optional[Dict[str, Any]]:
         """
         Add participant to meeting and get authToken from Cloudflare.
@@ -156,7 +159,14 @@ class CloudflareRealtimeKitService:
                     })
                     return participant_data
                 else:
-                    logger.error(f"Failed to add participant: {response.status_code} {response.text}")
+                    logger.error(
+                        f"Failed to add participant: HTTP {response.status_code}",
+                        extra={
+                            "response_body": response.text,
+                            "meeting_id": meeting_id,
+                            "preset_name": preset_name,
+                        }
+                    )
                     return None
 
         except Exception as e:
@@ -171,20 +181,18 @@ class CloudflareRealtimeKitService:
     ) -> Optional[Dict[str, Any]]:
         """
         Get existing meeting or create new one if needed.
-
-        Args:
-            arena_id: Arena UUID
-            arena_title: Arena title for meeting name
-            existing_meeting_id: Optional existing meeting ID from database
-
-        Returns:
-            Meeting data with "id" field, or None if error
+        Verifies the existing meeting is still valid on Cloudflare before trusting it.
         """
-        # If we have an existing meeting ID, verify it exists
         if existing_meeting_id:
-            # TODO: Add GET meeting endpoint to verify it still exists
-            # For now, assume it's valid
-            return {"id": existing_meeting_id}
+            # Verify it still exists on Cloudflare
+            is_valid = await self.verify_meeting(existing_meeting_id)
+            if is_valid:
+                return {"id": existing_meeting_id}
+            else:
+                logger.warning(
+                    f"Cached meeting_id {existing_meeting_id} no longer exists on Cloudflare "
+                    f"for arena {arena_id}. Creating a new meeting."
+                )
 
         # Create new meeting
         return await self.create_meeting(
@@ -192,6 +200,26 @@ class CloudflareRealtimeKitService:
             title=f"Arena: {arena_title}",
             record_on_start=True
         )
+
+    async def verify_meeting(self, meeting_id: str) -> bool:
+        """
+        Verify a meeting still exists on Cloudflare.
+        Returns True if valid, False if not found or error.
+        """
+        if not self._credentials_configured():
+            return False
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/meetings/{meeting_id}",
+                    headers={"Authorization": f"Bearer {self.api_token}"},
+                    timeout=5.0
+                )
+                return response.status_code == 200
+        except Exception as e:
+            logger.warning(f"Error verifying meeting {meeting_id}: {e}")
+            return False
 
     async def start_recording(
         self,
