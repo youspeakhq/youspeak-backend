@@ -515,3 +515,100 @@ async def test_create_classroom_invalid_level(
         },
     )
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_teacher_can_add_student_to_their_classroom(
+    async_client: AsyncClient,
+    api_base: str,
+    registered_school: dict,
+    classroom_id,
+    teacher_id_and_headers,
+    class_id_for_student,
+    unique_suffix: str,
+):
+    """Teacher can add students to classrooms they teach."""
+    teacher_id, teacher_headers = teacher_id_and_headers
+    if not teacher_id:
+        pytest.skip("Could not resolve teacher_id from login response")
+
+    # 1. Assign teacher to classroom
+    resp = await async_client.post(
+        f"{api_base}/classrooms/{classroom_id}/teachers",
+        headers=registered_school["headers"],
+        json={"teacher_id": str(teacher_id)},
+    )
+    assert resp.status_code == 200
+
+    # 2. Create student
+    resp = await async_client.post(
+        f"{api_base}/students",
+        headers=registered_school["headers"],
+        json={
+            "first_name": "TeacherStudent",
+            "last_name": f"T{unique_suffix}",
+            "class_id": class_id_for_student,
+            "lang_id": 1,
+        },
+    )
+    assert resp.status_code == 200
+    student_id = resp.json()["data"]["id"]
+
+    # 3. Teacher adds student to their classroom
+    resp = await async_client.post(
+        f"{api_base}/classrooms/{classroom_id}/students",
+        headers=teacher_headers,
+        json={"student_id": str(student_id)},
+    )
+    assert resp.status_code == 200, f"Teacher should be able to add student to their classroom. Got: {resp.text}"
+
+    # 4. Verify student was added
+    resp = await async_client.get(
+        f"{api_base}/classrooms/{classroom_id}/students",
+        headers=teacher_headers,
+    )
+    assert resp.status_code == 200
+    students = resp.json()["data"]
+    ids = [s["id"] for s in students]
+    assert student_id in ids, "Student should be in the classroom"
+
+
+@pytest.mark.asyncio
+async def test_teacher_cannot_add_student_to_classroom_they_dont_teach(
+    async_client: AsyncClient,
+    api_base: str,
+    registered_school: dict,
+    classroom_id,
+    teacher_id_and_headers,
+    class_id_for_student,
+    unique_suffix: str,
+):
+    """Teacher cannot add students to classrooms they don't teach."""
+    teacher_id, teacher_headers = teacher_id_and_headers
+    if not teacher_id:
+        pytest.skip("Could not resolve teacher_id from login response")
+
+    # NOTE: Do NOT assign teacher to classroom_id
+
+    # 1. Create student
+    resp = await async_client.post(
+        f"{api_base}/students",
+        headers=registered_school["headers"],
+        json={
+            "first_name": "UnauthorizedStudent",
+            "last_name": f"U{unique_suffix}",
+            "class_id": class_id_for_student,
+            "lang_id": 1,
+        },
+    )
+    assert resp.status_code == 200
+    student_id = resp.json()["data"]["id"]
+
+    # 2. Teacher attempts to add student to classroom they don't teach
+    resp = await async_client.post(
+        f"{api_base}/classrooms/{classroom_id}/students",
+        headers=teacher_headers,
+        json={"student_id": str(student_id)},
+    )
+    assert resp.status_code == 403, f"Teacher should not be able to add student to classroom they don't teach"
+    assert "do not teach" in resp.json()["detail"].lower()
