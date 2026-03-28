@@ -80,9 +80,12 @@ POST https://api.cloudflare.com/client/v4/accounts/{account_id}/realtime/kit/{ap
   "success": true,
   "data": {
     "token": "eyJhbGciOiJSUzI1Ni...",
+    "participant_id": "participant_xyz789",
     "meeting_id": "meeting_abc123",
-    "preset_name": "group_call_host"
-  }
+    "preset_name": "group_call_host",
+    "name": "John Doe"
+  },
+  "message": "Audio token generated (group_call_host)"
 }
 ```
 
@@ -149,16 +152,18 @@ await client.publishTrack(audioTrack);
 
 ## Role-Based Access (Presets)
 
-### **group_call_host** (Teachers)
-- **Can:** Publish audio (speak)
-- **Can:** Receive audio (listen)
-- **Can:** Kick participants
-- **Can:** Mute other participants
+### **group_call_host** (Teachers/Admins)
+- ✅ **Can:** Publish audio (speak)
+- ✅ **Can:** Receive audio (listen to everyone)
+- ✅ **Can:** Kick participants
+- ✅ **Can:** Mute other participants
+- Used for: Teachers, School Admins
 
 ### **group_call_participant** (Students)
-- **Can:** Publish audio (speak)
-- **Can:** Receive audio (listen)
-- **Cannot:** Kick or mute others
+- ✅ **Can:** Publish audio (speak) - Students are NOT receive-only!
+- ✅ **Can:** Receive audio (listen to everyone)
+- ❌ **Cannot:** Kick or mute others
+- Used for: Students who have been admitted to the arena
 
 **In code:**
 ```python
@@ -252,9 +257,12 @@ curl -X POST https://api-staging.youspeakhq.com/api/v1/arenas/{arena_id}/audio/t
   "success": true,
   "data": {
     "token": "eyJhbGc...",
+    "participant_id": "participant_xyz789",
     "meeting_id": "meeting_abc123",
-    "preset_name": "group_call_host"
-  }
+    "preset_name": "group_call_host",
+    "name": "John Doe"
+  },
+  "message": "Audio token generated (group_call_host)"
 }
 ```
 

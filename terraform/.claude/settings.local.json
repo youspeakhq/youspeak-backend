@@ -13,7 +13,12 @@
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
       "Bash(aws iam get-role-policy:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(aws logs tail:*)",
+      "Bash(aws ecs list-tasks:*)",
+      "Bash(aws ecs describe-tasks:*)",
+      "Bash(aws secretsmanager get-secret-value:*)",
+      "Bash(aws logs:*)"
     ]
   }
 }

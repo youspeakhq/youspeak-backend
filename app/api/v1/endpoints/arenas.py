@@ -718,8 +718,8 @@ async def generate_audio_token(
     2. Add user as participant to meeting
     3. Return authToken from Cloudflare for frontend SDK
 
-    Teachers use "teacher-host" preset (can publish audio).
-    Students use "student-audience" preset (receive-only).
+    Teachers/Admins use "group_call_host" preset (can publish audio + moderate).
+    Students use "group_call_participant" preset (can publish audio + listen).
 
     **Authentication required** - teacher or admitted student.
 
