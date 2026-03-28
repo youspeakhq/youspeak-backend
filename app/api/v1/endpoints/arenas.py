@@ -132,10 +132,10 @@ async def list_arenas(
 @router.post("", response_model=SuccessResponse[ArenaResponse])
 async def create_arena(
     body: ArenaCreate,
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
-    """Create an arena for a class the teacher teaches. Teacher is added as moderator."""
+    """Create an arena for a class the teacher/admin teaches. Teacher/Admin is added as moderator."""
     arena = await ArenaService.create_arena(db, current_user.id, body)
     if not arena:
         raise HTTPException(status_code=403, detail="You do not teach this class")
