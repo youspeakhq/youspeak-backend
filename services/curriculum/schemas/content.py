@@ -65,9 +65,9 @@ class CurriculumMergeProposeRequest(BaseModel):
 
 
 class TopicProposal(BaseModel):
-    action: str
-    source: str
-    topic: TopicCreate
+    action: str = Field(..., description="Action for the topic: 'keep', 'blend', 'replace', or 'add'")
+    source: str = Field(..., description="Source of the topic: 'teacher', 'library', or 'both'")
+    topic: TopicCreate = Field(..., description="The full topic object containing title, content, duration, and objectives")
 
 
 class MergeProposalResponse(BaseModel):

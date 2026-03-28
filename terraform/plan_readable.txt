@@ -1,0 +1,1203 @@
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+  ~ update in-place
+  - destroy
+-/+ destroy and then create replacement
+
+Terraform planned the following actions, but then encountered a problem:
+
+  # aws_acm_certificate.api[0] will be created
+  + resource "aws_acm_certificate" "api" {
+      + arn                       = (known after apply)
+      + domain_name               = "api.youspeakhq.com"
+      + domain_validation_options = [
+          + {
+              + domain_name           = "api-staging.youspeakhq.com"
+              + resource_record_name  = (known after apply)
+              + resource_record_type  = (known after apply)
+              + resource_record_value = (known after apply)
+            },
+          + {
+              + domain_name           = "api.youspeakhq.com"
+              + resource_record_name  = (known after apply)
+              + resource_record_type  = (known after apply)
+              + resource_record_value = (known after apply)
+            },
+        ]
+      + id                        = (known after apply)
+      + key_algorithm             = (known after apply)
+      + not_after                 = (known after apply)
+      + not_before                = (known after apply)
+      + pending_renewal           = (known after apply)
+      + renewal_eligibility       = (known after apply)
+      + renewal_summary           = (known after apply)
+      + status                    = (known after apply)
+      + subject_alternative_names = [
+          + "api-staging.youspeakhq.com",
+          + "api.youspeakhq.com",
+        ]
+      + tags_all                  = {
+          + "Environment" = "staging"
+          + "ManagedBy"   = "Terraform"
+          + "Project"     = "YouSpeak"
+        }
+      + type                      = (known after apply)
+      + validation_emails         = (known after apply)
+      + validation_method         = "DNS"
+    }
+
+  # aws_acm_certificate_validation.api[0] will be created
+  + resource "aws_acm_certificate_validation" "api" {
+      + certificate_arn = (known after apply)
+      + id              = (known after apply)
+    }
+
+  # aws_appautoscaling_policy.staging_cpu will be destroyed
+  # (because aws_appautoscaling_policy.staging_cpu is not in configuration)
+  - resource "aws_appautoscaling_policy" "staging_cpu" {
+      - alarm_arns         = [
+          - "arn:aws:cloudwatch:eu-north-1:497068062563:alarm:TargetTracking-service/youspeak-cluster/youspeak-api-service-staging-AlarmHigh-23b1d13a-b9a6-4c2d-9d70-87cbbe7b18cb",
+          - "arn:aws:cloudwatch:eu-north-1:497068062563:alarm:TargetTracking-service/youspeak-cluster/youspeak-api-service-staging-AlarmLow-6142f7c4-91ff-400e-8ccc-5d9e175c835a",
+        ] -> null
+      - arn                = "arn:aws:autoscaling:eu-north-1:497068062563:scalingPolicy:dc4bea25-cab6-4491-b529-3d37c7cf2d0d:resource/ecs/service/youspeak-cluster/youspeak-api-service-staging:policyName/youspeak-staging-cpu-autoscaling" -> null
+      - id                 = "youspeak-staging-cpu-autoscaling" -> null
+      - name               = "youspeak-staging-cpu-autoscaling" -> null
+      - policy_type        = "TargetTrackingScaling" -> null
+      - resource_id        = "service/youspeak-cluster/youspeak-api-service-staging" -> null
+      - scalable_dimension = "ecs:service:DesiredCount" -> null
+      - service_namespace  = "ecs" -> null
+
+      - target_tracking_scaling_policy_configuration {
+          - disable_scale_in   = false -> null
+          - scale_in_cooldown  = 300 -> null
+          - scale_out_cooldown = 60 -> null
+          - target_value       = 30 -> null
+
+          - predefined_metric_specification {
+              - predefined_metric_type = "ECSServiceAverageCPUUtilization" -> null
+            }
+        }
+    }
+
+  # aws_appautoscaling_policy.staging_memory will be destroyed
+  # (because aws_appautoscaling_policy.staging_memory is not in configuration)
+  - resource "aws_appautoscaling_policy" "staging_memory" {
+      - alarm_arns         = [
+          - "arn:aws:cloudwatch:eu-north-1:497068062563:alarm:TargetTracking-service/youspeak-cluster/youspeak-api-service-staging-AlarmHigh-3047f953-eaf6-4dd6-9758-420494834dbc",
+          - "arn:aws:cloudwatch:eu-north-1:497068062563:alarm:TargetTracking-service/youspeak-cluster/youspeak-api-service-staging-AlarmLow-89d7ff71-7692-495d-b84a-94a8df1a4548",
+        ] -> null
+      - arn                = "arn:aws:autoscaling:eu-north-1:497068062563:scalingPolicy:dc4bea25-cab6-4491-b529-3d37c7cf2d0d:resource/ecs/service/youspeak-cluster/youspeak-api-service-staging:policyName/youspeak-staging-memory-autoscaling" -> null
+      - id                 = "youspeak-staging-memory-autoscaling" -> null
+      - name               = "youspeak-staging-memory-autoscaling" -> null
+      - policy_type        = "TargetTrackingScaling" -> null
+      - resource_id        = "service/youspeak-cluster/youspeak-api-service-staging" -> null
+      - scalable_dimension = "ecs:service:DesiredCount" -> null
+      - service_namespace  = "ecs" -> null
+
+      - target_tracking_scaling_policy_configuration {
+          - disable_scale_in   = false -> null
+          - scale_in_cooldown  = 300 -> null
+          - scale_out_cooldown = 60 -> null
+          - target_value       = 30 -> null
+
+          - predefined_metric_specification {
+              - predefined_metric_type = "ECSServiceAverageMemoryUtilization" -> null
+            }
+        }
+    }
+
+  # aws_appautoscaling_target.staging will be destroyed
+  # (because aws_appautoscaling_target.staging is not in configuration)
+  - resource "aws_appautoscaling_target" "staging" {
+      - arn                = "arn:aws:application-autoscaling:eu-north-1:497068062563:scalable-target/0ec5dc4bea25cab64491b5293d37c7cf2d0d" -> null
+      - id                 = "service/youspeak-cluster/youspeak-api-service-staging" -> null
+      - max_capacity       = 2 -> null
+      - min_capacity       = 0 -> null
+      - resource_id        = "service/youspeak-cluster/youspeak-api-service-staging" -> null
+      - role_arn           = "arn:aws:iam::497068062563:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService" -> null
+      - scalable_dimension = "ecs:service:DesiredCount" -> null
+      - service_namespace  = "ecs" -> null
+      - tags               = {} -> null
+      - tags_all           = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+
+      - suspended_state {
+          - dynamic_scaling_in_suspended  = false -> null
+          - dynamic_scaling_out_suspended = false -> null
+          - scheduled_scaling_suspended   = false -> null
+        }
+    }
+
+  # aws_cloudwatch_log_group.curriculum will be destroyed
+  # (because aws_cloudwatch_log_group.curriculum is not in configuration)
+  - resource "aws_cloudwatch_log_group" "curriculum" {
+      - arn               = "arn:aws:logs:eu-north-1:497068062563:log-group:/ecs/youspeak-curriculum-api" -> null
+      - id                = "/ecs/youspeak-curriculum-api" -> null
+      - log_group_class   = "STANDARD" -> null
+      - name              = "/ecs/youspeak-curriculum-api" -> null
+      - retention_in_days = 14 -> null
+      - skip_destroy      = false -> null
+      - tags              = {} -> null
+      - tags_all          = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+    }
+
+  # aws_cloudwatch_log_group.ecs will be destroyed
+  # (because aws_cloudwatch_log_group.ecs is not in configuration)
+  - resource "aws_cloudwatch_log_group" "ecs" {
+      - arn               = "arn:aws:logs:eu-north-1:497068062563:log-group:/ecs/youspeak-api" -> null
+      - id                = "/ecs/youspeak-api" -> null
+      - log_group_class   = "STANDARD" -> null
+      - name              = "/ecs/youspeak-api" -> null
+      - retention_in_days = 14 -> null
+      - skip_destroy      = false -> null
+      - tags              = {} -> null
+      - tags_all          = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+    }
+
+  # aws_ecr_repository.app will be updated in-place
+  ~ resource "aws_ecr_repository" "app" {
+        id                   = "youspeak-backend"
+        name                 = "youspeak-backend"
+        tags                 = {}
+        # (5 unchanged attributes hidden)
+
+      ~ image_scanning_configuration {
+          - scan_on_push = true -> null
+        }
+
+        # (1 unchanged block hidden)
+    }
+
+  # aws_ecr_repository.curriculum will be updated in-place
+  ~ resource "aws_ecr_repository" "curriculum" {
+        id                   = "youspeak-curriculum-backend"
+        name                 = "youspeak-curriculum-backend"
+        tags                 = {}
+        # (5 unchanged attributes hidden)
+
+      ~ image_scanning_configuration {
+          - scan_on_push = true -> null
+        }
+
+        # (1 unchanged block hidden)
+    }
+
+  # aws_ecs_service.curriculum_staging will be destroyed
+  # (because aws_ecs_service.curriculum_staging is not in configuration)
+  - resource "aws_ecs_service" "curriculum_staging" {
+      - availability_zone_rebalancing      = "DISABLED" -> null
+      - cluster                            = "arn:aws:ecs:eu-north-1:497068062563:cluster/youspeak-cluster" -> null
+      - deployment_maximum_percent         = 200 -> null
+      - deployment_minimum_healthy_percent = 100 -> null
+      - desired_count                      = 1 -> null
+      - enable_ecs_managed_tags            = false -> null
+      - enable_execute_command             = true -> null
+      - health_check_grace_period_seconds  = 90 -> null
+      - iam_role                           = "/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS" -> null
+      - id                                 = "arn:aws:ecs:eu-north-1:497068062563:service/youspeak-cluster/youspeak-curriculum-service-staging" -> null
+      - launch_type                        = "FARGATE" -> null
+      - name                               = "youspeak-curriculum-service-staging" -> null
+      - platform_version                   = "LATEST" -> null
+      - propagate_tags                     = "NONE" -> null
+      - scheduling_strategy                = "REPLICA" -> null
+      - tags                               = {} -> null
+      - tags_all                           = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+      - task_definition                    = "arn:aws:ecs:eu-north-1:497068062563:task-definition/youspeak-curriculum-task-staging:1" -> null
+      - triggers                           = {} -> null
+      - wait_for_steady_state              = false -> null
+
+      - deployment_circuit_breaker {
+          - enable   = false -> null
+          - rollback = false -> null
+        }
+
+      - deployment_controller {
+          - type = "ECS" -> null
+        }
+
+      - load_balancer {
+          - container_name   = "youspeak-curriculum" -> null
+          - container_port   = 8001 -> null
+          - target_group_arn = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-curric-tg-stg/8560cdba73da116e" -> null
+        }
+
+      - network_configuration {
+          - assign_public_ip = false -> null
+          - security_groups  = [
+              - "sg-05ae2e867e9e24ed2",
+            ] -> null
+          - subnets          = [
+              - "subnet-0192181fd77dce1fd",
+              - "subnet-0e1fd3fa1e5e591d3",
+            ] -> null
+        }
+    }
+
+  # aws_ecs_service.production will be updated in-place
+  ~ resource "aws_ecs_service" "production" {
+      ~ enable_execute_command             = true -> false
+      - health_check_grace_period_seconds  = 90 -> null
+        id                                 = "arn:aws:ecs:eu-north-1:497068062563:service/youspeak-cluster/youspeak-api-service-production"
+        name                               = "youspeak-api-service-production"
+        tags                               = {}
+        # (15 unchanged attributes hidden)
+
+      ~ network_configuration {
+          ~ security_groups  = [
+              - "sg-05ae2e867e9e24ed2",
+            ] -> (known after apply)
+            # (2 unchanged attributes hidden)
+        }
+
+        # (3 unchanged blocks hidden)
+    }
+
+  # aws_ecs_service.staging will be updated in-place
+  ~ resource "aws_ecs_service" "staging" {
+      ~ enable_execute_command             = true -> false
+      - health_check_grace_period_seconds  = 90 -> null
+        id                                 = "arn:aws:ecs:eu-north-1:497068062563:service/youspeak-cluster/youspeak-api-service-staging"
+        name                               = "youspeak-api-service-staging"
+        tags                               = {}
+        # (15 unchanged attributes hidden)
+
+      ~ network_configuration {
+          ~ security_groups  = [
+              - "sg-05ae2e867e9e24ed2",
+            ] -> (known after apply)
+            # (2 unchanged attributes hidden)
+        }
+
+        # (3 unchanged blocks hidden)
+    }
+
+  # aws_elasticache_cluster.redis will be updated in-place
+  ~ resource "aws_elasticache_cluster" "redis" {
+        id                         = "youspeak-redis-staging"
+      ~ security_group_ids         = [
+          - "sg-072a9bbc6804e55ef",
+        ] -> (known after apply)
+        tags                       = {}
+        # (21 unchanged attributes hidden)
+    }
+
+  # aws_iam_role.ecs_execution will be destroyed
+  # (because aws_iam_role.ecs_execution is not in configuration)
+  - resource "aws_iam_role" "ecs_execution" {
+      - arn                   = "arn:aws:iam::497068062563:role/youspeak-ecs-execution-role-staging" -> null
+      - assume_role_policy    = jsonencode(
+            {
+              - Statement = [
+                  - {
+                      - Action    = "sts:AssumeRole"
+                      - Effect    = "Allow"
+                      - Principal = {
+                          - Service = "ecs-tasks.amazonaws.com"
+                        }
+                    },
+                ]
+              - Version   = "2012-10-17"
+            }
+        ) -> null
+      - create_date           = "2026-03-01T19:41:05Z" -> null
+      - force_detach_policies = false -> null
+      - id                    = "youspeak-ecs-execution-role-staging" -> null
+      - managed_policy_arns   = [
+          - "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        ] -> null
+      - max_session_duration  = 3600 -> null
+      - name                  = "youspeak-ecs-execution-role-staging" -> null
+      - path                  = "/" -> null
+      - tags                  = {} -> null
+      - tags_all              = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+      - unique_id             = "AROAXHO4QW5RXIVE5LTP6" -> null
+
+      - inline_policy {
+          - name   = "secrets-access" -> null
+          - policy = jsonencode(
+                {
+                  - Statement = [
+                      - {
+                          - Action   = [
+                              - "secretsmanager:GetSecretValue",
+                            ]
+                          - Effect   = "Allow"
+                          - Resource = [
+                              - "arn:aws:secretsmanager:us-east-1:497068062563:secret:youspeak/database-url-staging-*",
+                              - "arn:aws:secretsmanager:us-east-1:497068062563:secret:youspeak/redis-url-staging-*",
+                              - "arn:aws:secretsmanager:us-east-1:497068062563:secret:youspeak/secret-key-staging-*",
+                              - "arn:aws:secretsmanager:us-east-1:497068062563:secret:youspeak/resend-api-key-staging-*",
+                              - "arn:aws:secretsmanager:us-east-1:497068062563:secret:youspeak/r2-*-staging-*",
+                            ]
+                        },
+                    ]
+                  - Version   = "2012-10-17"
+                }
+            ) -> null
+        }
+    }
+
+  # aws_iam_role.ecs_task will be destroyed
+  # (because aws_iam_role.ecs_task is not in configuration)
+  - resource "aws_iam_role" "ecs_task" {
+      - arn                   = "arn:aws:iam::497068062563:role/youspeak-ecs-task-role-staging" -> null
+      - assume_role_policy    = jsonencode(
+            {
+              - Statement = [
+                  - {
+                      - Action    = "sts:AssumeRole"
+                      - Effect    = "Allow"
+                      - Principal = {
+                          - Service = "ecs-tasks.amazonaws.com"
+                        }
+                    },
+                ]
+              - Version   = "2012-10-17"
+            }
+        ) -> null
+      - create_date           = "2026-03-01T19:41:26Z" -> null
+      - force_detach_policies = false -> null
+      - id                    = "youspeak-ecs-task-role-staging" -> null
+      - managed_policy_arns   = [
+          - "arn:aws:iam::aws:policy/AmazonBedrockFullAccess",
+        ] -> null
+      - max_session_duration  = 3600 -> null
+      - name                  = "youspeak-ecs-task-role-staging" -> null
+      - path                  = "/" -> null
+      - tags                  = {} -> null
+      - tags_all              = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+      - unique_id             = "AROAXHO4QW5RSKQVCEI6S" -> null
+    }
+
+  # aws_iam_role_policy.ecs_execution_secrets will be destroyed
+  # (because aws_iam_role_policy.ecs_execution_secrets is not in configuration)
+  - resource "aws_iam_role_policy" "ecs_execution_secrets" {
+      - id     = "youspeak-ecs-execution-role-staging:secrets-access" -> null
+      - name   = "secrets-access" -> null
+      - policy = (sensitive value) -> null
+      - role   = "youspeak-ecs-execution-role-staging" -> null
+    }
+
+  # aws_iam_role_policy_attachment.bedrock will be destroyed
+  # (because aws_iam_role_policy_attachment.bedrock is not in configuration)
+  - resource "aws_iam_role_policy_attachment" "bedrock" {
+      - id         = "youspeak-ecs-task-role-staging-20260226205251676100000002" -> null
+      - policy_arn = "arn:aws:iam::aws:policy/AmazonBedrockFullAccess" -> null
+      - role       = "youspeak-ecs-task-role-staging" -> null
+    }
+
+  # aws_iam_role_policy_attachment.ecs_execution will be destroyed
+  # (because aws_iam_role_policy_attachment.ecs_execution is not in configuration)
+  - resource "aws_iam_role_policy_attachment" "ecs_execution" {
+      - id         = "youspeak-ecs-execution-role-staging-20260226205250952000000001" -> null
+      - policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy" -> null
+      - role       = "youspeak-ecs-execution-role-staging" -> null
+    }
+
+  # aws_lb.curriculum_internal_production will be destroyed
+  # (because aws_lb.curriculum_internal_production is not in configuration)
+  - resource "aws_lb" "curriculum_internal_production" {
+      - arn                                         = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-curric-int-prod/5b968f45ee1ac308" -> null
+      - arn_suffix                                  = "app/youspeak-curric-int-prod/5b968f45ee1ac308" -> null
+      - client_keep_alive                           = 3600 -> null
+      - desync_mitigation_mode                      = "defensive" -> null
+      - dns_name                                    = "internal-youspeak-curric-int-prod-1033278820.eu-north-1.elb.amazonaws.com" -> null
+      - drop_invalid_header_fields                  = false -> null
+      - enable_cross_zone_load_balancing            = true -> null
+      - enable_deletion_protection                  = false -> null
+      - enable_http2                                = true -> null
+      - enable_tls_version_and_cipher_suite_headers = false -> null
+      - enable_waf_fail_open                        = false -> null
+      - enable_xff_client_port                      = false -> null
+      - enable_zonal_shift                          = false -> null
+      - id                                          = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-curric-int-prod/5b968f45ee1ac308" -> null
+      - idle_timeout                                = 60 -> null
+      - internal                                    = true -> null
+      - ip_address_type                             = "ipv4" -> null
+      - load_balancer_type                          = "application" -> null
+      - name                                        = "youspeak-curric-int-prod" -> null
+      - preserve_host_header                        = false -> null
+      - security_groups                             = [
+          - "sg-0e57e01a3fbec7e75",
+        ] -> null
+      - subnets                                     = [
+          - "subnet-0192181fd77dce1fd",
+          - "subnet-0e1fd3fa1e5e591d3",
+        ] -> null
+      - tags                                        = {} -> null
+      - tags_all                                    = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+      - vpc_id                                      = "vpc-065d378caafb607fc" -> null
+      - xff_header_processing_mode                  = "append" -> null
+      - zone_id                                     = "Z23TAZ6LKFMNIO" -> null
+
+      - access_logs {
+          - enabled = false -> null
+        }
+
+      - connection_logs {
+          - enabled = false -> null
+        }
+
+      - subnet_mapping {
+          - subnet_id = "subnet-0192181fd77dce1fd" -> null
+        }
+      - subnet_mapping {
+          - subnet_id = "subnet-0e1fd3fa1e5e591d3" -> null
+        }
+    }
+
+  # aws_lb.curriculum_internal_staging will be destroyed
+  # (because aws_lb.curriculum_internal_staging is not in configuration)
+  - resource "aws_lb" "curriculum_internal_staging" {
+      - arn                                         = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-curric-int-stg/d803703f5886a674" -> null
+      - arn_suffix                                  = "app/youspeak-curric-int-stg/d803703f5886a674" -> null
+      - client_keep_alive                           = 3600 -> null
+      - desync_mitigation_mode                      = "defensive" -> null
+      - dns_name                                    = "internal-youspeak-curric-int-stg-114708815.eu-north-1.elb.amazonaws.com" -> null
+      - drop_invalid_header_fields                  = false -> null
+      - enable_cross_zone_load_balancing            = true -> null
+      - enable_deletion_protection                  = false -> null
+      - enable_http2                                = true -> null
+      - enable_tls_version_and_cipher_suite_headers = false -> null
+      - enable_waf_fail_open                        = false -> null
+      - enable_xff_client_port                      = false -> null
+      - enable_zonal_shift                          = false -> null
+      - id                                          = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-curric-int-stg/d803703f5886a674" -> null
+      - idle_timeout                                = 60 -> null
+      - internal                                    = true -> null
+      - ip_address_type                             = "ipv4" -> null
+      - load_balancer_type                          = "application" -> null
+      - name                                        = "youspeak-curric-int-stg" -> null
+      - preserve_host_header                        = false -> null
+      - security_groups                             = [
+          - "sg-0e57e01a3fbec7e75",
+        ] -> null
+      - subnets                                     = [
+          - "subnet-0192181fd77dce1fd",
+          - "subnet-0e1fd3fa1e5e591d3",
+        ] -> null
+      - tags                                        = {} -> null
+      - tags_all                                    = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+      - vpc_id                                      = "vpc-065d378caafb607fc" -> null
+      - xff_header_processing_mode                  = "append" -> null
+      - zone_id                                     = "Z23TAZ6LKFMNIO" -> null
+
+      - access_logs {
+          - enabled = false -> null
+        }
+
+      - connection_logs {
+          - enabled = false -> null
+        }
+
+      - subnet_mapping {
+          - subnet_id = "subnet-0192181fd77dce1fd" -> null
+        }
+      - subnet_mapping {
+          - subnet_id = "subnet-0e1fd3fa1e5e591d3" -> null
+        }
+    }
+
+  # aws_lb.main will be updated in-place
+  ~ resource "aws_lb" "main" {
+        id                                          = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-alb-staging/6f8eac7f65548c66"
+      ~ idle_timeout                                = 60 -> 180
+        name                                        = "youspeak-alb-staging"
+      ~ security_groups                             = [
+          - "sg-037f8d15ade314d06",
+        ] -> (known after apply)
+        tags                                        = {}
+        # (22 unchanged attributes hidden)
+
+        # (4 unchanged blocks hidden)
+    }
+
+  # aws_lb.staging will be updated in-place
+  ~ resource "aws_lb" "staging" {
+        id                                          = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-alb-staging/6f8eac7f65548c66"
+      ~ idle_timeout                                = 60 -> 180
+        name                                        = "youspeak-alb-staging"
+      ~ security_groups                             = [
+          - "sg-037f8d15ade314d06",
+        ] -> (known after apply)
+        tags                                        = {}
+        # (22 unchanged attributes hidden)
+
+        # (4 unchanged blocks hidden)
+    }
+
+  # aws_lb_listener.curriculum_internal_production will be destroyed
+  # (because aws_lb_listener.curriculum_internal_production is not in configuration)
+  - resource "aws_lb_listener" "curriculum_internal_production" {
+      - arn                                  = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:listener/app/youspeak-curric-int-prod/5b968f45ee1ac308/2610ae871b48fd62" -> null
+      - id                                   = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:listener/app/youspeak-curric-int-prod/5b968f45ee1ac308/2610ae871b48fd62" -> null
+      - load_balancer_arn                    = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-curric-int-prod/5b968f45ee1ac308" -> null
+      - port                                 = 80 -> null
+      - protocol                             = "HTTP" -> null
+      - routing_http_response_server_enabled = true -> null
+      - tags                                 = {} -> null
+      - tags_all                             = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+
+      - default_action {
+          - order            = 1 -> null
+          - target_group_arn = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-curric-tg-prod/59761b544ea91f83" -> null
+          - type             = "forward" -> null
+        }
+    }
+
+  # aws_lb_listener.curriculum_internal_staging will be destroyed
+  # (because aws_lb_listener.curriculum_internal_staging is not in configuration)
+  - resource "aws_lb_listener" "curriculum_internal_staging" {
+      - arn                                  = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:listener/app/youspeak-curric-int-stg/d803703f5886a674/007e4c11f9dffaed" -> null
+      - id                                   = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:listener/app/youspeak-curric-int-stg/d803703f5886a674/007e4c11f9dffaed" -> null
+      - load_balancer_arn                    = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-curric-int-stg/d803703f5886a674" -> null
+      - port                                 = 80 -> null
+      - protocol                             = "HTTP" -> null
+      - routing_http_response_server_enabled = true -> null
+      - tags                                 = {} -> null
+      - tags_all                             = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+
+      - default_action {
+          - order            = 1 -> null
+          - target_group_arn = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-curric-tg-stg/8560cdba73da116e" -> null
+          - type             = "forward" -> null
+        }
+    }
+
+  # aws_lb_listener.http[0] will be destroyed
+  # (because index [0] is out of range for count)
+  - resource "aws_lb_listener" "http" {
+      - arn                                  = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:listener/app/youspeak-alb-staging/6f8eac7f65548c66/e09b59da76ab24fe" -> null
+      - id                                   = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:listener/app/youspeak-alb-staging/6f8eac7f65548c66/e09b59da76ab24fe" -> null
+      - load_balancer_arn                    = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-alb-staging/6f8eac7f65548c66" -> null
+      - port                                 = 80 -> null
+      - protocol                             = "HTTP" -> null
+      - routing_http_response_server_enabled = true -> null
+      - tags                                 = {} -> null
+      - tags_all                             = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+
+      - default_action {
+          - order            = 1 -> null
+          - target_group_arn = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-api-tg-staging/6bca5d6061748e2d" -> null
+          - type             = "forward" -> null
+        }
+    }
+
+  # aws_lb_listener.http_redirect[0] will be created
+  + resource "aws_lb_listener" "http_redirect" {
+      + arn                                                                   = (known after apply)
+      + id                                                                    = (known after apply)
+      + load_balancer_arn                                                     = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-alb-staging/6f8eac7f65548c66"
+      + port                                                                  = 80
+      + protocol                                                              = "HTTP"
+      + routing_http_request_x_amzn_mtls_clientcert_header_name               = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_issuer_header_name        = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_leaf_header_name          = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_serial_number_header_name = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_subject_header_name       = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_validity_header_name      = (known after apply)
+      + routing_http_request_x_amzn_tls_cipher_suite_header_name              = (known after apply)
+      + routing_http_request_x_amzn_tls_version_header_name                   = (known after apply)
+      + routing_http_response_access_control_allow_credentials_header_value   = (known after apply)
+      + routing_http_response_access_control_allow_headers_header_value       = (known after apply)
+      + routing_http_response_access_control_allow_methods_header_value       = (known after apply)
+      + routing_http_response_access_control_allow_origin_header_value        = (known after apply)
+      + routing_http_response_access_control_expose_headers_header_value      = (known after apply)
+      + routing_http_response_access_control_max_age_header_value             = (known after apply)
+      + routing_http_response_content_security_policy_header_value            = (known after apply)
+      + routing_http_response_server_enabled                                  = (known after apply)
+      + routing_http_response_strict_transport_security_header_value          = (known after apply)
+      + routing_http_response_x_content_type_options_header_value             = (known after apply)
+      + routing_http_response_x_frame_options_header_value                    = (known after apply)
+      + ssl_policy                                                            = (known after apply)
+      + tags_all                                                              = {
+          + "Environment" = "staging"
+          + "ManagedBy"   = "Terraform"
+          + "Project"     = "YouSpeak"
+        }
+      + tcp_idle_timeout_seconds                                              = (known after apply)
+
+      + default_action {
+          + order = (known after apply)
+          + type  = "redirect"
+
+          + redirect {
+              + host        = "#{host}"
+              + path        = "/#{path}"
+              + port        = "443"
+              + protocol    = "HTTPS"
+              + query       = "#{query}"
+              + status_code = "HTTP_301"
+            }
+        }
+    }
+
+  # aws_lb_listener.https[0] will be created
+  + resource "aws_lb_listener" "https" {
+      + arn                                                                   = (known after apply)
+      + certificate_arn                                                       = (known after apply)
+      + id                                                                    = (known after apply)
+      + load_balancer_arn                                                     = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-alb-staging/6f8eac7f65548c66"
+      + port                                                                  = 443
+      + protocol                                                              = "HTTPS"
+      + routing_http_request_x_amzn_mtls_clientcert_header_name               = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_issuer_header_name        = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_leaf_header_name          = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_serial_number_header_name = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_subject_header_name       = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_validity_header_name      = (known after apply)
+      + routing_http_request_x_amzn_tls_cipher_suite_header_name              = (known after apply)
+      + routing_http_request_x_amzn_tls_version_header_name                   = (known after apply)
+      + routing_http_response_access_control_allow_credentials_header_value   = (known after apply)
+      + routing_http_response_access_control_allow_headers_header_value       = (known after apply)
+      + routing_http_response_access_control_allow_methods_header_value       = (known after apply)
+      + routing_http_response_access_control_allow_origin_header_value        = (known after apply)
+      + routing_http_response_access_control_expose_headers_header_value      = (known after apply)
+      + routing_http_response_access_control_max_age_header_value             = (known after apply)
+      + routing_http_response_content_security_policy_header_value            = (known after apply)
+      + routing_http_response_server_enabled                                  = (known after apply)
+      + routing_http_response_strict_transport_security_header_value          = (known after apply)
+      + routing_http_response_x_content_type_options_header_value             = (known after apply)
+      + routing_http_response_x_frame_options_header_value                    = (known after apply)
+      + ssl_policy                                                            = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+      + tags_all                                                              = {
+          + "Environment" = "staging"
+          + "ManagedBy"   = "Terraform"
+          + "Project"     = "YouSpeak"
+        }
+      + tcp_idle_timeout_seconds                                              = (known after apply)
+
+      + default_action {
+          + order            = (known after apply)
+          + target_group_arn = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-api-tg-staging/6bca5d6061748e2d"
+          + type             = "forward"
+        }
+    }
+
+  # aws_lb_listener.staging[0] will be destroyed
+  # (because aws_lb_listener.staging is not in configuration)
+  - resource "aws_lb_listener" "staging" {
+      - arn                                  = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:listener/app/youspeak-alb-staging/6f8eac7f65548c66/e09b59da76ab24fe" -> null
+      - id                                   = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:listener/app/youspeak-alb-staging/6f8eac7f65548c66/e09b59da76ab24fe" -> null
+      - load_balancer_arn                    = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-alb-staging/6f8eac7f65548c66" -> null
+      - port                                 = 80 -> null
+      - protocol                             = "HTTP" -> null
+      - routing_http_response_server_enabled = true -> null
+      - tags                                 = {} -> null
+      - tags_all                             = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+
+      - default_action {
+          - order            = 1 -> null
+          - target_group_arn = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-api-tg-staging/6bca5d6061748e2d" -> null
+          - type             = "forward" -> null
+        }
+    }
+
+  # aws_lb_target_group.api will be updated in-place
+  ~ resource "aws_lb_target_group" "api" {
+        id                                 = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-api-tg-staging/6bca5d6061748e2d"
+        name                               = "youspeak-api-tg-staging"
+        tags                               = {}
+        # (17 unchanged attributes hidden)
+
+      ~ health_check {
+          ~ healthy_threshold   = 2 -> 3
+            # (8 unchanged attributes hidden)
+        }
+
+        # (4 unchanged blocks hidden)
+    }
+
+  # aws_lb_target_group.api_staging will be updated in-place
+  ~ resource "aws_lb_target_group" "api_staging" {
+        id                                 = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-api-tg-staging/6bca5d6061748e2d"
+        name                               = "youspeak-api-tg-staging"
+        tags                               = {}
+        # (17 unchanged attributes hidden)
+
+      ~ health_check {
+          ~ healthy_threshold   = 2 -> 3
+            # (8 unchanged attributes hidden)
+        }
+
+        # (4 unchanged blocks hidden)
+    }
+
+  # aws_lb_target_group.curriculum_production will be destroyed
+  # (because aws_lb_target_group.curriculum_production is not in configuration)
+  - resource "aws_lb_target_group" "curriculum_production" {
+      - arn                                = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-curric-tg-prod/59761b544ea91f83" -> null
+      - arn_suffix                         = "targetgroup/youspeak-curric-tg-prod/59761b544ea91f83" -> null
+      - deregistration_delay               = "300" -> null
+      - id                                 = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-curric-tg-prod/59761b544ea91f83" -> null
+      - ip_address_type                    = "ipv4" -> null
+      - lambda_multi_value_headers_enabled = false -> null
+      - load_balancer_arns                 = [
+          - "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-curric-int-prod/5b968f45ee1ac308",
+        ] -> null
+      - load_balancing_algorithm_type      = "round_robin" -> null
+      - load_balancing_anomaly_mitigation  = "off" -> null
+      - load_balancing_cross_zone_enabled  = "use_load_balancer_configuration" -> null
+      - name                               = "youspeak-curric-tg-prod" -> null
+      - port                               = 8001 -> null
+      - protocol                           = "HTTP" -> null
+      - protocol_version                   = "HTTP1" -> null
+      - proxy_protocol_v2                  = false -> null
+      - slow_start                         = 0 -> null
+      - tags                               = {} -> null
+      - tags_all                           = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+      - target_type                        = "ip" -> null
+      - vpc_id                             = "vpc-065d378caafb607fc" -> null
+
+      - health_check {
+          - enabled             = true -> null
+          - healthy_threshold   = 2 -> null
+          - interval            = 30 -> null
+          - matcher             = "200" -> null
+          - path                = "/health" -> null
+          - port                = "traffic-port" -> null
+          - protocol            = "HTTP" -> null
+          - timeout             = 5 -> null
+          - unhealthy_threshold = 3 -> null
+        }
+
+      - stickiness {
+          - cookie_duration = 86400 -> null
+          - enabled         = false -> null
+          - type            = "lb_cookie" -> null
+        }
+
+      - target_failover {}
+
+      - target_group_health {
+          - dns_failover {
+              - minimum_healthy_targets_count      = "1" -> null
+              - minimum_healthy_targets_percentage = "off" -> null
+            }
+          - unhealthy_state_routing {
+              - minimum_healthy_targets_count      = 1 -> null
+              - minimum_healthy_targets_percentage = "off" -> null
+            }
+        }
+
+      - target_health_state {}
+    }
+
+  # aws_lb_target_group.curriculum_staging will be destroyed
+  # (because aws_lb_target_group.curriculum_staging is not in configuration)
+  - resource "aws_lb_target_group" "curriculum_staging" {
+      - arn                                = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-curric-tg-stg/8560cdba73da116e" -> null
+      - arn_suffix                         = "targetgroup/youspeak-curric-tg-stg/8560cdba73da116e" -> null
+      - deregistration_delay               = "300" -> null
+      - id                                 = "arn:aws:elasticloadbalancing:eu-north-1:497068062563:targetgroup/youspeak-curric-tg-stg/8560cdba73da116e" -> null
+      - ip_address_type                    = "ipv4" -> null
+      - lambda_multi_value_headers_enabled = false -> null
+      - load_balancer_arns                 = [
+          - "arn:aws:elasticloadbalancing:eu-north-1:497068062563:loadbalancer/app/youspeak-curric-int-stg/d803703f5886a674",
+        ] -> null
+      - load_balancing_algorithm_type      = "round_robin" -> null
+      - load_balancing_anomaly_mitigation  = "off" -> null
+      - load_balancing_cross_zone_enabled  = "use_load_balancer_configuration" -> null
+      - name                               = "youspeak-curric-tg-stg" -> null
+      - port                               = 8001 -> null
+      - protocol                           = "HTTP" -> null
+      - protocol_version                   = "HTTP1" -> null
+      - proxy_protocol_v2                  = false -> null
+      - slow_start                         = 0 -> null
+      - tags                               = {} -> null
+      - tags_all                           = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+      - target_type                        = "ip" -> null
+      - vpc_id                             = "vpc-065d378caafb607fc" -> null
+
+      - health_check {
+          - enabled             = true -> null
+          - healthy_threshold   = 2 -> null
+          - interval            = 30 -> null
+          - matcher             = "200" -> null
+          - path                = "/health" -> null
+          - port                = "traffic-port" -> null
+          - protocol            = "HTTP" -> null
+          - timeout             = 5 -> null
+          - unhealthy_threshold = 3 -> null
+        }
+
+      - stickiness {
+          - cookie_duration = 86400 -> null
+          - enabled         = false -> null
+          - type            = "lb_cookie" -> null
+        }
+
+      - target_failover {}
+
+      - target_group_health {
+          - dns_failover {
+              - minimum_healthy_targets_count      = "1" -> null
+              - minimum_healthy_targets_percentage = "off" -> null
+            }
+          - unhealthy_state_routing {
+              - minimum_healthy_targets_count      = 1 -> null
+              - minimum_healthy_targets_percentage = "off" -> null
+            }
+        }
+
+      - target_health_state {}
+    }
+
+  # aws_secretsmanager_secret.database_url will be created
+  + resource "aws_secretsmanager_secret" "database_url" {
+      + arn                            = (known after apply)
+      + force_overwrite_replica_secret = false
+      + id                             = (known after apply)
+      + name                           = "youspeak/database-url-staging"
+      + name_prefix                    = (known after apply)
+      + policy                         = (known after apply)
+      + recovery_window_in_days        = 30
+      + tags_all                       = {
+          + "Environment" = "staging"
+          + "ManagedBy"   = "Terraform"
+          + "Project"     = "YouSpeak"
+        }
+    }
+
+  # aws_secretsmanager_secret.redis_url will be created
+  + resource "aws_secretsmanager_secret" "redis_url" {
+      + arn                            = (known after apply)
+      + force_overwrite_replica_secret = false
+      + id                             = (known after apply)
+      + name                           = "youspeak/redis-url-staging"
+      + name_prefix                    = (known after apply)
+      + policy                         = (known after apply)
+      + recovery_window_in_days        = 30
+      + tags_all                       = {
+          + "Environment" = "staging"
+          + "ManagedBy"   = "Terraform"
+          + "Project"     = "YouSpeak"
+        }
+    }
+
+  # aws_secretsmanager_secret.secret_key will be created
+  + resource "aws_secretsmanager_secret" "secret_key" {
+      + arn                            = (known after apply)
+      + force_overwrite_replica_secret = false
+      + id                             = (known after apply)
+      + name                           = "youspeak/secret-key-staging"
+      + name_prefix                    = (known after apply)
+      + policy                         = (known after apply)
+      + recovery_window_in_days        = 30
+      + tags_all                       = {
+          + "Environment" = "staging"
+          + "ManagedBy"   = "Terraform"
+          + "Project"     = "YouSpeak"
+        }
+    }
+
+  # aws_secretsmanager_secret_version.redis_url must be replaced
+-/+ resource "aws_secretsmanager_secret_version" "redis_url" {
+      ~ arn                  = "arn:aws:secretsmanager:eu-north-1:497068062563:secret:youspeak/redis-url-staging-pz5AVa" -> (known after apply)
+      + has_secret_string_wo = (known after apply)
+      ~ id                   = "arn:aws:secretsmanager:eu-north-1:497068062563:secret:youspeak/redis-url-staging-pz5AVa|terraform-20260226201532216400000008" -> (known after apply)
+      ~ secret_id            = "arn:aws:secretsmanager:eu-north-1:497068062563:secret:youspeak/redis-url-staging-pz5AVa" # forces replacement -> (known after apply) # forces replacement
+      ~ version_id           = "terraform-20260226201532216400000008" -> (known after apply)
+      ~ version_stages       = [
+          - "AWSCURRENT",
+        ] -> (known after apply)
+        # (1 unchanged attribute hidden)
+    }
+
+  # aws_secretsmanager_secret_version.secret_key must be replaced
+-/+ resource "aws_secretsmanager_secret_version" "secret_key" {
+      ~ arn                  = "arn:aws:secretsmanager:eu-north-1:497068062563:secret:youspeak/secret-key-staging-pz5AVa" -> (known after apply)
+      + has_secret_string_wo = (known after apply)
+      ~ id                   = "arn:aws:secretsmanager:eu-north-1:497068062563:secret:youspeak/secret-key-staging-pz5AVa|terraform-20260226200507657900000004" -> (known after apply)
+      ~ secret_id            = "arn:aws:secretsmanager:eu-north-1:497068062563:secret:youspeak/secret-key-staging-pz5AVa" # forces replacement -> (known after apply) # forces replacement
+      ~ secret_string        = (sensitive value) # forces replacement
+      ~ version_id           = "terraform-20260226200507657900000004" -> (known after apply)
+      ~ version_stages       = [
+          - "AWSCURRENT",
+        ] -> (known after apply)
+    }
+
+  # aws_security_group.alb must be replaced
+-/+ resource "aws_security_group" "alb" {
+      ~ arn                    = "arn:aws:ec2:eu-north-1:497068062563:security-group/sg-037f8d15ade314d06" -> (known after apply)
+      ~ description            = "Security group for ALB" -> "Managed by Terraform" # forces replacement
+      ~ id                     = "sg-037f8d15ade314d06" -> (known after apply)
+        name                   = "youspeak-alb-sg-staging"
+      + name_prefix            = (known after apply)
+      ~ owner_id               = "497068062563" -> (known after apply)
+      - tags                   = {} -> null
+        # (5 unchanged attributes hidden)
+    }
+
+  # aws_security_group.curriculum_alb_internal will be destroyed
+  # (because aws_security_group.curriculum_alb_internal is not in configuration)
+  - resource "aws_security_group" "curriculum_alb_internal" {
+      - arn                    = "arn:aws:ec2:eu-north-1:497068062563:security-group/sg-0e57e01a3fbec7e75" -> null
+      - description            = "Internal ALB for curriculum service" -> null
+      - egress                 = [
+          - {
+              - cidr_blocks      = [
+                  - "0.0.0.0/0",
+                ]
+              - description      = ""
+              - from_port        = 0
+              - ipv6_cidr_blocks = []
+              - prefix_list_ids  = []
+              - protocol         = "-1"
+              - security_groups  = []
+              - self             = false
+              - to_port          = 0
+            },
+        ] -> null
+      - id                     = "sg-0e57e01a3fbec7e75" -> null
+      - ingress                = [
+          - {
+              - cidr_blocks      = []
+              - description      = ""
+              - from_port        = 80
+              - ipv6_cidr_blocks = []
+              - prefix_list_ids  = []
+              - protocol         = "tcp"
+              - security_groups  = [
+                  - "sg-05ae2e867e9e24ed2",
+                ]
+              - self             = false
+              - to_port          = 80
+            },
+        ] -> null
+      - name                   = "youspeak-curriculum-alb-internal-staging" -> null
+      - owner_id               = "497068062563" -> null
+      - revoke_rules_on_delete = false -> null
+      - tags                   = {} -> null
+      - tags_all               = {
+          - "Environment" = "staging"
+          - "ManagedBy"   = "Terraform"
+          - "Project"     = "YouSpeak"
+        } -> null
+      - vpc_id                 = "vpc-065d378caafb607fc" -> null
+    }
+
+  # aws_security_group.ecs must be replaced
+-/+ resource "aws_security_group" "ecs" {
+      ~ arn                    = "arn:aws:ec2:eu-north-1:497068062563:security-group/sg-05ae2e867e9e24ed2" -> (known after apply)
+      ~ description            = "Security group for ECS tasks" -> "Managed by Terraform" # forces replacement
+      ~ id                     = "sg-05ae2e867e9e24ed2" -> (known after apply)
+      ~ ingress                = [
+          - {
+              - cidr_blocks      = []
+              - description      = ""
+              - from_port        = 8000
+              - ipv6_cidr_blocks = []
+              - prefix_list_ids  = []
+              - protocol         = "tcp"
+              - security_groups  = [
+                  - "sg-037f8d15ade314d06",
+                ]
+              - self             = false
+              - to_port          = 8000
+            },
+          + {
+              + cidr_blocks      = []
+              + description      = ""
+              + from_port        = 8000
+              + ipv6_cidr_blocks = []
+              + prefix_list_ids  = []
+              + protocol         = "tcp"
+              + security_groups  = (known after apply)
+              + self             = false
+              + to_port          = 8000
+            },
+        ]
+        name                   = "youspeak-ecs-sg-staging"
+      + name_prefix            = (known after apply)
+      ~ owner_id               = "497068062563" -> (known after apply)
+      - tags                   = {} -> null
+        # (4 unchanged attributes hidden)
+    }
+
+  # aws_security_group.rds must be replaced
+-/+ resource "aws_security_group" "rds" {
+      ~ arn                    = "arn:aws:ec2:eu-north-1:497068062563:security-group/sg-00e3bf66358003108" -> (known after apply)
+      ~ description            = "Security group for RDS" -> "Managed by Terraform" # forces replacement
+      ~ egress                 = [] -> (known after apply)
+      ~ id                     = "sg-00e3bf66358003108" -> (known after apply)
+      ~ ingress                = [
+          - {
+              - cidr_blocks      = [
+                  - "54.84.98.238/32",
+                ]
+              - description      = ""
+              - from_port        = 5432
+              - ipv6_cidr_blocks = []
+              - prefix_list_ids  = []
+              - protocol         = "tcp"
+              - security_groups  = []
+              - self             = false
+              - to_port          = 5432
+            },
+          - {
+              - cidr_blocks      = []
+              - description      = ""
+              - from_port        = 5432
+              - ipv6_cidr_blocks = []
+              - prefix_list_ids  = []
+              - protocol         = "tcp"
+              - security_groups  = [
+                  - "sg-05ae2e867e9e24ed2",
+                ]
+              - self             = false
+              - to_port          = 5432
+            },
+          + {
+              + cidr_blocks      = []
+              + description      = ""
+              + from_port        = 5432
+              + ipv6_cidr_blocks = []
+              + prefix_list_ids  = []
+              + protocol         = "tcp"
+              + security_groups  = (known after apply)
+              + self             = false
+              + to_port          = 5432
+            },
+        ]
+        name                   = "youspeak-rds-sg-staging"
+      + name_prefix            = (known after apply)
+      ~ owner_id               = "497068062563" -> (known after apply)
+      - tags                   = {} -> null
+        # (3 unchanged attributes hidden)
+    }
+
+  # aws_security_group.redis must be replaced
+-/+ resource "aws_security_group" "redis" {
+      ~ arn                    = "arn:aws:ec2:eu-north-1:497068062563:security-group/sg-072a9bbc6804e55ef" -> (known after apply)
+      ~ description            = "Security group for Redis" -> "Managed by Terraform" # forces replacement
+      ~ egress                 = [] -> (known after apply)
+      ~ id                     = "sg-072a9bbc6804e55ef" -> (known after apply)
+      ~ ingress                = [
+          - {
+              - cidr_blocks      = [
+                  - "54.84.98.238/32",
+                ]
+              - description      = ""
+              - from_port        = 6379
+              - ipv6_cidr_blocks = []
+              - prefix_list_ids  = []
+              - protocol         = "tcp"
+              - security_groups  = []
+              - self             = false
+              - to_port          = 6379
+            },
+          - {
+              - cidr_blocks      = []
+              - description      = ""
+              - from_port        = 6379
+              - ipv6_cidr_blocks = []
+              - prefix_list_ids  = []
+              - protocol         = "tcp"
+              - security_groups  = [
+                  - "sg-05ae2e867e9e24ed2",
+                ]
+              - self             = false
+              - to_port          = 6379
+            },
+          + {
+              + cidr_blocks      = []
+              + description      = ""
+              + from_port        = 6379
+              + ipv6_cidr_blocks = []
+              + prefix_list_ids  = []
+              + protocol         = "tcp"
+              + security_groups  = (known after apply)
+              + self             = false
+              + to_port          = 6379
+            },
+        ]
+        name                   = "youspeak-redis-sg-staging"
+      + name_prefix            = (known after apply)
+      ~ owner_id               = "497068062563" -> (known after apply)
+      - tags                   = {} -> null
+        # (3 unchanged attributes hidden)
+    }
+
+Plan: 13 to add, 9 to change, 26 to destroy.
+
+Changes to Outputs:
+  - alb_staging_dns_name                     = "youspeak-alb-staging-1068882573.eu-north-1.elb.amazonaws.com" -> null
+  - curriculum_service_url_production        = "http://internal-youspeak-curric-int-prod-1033278820.eu-north-1.elb.amazonaws.com" -> null
+  - curriculum_service_url_staging           = "http://internal-youspeak-curric-int-stg-114708815.eu-north-1.elb.amazonaws.com" -> null
+  - ecr_curriculum_repository_url            = "497068062563.dkr.ecr.us-east-1.amazonaws.com/youspeak-curriculum-backend" -> null
+  - ecs_cluster_name                         = "youspeak-cluster" -> null
+  - ecs_execution_role_arn                   = "arn:aws:iam::497068062563:role/youspeak-ecs-execution-role-staging" -> null
+  - ecs_security_group_id                    = "sg-05ae2e867e9e24ed2" -> null
+  - ecs_task_role_arn                        = "arn:aws:iam::497068062563:role/youspeak-ecs-task-role-staging" -> null
+  - private_subnet_ids                       = "subnet-0192181fd77dce1fd,subnet-0e1fd3fa1e5e591d3" -> null
+  - redis_endpoint                           = (sensitive value) -> null
+  - secret_cloudflare_account_id_arn         = "arn:aws:secretsmanager:us-east-1:497068062563:secret:youspeak/cloudflare-account-id-staging-gsmmGU" -> null
+  - secret_cloudflare_api_token_arn          = "arn:aws:secretsmanager:us-east-1:497068062563:secret:youspeak/cloudflare-api-token-staging-xOjwx3" -> null
+  - secret_cloudflare_realtimekit_app_id_arn = "arn:aws:secretsmanager:us-east-1:497068062563:secret:youspeak/cloudflare-realtimekit-app-id-staging-JOgL44" -> null
+  - secret_database_url_arn                  = "arn:aws:secretsmanager:eu-north-1:497068062563:secret:youspeak/database-url-staging-ez8no8" -> null
+  - secret_r2_access_key_id_arn              = (sensitive value) -> null
+  - secret_r2_account_id_arn                 = (sensitive value) -> null
+  - secret_r2_bucket_name_arn                = (sensitive value) -> null
+  - secret_r2_secret_access_key_arn          = (sensitive value) -> null
+  - secret_redis_url_arn                     = "arn:aws:secretsmanager:eu-north-1:497068062563:secret:youspeak/redis-url-staging-pz5AVa" -> null
+  - secret_resend_api_key_arn                = (sensitive value) -> null
+  - secret_secret_key_arn                    = "arn:aws:secretsmanager:eu-north-1:497068062563:secret:youspeak/secret-key-staging-pz5AVa" -> null
+  - storage_public_base_url                  = "https://pub-2dc65d0e715b43b5ab0985e9c0eb514c.r2.dev" -> null

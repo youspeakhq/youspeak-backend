@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(terraform show:*)",
+      "Bash(terraform workspace:*)",
+      "Bash(aws secretsmanager list-secrets:*)",
+      "Bash(aws ecs list-services:*)",
+      "Bash(aws ecs describe-services:*)",
+      "Bash(aws ecs describe-task-definition:*)",
+      "Bash(aws ecs list-task-definitions:*)",
+      "Bash(aws ecs register-task-definition:*)",
+      "Bash(aws ecs update-service:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(aws iam get-role-policy:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

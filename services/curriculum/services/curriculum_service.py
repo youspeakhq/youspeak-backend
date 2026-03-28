@@ -303,14 +303,21 @@ class CurriculumService:
                     "content": (
                         "You are a curriculum synchronization expert. Your goal is to merge a Teacher's "
                         "curriculum with a Master Library curriculum. Identify overlaps and redundant topics. "
-                        "Propose actions for each topic: 'blend' (combine both), 'replace' (use Library version), "
+                        "\n\nPropose actions for each topic: 'blend' (combine both), 'replace' (use Library version), "
                         "'add' (keep unique topic), or 'keep' (no change needed). "
-                        "Return a unified sequence of TopicProposal objects."
+                        "\n\nCRITICAL: You MUST provide a 'source' field (teacher, library, or both) and a full 'topic' object "
+                        "for EVERY proposal. The 'topic' field MUST be a complete JSON object matching TopicCreate, "
+                        "including title, content, duration_hours, and learning_objectives list. "
+                        "DO NOT just provide the title string for the topic."
                     ),
                 },
                 {
                     "role": "user",
-                    "content": f"Teacher topics: {teacher_context}\n\nLibrary sessions: {library_context}",
+                    "content": (
+                        f"Please generate a unified merge proposal based on:\n\n"
+                        f"Teacher topics: {json.dumps(teacher_context, indent=2)}\n\n"
+                        f"Library sessions: {json.dumps(library_context, indent=2)}"
+                    ),
                 },
             ],
         )
