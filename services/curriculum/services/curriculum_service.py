@@ -1,5 +1,6 @@
 """Curriculum business logic (CRUD + AI extraction/merge)."""
 
+import json
 import os
 from typing import List, Optional
 from uuid import UUID
@@ -305,18 +306,51 @@ class CurriculumService:
                         "curriculum with a Master Library curriculum. Identify overlaps and redundant topics. "
                         "\n\nPropose actions for each topic: 'blend' (combine both), 'replace' (use Library version), "
                         "'add' (keep unique topic), or 'keep' (no change needed). "
-                        "\n\nCRITICAL: You MUST provide a 'source' field (teacher, library, or both) and a full 'topic' object "
-                        "for EVERY proposal. The 'topic' field MUST be a complete JSON object matching TopicCreate, "
-                        "including title, content, duration_hours, and learning_objectives list. "
-                        "DO NOT just provide the title string for the topic."
+                        "\n\n**CRITICAL OUTPUT FORMAT REQUIREMENTS:**"
+                        "\n\nYou MUST return a JSON array where each item has this EXACT structure:"
+                        "\n```json"
+                        "\n{"
+                        '\n  "action": "keep",  // Must be one of: keep, blend, replace, add'
+                        '\n  "source": "teacher",  // Must be one of: teacher, library, both'
+                        '\n  "topic": {'
+                        '\n    "title": "Negotiating a Business Deal",'
+                        '\n    "content": "Detailed description of the topic...",'
+                        '\n    "duration_hours": 2.0,'
+                        '\n    "learning_objectives": ["Objective 1", "Objective 2"],'
+                        '\n    "order_index": 0'
+                        "\n  }"
+                        "\n}"
+                        "\n```"
+                        "\n\n**DO NOT:**"
+                        "\n- Return just the title as a string"
+                        "\n- Return a TopicCreate object directly without the action and source wrapper"
+                        "\n- Omit any of the three required fields: action, source, topic"
+                        "\n\n**The 'topic' field MUST be a complete nested JSON object** with all these fields:"
+                        "\n- title (string, required)"
+                        "\n- content (string, can be null or detailed description)"
+                        "\n- duration_hours (number, can be null)"
+                        "\n- learning_objectives (array of strings, required)"
+                        "\n- order_index (integer, use sequential numbers starting from 0)"
                     ),
                 },
                 {
                     "role": "user",
                     "content": (
-                        f"Please generate a unified merge proposal based on:\n\n"
-                        f"Teacher topics: {json.dumps(teacher_context, indent=2)}\n\n"
-                        f"Library sessions: {json.dumps(library_context, indent=2)}"
+                        f"Generate a unified merge proposal for these curricula:\n\n"
+                        f"**Teacher's Topics:**\n{json.dumps(teacher_context, indent=2)}\n\n"
+                        f"**Library Topics:**\n{json.dumps(library_context, indent=2)}\n\n"
+                        "**Remember:** Return a JSON array where EACH element has this structure:\n"
+                        "{\n"
+                        '  "action": "keep|blend|replace|add",\n'
+                        '  "source": "teacher|library|both",\n'
+                        '  "topic": {\n'
+                        '    "title": "Topic Title",\n'
+                        '    "content": "Detailed content or null",\n'
+                        '    "duration_hours": 2.0,\n'
+                        '    "learning_objectives": ["Objective 1", "Objective 2"],\n'
+                        '    "order_index": 0\n'
+                        "  }\n"
+                        "}"
                     ),
                 },
             ],
