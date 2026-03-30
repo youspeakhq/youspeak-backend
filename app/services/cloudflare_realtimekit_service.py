@@ -84,9 +84,9 @@ class CloudflareRealtimeKitService:
                     timeout=10.0
                 )
 
-                if response.status_code == 200:
+                if response.status_code in (200, 201):
                     result = response.json()
-                    meeting_data = result.get("result", {})
+                    meeting_data = result.get("data") or result.get("result") or {}
                     logger.info(f"Meeting created for arena {arena_id}", extra={
                         "meeting_id": meeting_data.get("id"),
                         "arena_id": str(arena_id)
@@ -149,9 +149,9 @@ class CloudflareRealtimeKitService:
                     timeout=10.0
                 )
 
-                if response.status_code == 200:
+                if response.status_code in (200, 201):
                     result = response.json()
-                    participant_data = result.get("result", {})
+                    participant_data = result.get("data") or result.get("result") or {}
                     logger.info(f"Participant added to meeting", extra={
                         "meeting_id": meeting_id,
                         "user_id": str(user_id),
@@ -295,9 +295,9 @@ class CloudflareRealtimeKitService:
                     timeout=10.0
                 )
 
-                if response.status_code == 200:
+                if response.status_code in (200, 201):
                     result = response.json()
-                    return result.get("result", [])
+                    return result.get("data") or result.get("result") or []
                 else:
                     logger.error(f"Failed to get participants: {response.status_code}")
                     return None
