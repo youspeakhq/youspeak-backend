@@ -20,6 +20,9 @@ from app.models.academic import Class, teacher_assignments, class_enrollments
 from app.models.user import User
 from app.models.enums import ArenaStatus, UserRole
 from app.schemas.communication import ArenaCreate, ArenaUpdate, ArenaSessionConfig
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 # QR code generation (install: pip install qrcode[pil])
 try:
@@ -519,7 +522,7 @@ class ArenaService:
         entry.admitted_at = datetime.utcnow()
         entry.admitted_by = teacher_id
 
-        # Phase 4: Create arena_participants entry (graceful fallback if table doesn't exist)
+        # Create arena_participants entry for admitted student
         try:
             await ArenaService.create_arena_participant(
                 db=db,
@@ -527,10 +530,15 @@ class ArenaService:
                 student_id=entry.student_id,
                 role='participant'
             )
-        except Exception:
-            # Gracefully handle if migration 005 hasn't run yet
-            # This allows tests to pass before Phase 4 tables are created
-            pass
+        except Exception as e:
+            logger.error(
+                "failed_to_create_arena_participant_on_admit",
+                extra={
+                    "arena_id": str(arena_id),
+                    "student_id": str(entry.student_id),
+                    "error": str(e),
+                }
+            )
 
         await db.commit()
         await db.refresh(entry)
@@ -707,7 +715,15 @@ class ArenaService:
             await db.commit()
             await db.refresh(participant)
             return participant
-        except Exception:
+        except Exception as e:
+            logger.error(
+                "failed_to_commit_arena_participant",
+                extra={
+                    "arena_id": str(arena_id),
+                    "student_id": str(student_id),
+                    "error": str(e),
+                }
+            )
             await db.rollback()
             return None
 
