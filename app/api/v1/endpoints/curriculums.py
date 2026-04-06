@@ -150,10 +150,13 @@ async def generate_curriculum(
     current_user: User = Depends(deps.require_admin),
 ) -> Any:
     client = _get_curriculum_client(request)
+    # AI generation can take up to 60s per attempt with retries; use a longer
+    # timeout than the default 30s proxy timeout to avoid premature 504s.
     r = await client.post(
         "/curriculums/generate",
         json=generate_in.model_dump(mode="json"),
         headers={**_headers(current_user.school_id), "Content-Type": "application/json"},
+        timeout=90.0,
     )
     if r.status_code >= 400:
         return _proxy_error_response(r)

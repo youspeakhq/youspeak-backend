@@ -3,7 +3,7 @@
 from typing import Optional, List, Literal
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from models.enums import CurriculumSourceType, CurriculumStatus
 
@@ -25,11 +25,39 @@ class CurriculumCreate(BaseModel):
 
 
 class TopicCreate(BaseModel):
+    """Schema for AI-generated topic data.
+
+    Uses extra='ignore' so that common LLM response quirks (extra fields,
+    stringified numbers, range values) don't break validation.
+    """
     title: str
     content: Optional[str] = None
     duration_hours: Optional[float] = None
     learning_objectives: List[str] = []
     order_index: int = 0
+
+    model_config = ConfigDict(extra="ignore")
+
+    @field_validator("duration_hours", mode="before")
+    @classmethod
+    def coerce_duration(cls, v: object) -> Optional[float]:
+        """Handle AI returning duration as string, range, or other formats."""
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
+        if isinstance(v, str):
+            v = v.strip()
+            # Range like "0.5-2" or "1–2" → take the first number
+            for sep in ("-", "–", "—", "to"):
+                if sep in v:
+                    v = v.split(sep)[0].strip()
+                    break
+            try:
+                return float(v)
+            except ValueError:
+                return None
+        return None
 
 
 class TopicUpdate(BaseModel):

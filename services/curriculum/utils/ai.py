@@ -258,11 +258,31 @@ def _extract_json(text: str) -> str:
     return text
 
 
+def _unwrap_array(raw: Any) -> Any:
+    """Unwrap common AI object wrappers when we expect an array.
+
+    LLMs often return ``{"topics": [...]}`` or ``{"data": [...]}`` instead of
+    a bare JSON array.  This helper detects that pattern and extracts the inner
+    list so downstream validation succeeds.
+    """
+    if isinstance(raw, dict) and not isinstance(raw, list):
+        # Single-key dict whose value is a list → unwrap
+        values = list(raw.values())
+        if len(values) == 1 and isinstance(values[0], list):
+            return values[0]
+        # Known wrapper keys
+        for key in ("topics", "data", "results", "items", "curriculum"):
+            if key in raw and isinstance(raw[key], list):
+                return raw[key]
+    return raw
+
+
 def _parse_and_validate(raw: Any, response_model: type) -> Any:
     """Parse raw JSON and validate into response_model (single model or List[Model])."""
     origin = get_origin(response_model)
     if origin is list:
         (item_type,) = get_args(response_model)
+        raw = _unwrap_array(raw)
         if not isinstance(raw, list):
             raw = [raw] if raw is not None else []
         return [item_type.model_validate(x) for x in raw]
@@ -449,12 +469,11 @@ async def structured_completion(
     # Check for empty response
     if not text or not text.strip():
         logger.error(
-            "Bedrock returned empty response after JSON extraction",
-            extra={
-                "correlation_id": correlation_id,
-                "request_id": metadata.get("request_id", "unknown"),
-                "raw_text_length": len(text),
-            }
+            "Bedrock returned empty response after JSON extraction | "
+            "correlation_id=%s | request_id=%s | raw_text_length=%d",
+            correlation_id,
+            metadata.get("request_id", "unknown"),
+            len(text),
         )
         raise HTTPException(
             status_code=503,
@@ -470,13 +489,12 @@ async def structured_completion(
         raw = json.loads(text)
     except json.JSONDecodeError as e:
         logger.error(
-            "Bedrock returned invalid JSON",
-            extra={
-                "correlation_id": correlation_id,
-                "request_id": metadata.get("request_id", "unknown"),
-                "error_position": e.pos,
-                "text_preview": text[:500],
-            }
+            "Bedrock returned invalid JSON | correlation_id=%s | request_id=%s | "
+            "error_position=%s | text_preview=%s",
+            correlation_id,
+            metadata.get("request_id", "unknown"),
+            e.pos,
+            text[:500],
         )
         raise HTTPException(
             status_code=503,
@@ -492,14 +510,14 @@ async def structured_completion(
     try:
         return _parse_and_validate(raw, response_model)
     except Exception as e:
+        raw_preview = str(raw)[:500]
         logger.error(
-            "Pydantic validation failed on AI response",
-            extra={
-                "correlation_id": correlation_id,
-                "request_id": metadata.get("request_id", "unknown"),
-                "validation_error": str(e),
-                "raw_data_preview": str(raw)[:500],
-            }
+            "Pydantic validation failed on AI response | "
+            "correlation_id=%s | request_id=%s | error=%s | raw_preview=%s",
+            correlation_id,
+            metadata.get("request_id", "unknown"),
+            str(e),
+            raw_preview,
         )
         raise HTTPException(
             status_code=503,
