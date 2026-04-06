@@ -7,6 +7,7 @@ from typing import Any, Optional
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from datetime import datetime
@@ -1137,10 +1138,15 @@ async def get_arena_session_state(
     """
     Get current arena session state.
 
-    Returns: session_state, active participants, current speaker, etc.
+    Returns: session_state, active participants, audience (admitted students),
+    and pending waiting room entries.
 
-    Used by: Client polling for session updates (if WebSocket disconnected)
+    Used by: Client polling for session updates (LiveMonitoringPage)
     """
+    from app.models.arena import ArenaParticipant, ArenaWaitingRoom
+    from app.models.user import User as UserModel
+    from app.schemas.communication import AudienceMember
+
     arena = await ArenaService.get_arena(db, arena_id, current_user.id)
 
     if not arena:
@@ -1148,6 +1154,44 @@ async def get_arena_session_state(
 
     # Get connected users count (local to this server)
     connected_users = connection_manager.get_connected_users(arena_id)
+
+    # Fetch admitted students (audience) from ArenaParticipant table
+    participant_rows = (await db.execute(
+        select(ArenaParticipant, UserModel)
+        .join(UserModel, UserModel.id == ArenaParticipant.student_id)
+        .where(ArenaParticipant.arena_id == arena_id)
+    )).all()
+
+    audience = [
+        AudienceMember(
+            id=ap.id,
+            student_id=ap.student_id,
+            name=f"{u.first_name} {u.last_name}",
+            role=ap.role or "audience",
+        )
+        for ap, u in participant_rows
+    ]
+
+    # Fetch pending waiting room entries
+    waiting_rows = (await db.execute(
+        select(ArenaWaitingRoom, UserModel)
+        .join(UserModel, UserModel.id == ArenaWaitingRoom.student_id)
+        .where(
+            ArenaWaitingRoom.arena_id == arena_id,
+            ArenaWaitingRoom.status == "pending",
+        )
+    )).all()
+
+    waiting_room = [
+        {
+            "entry_id": str(wr.id),
+            "student_id": str(wr.student_id),
+            "student_name": f"{u.first_name} {u.last_name}",
+            "email": u.email,
+            "status": wr.status,
+        }
+        for wr, u in waiting_rows
+    ]
 
     return SuccessResponse(
         data=ArenaSessionStateResponse(
@@ -1160,6 +1204,9 @@ async def get_arena_session_state(
                 {"user_id": str(uid), "connected": True}
                 for uid in connected_users
             ],
+            audience=audience,
+            audience_count=len(audience),
+            waiting_room=waiting_room,
         ),
         message="Session state retrieved successfully"
     )

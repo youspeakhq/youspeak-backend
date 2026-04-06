@@ -215,6 +215,15 @@ class WaitingRoomRejectRequest(BaseModel):
 # --- Phase 3: WebSocket & Live Sessions ---
 
 
+class AudienceMember(BaseModel):
+    """An admitted student visible in the audience list."""
+    id: UUID               # ArenaParticipant.id (or student_id)
+    student_id: UUID
+    name: str
+    role: str = "audience"
+    realtime_participant_id: Optional[str] = None  # RealtimeKit participant ID for audio mapping
+
+
 class ArenaSessionStateResponse(BaseModel):
     """Response for GET /arenas/{id}/session - Current session state"""
     arena_id: UUID
@@ -223,6 +232,9 @@ class ArenaSessionStateResponse(BaseModel):
     duration_minutes: Optional[int] = None
     active_speaker_id: Optional[UUID] = None
     participants: List[Dict] = []  # List of participant info
+    audience: List[AudienceMember] = []  # Admitted students
+    audience_count: int = 0
+    waiting_room: List[Dict] = []  # Pending admission entries
 
 
 class ArenaSessionStartRequest(BaseModel):
