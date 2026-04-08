@@ -147,7 +147,7 @@ async def upload_curriculum(
 async def generate_curriculum(
     request: Request,
     generate_in: CurriculumGenerateRequest,
-    current_user: User = Depends(deps.require_admin),
+    current_user: User = Depends(deps.require_teacher_or_admin),
 ) -> Any:
     client = _get_curriculum_client(request)
     # AI generation can take up to 60s per attempt with retries; use a longer
