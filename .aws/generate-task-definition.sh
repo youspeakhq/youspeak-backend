@@ -35,6 +35,11 @@ SECRET_R2_ACCOUNT_ARN=$(terraform -chdir=terraform output -raw secret_r2_account
 SECRET_R2_ACCESS_KEY_ARN=$(terraform -chdir=terraform output -raw secret_r2_access_key_id_arn 2>/dev/null || true)
 SECRET_R2_SECRET_ARN=$(terraform -chdir=terraform output -raw secret_r2_secret_access_key_arn 2>/dev/null || true)
 SECRET_R2_BUCKET_ARN=$(terraform -chdir=terraform output -raw secret_r2_bucket_name_arn 2>/dev/null || true)
+SECRET_CLOUDFLARE_REALTIMEKIT_APP_ID_ARN=$(terraform -chdir=terraform output -raw secret_cloudflare_realtimekit_app_id_arn 2>/dev/null || true)
+SECRET_CLOUDFLARE_API_TOKEN_ARN=$(terraform -chdir=terraform output -raw secret_cloudflare_api_token_arn 2>/dev/null || true)
+SECRET_CLOUDFLARE_ACCOUNT_ID_ARN=$(terraform -chdir=terraform output -raw secret_cloudflare_account_id_arn 2>/dev/null || true)
+SECRET_AZURE_SPEECH_KEY_ARN=$(terraform -chdir=terraform output -raw secret_azure_speech_key_arn 2>/dev/null || true)
+SECRET_AZURE_SPEECH_REGION_ARN=$(terraform -chdir=terraform output -raw secret_azure_speech_region_arn 2>/dev/null || true)
 STORAGE_PUBLIC_BASE_URL=$(terraform -chdir=terraform output -raw storage_public_base_url 2>/dev/null || echo "")
 CURRICULUM_SERVICE_URL=$(terraform -chdir=terraform output -raw curriculum_service_url_production 2>/dev/null || echo "")
 
@@ -130,7 +135,27 @@ cat > .aws/task-definition.json <<EOF
         {
           "name": "SECRET_KEY",
           "valueFrom": "${SECRET_KEY_ARN}"
-        }${RESEND_SECRET_JSON}${R2_SECRET_JSON}
+        }${RESEND_SECRET_JSON}${R2_SECRET_JSON},
+        {
+          "name": "CLOUDFLARE_REALTIMEKIT_APP_ID",
+          "valueFrom": "${SECRET_CLOUDFLARE_REALTIMEKIT_APP_ID_ARN}"
+        },
+        {
+          "name": "CLOUDFLARE_API_TOKEN",
+          "valueFrom": "${SECRET_CLOUDFLARE_API_TOKEN_ARN}"
+        },
+        {
+          "name": "CLOUDFLARE_ACCOUNT_ID",
+          "valueFrom": "${SECRET_CLOUDFLARE_ACCOUNT_ID_ARN}"
+        },
+        {
+          "name": "AZURE_SPEECH_KEY",
+          "valueFrom": "${SECRET_AZURE_SPEECH_KEY_ARN}"
+        },
+        {
+          "name": "AZURE_SPEECH_REGION",
+          "valueFrom": "${SECRET_AZURE_SPEECH_REGION_ARN}"
+        }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

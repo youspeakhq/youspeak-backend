@@ -169,6 +169,8 @@ class ArenaParticipant(BaseModel):
     speaking_start_time = Column(DateTime, nullable=True)
     total_speaking_duration_seconds = Column(Integer, default=0, nullable=False)
     engagement_score = Column(Numeric(5, 2), default=0.00, nullable=False)  # 0.00 to 100.00
+    ai_pronunciation_score = Column(Numeric(5, 2), nullable=True)  # 0.00 to 100.00 from Azure Speech
+    ai_fluency_score = Column(Numeric(5, 2), nullable=True)  # 0.00 to 100.00 from Azure Speech
     last_activity = Column(DateTime, nullable=False)
 
     # Relationships

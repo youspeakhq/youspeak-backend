@@ -282,7 +282,8 @@ class WSServerEvent(BaseModel):
         "reaction_broadcast",
         "participant_joined",
         "participant_left",
-        "session_ended"
+        "session_ended",
+        "ai_analysis",
     ]
     timestamp: datetime
     data: Dict  # Event-specific payload

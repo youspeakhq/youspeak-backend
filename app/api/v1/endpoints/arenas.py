@@ -74,6 +74,7 @@ from app.schemas.communication import (
 )
 from app.schemas.responses import SuccessResponse, PaginatedResponse, PaginationMeta
 from app.services.arena_service import ArenaService
+from app.services.audio_analysis_service import audio_analysis_service
 from app.services.cloudflare_realtimekit_service import realtimekit_service
 from app.websocket.arena_connection_manager import connection_manager
 from app.core.logging import get_logger
@@ -901,13 +902,71 @@ async def arena_live_session(
 
         log.info("websocket_initial_state_sent")
 
-        # Message counter for rate limiting
+        # Set up audio analysis broadcast callback
+        async def _broadcast_analysis(aid: UUID, data: dict):
+            await connection_manager.broadcast(aid, data)
+
+        audio_analysis_service.set_broadcast_callback(_broadcast_analysis)
+
+        # Initialize audio analysis session if participant (not audience)
+        # Resolve arena language: arena -> class -> language -> code
+        _analysis_session_started = False
+        if not is_teacher:
+            try:
+                from app.models.academic import Class
+                from app.models.onboarding import Language
+                class_result = await db.execute(
+                    select(Language.code).join(Class, Class.language_id == Language.id).where(Class.id == arena.class_id)
+                )
+                lang_code = class_result.scalar_one_or_none() or "en"
+                student_name = f"{user.first_name or ''} {user.last_name or ''}".strip() or "Student"
+                _analysis_session_started = await audio_analysis_service.start_session(
+                    arena_id, user_id, lang_code, student_name
+                )
+                if _analysis_session_started:
+                    log.info("audio_analysis_session_initialized", extra={"lang": lang_code})
+            except Exception as e:
+                log.warning("audio_analysis_init_failed", extra={"error": str(e)})
+
+        # Message counter for rate limiting (text messages only)
         message_count = 0
         message_window_start = datetime.utcnow()
 
-        # Listen for client events
+        # Byte rate limiting for audio: 512KB per second
+        audio_bytes_count = 0
+        audio_window_start = datetime.utcnow()
+        AUDIO_BYTE_RATE_LIMIT = 512 * 1024  # 512KB/s
+
+        # Listen for client events (text and binary frames)
         while True:
-            data = await websocket.receive_text()
+            ws_message = await websocket.receive()
+
+            # Handle binary frames (audio chunks)
+            if "bytes" in ws_message and ws_message["bytes"] is not None:
+                audio_data = ws_message["bytes"]
+
+                # Audio byte rate limiting
+                now = datetime.utcnow()
+                elapsed = (now - audio_window_start).total_seconds()
+                if elapsed >= 1.0:
+                    audio_bytes_count = len(audio_data)
+                    audio_window_start = now
+                else:
+                    audio_bytes_count += len(audio_data)
+                    if audio_bytes_count > AUDIO_BYTE_RATE_LIMIT:
+                        log.warning("audio_byte_rate_limit_exceeded")
+                        continue  # Drop chunk, don't disconnect
+
+                # Feed to analysis service
+                if _analysis_session_started:
+                    await audio_analysis_service.process_audio_chunk(arena_id, user_id, audio_data)
+                continue
+
+            # Handle text frames (JSON events)
+            if "text" not in ws_message or ws_message["text"] is None:
+                continue
+
+            data = ws_message["text"]
 
             # Rate limiting: 30 messages per minute per user
             message_count += 1
@@ -985,6 +1044,34 @@ async def arena_live_session(
     except Exception as e:
         log.error("websocket_error")
     finally:
+        # Clean up audio analysis session and persist final scores
+        if _analysis_session_started:
+            final_result = await audio_analysis_service.close_session(arena_id, user_id)
+            if final_result and (final_result.accuracy_score > 0 or final_result.fluency_score > 0):
+                log.info(
+                    "audio_analysis_final_scores",
+                    extra={
+                        "accuracy": final_result.accuracy_score,
+                        "fluency": final_result.fluency_score,
+                    },
+                )
+                # Persist scores to DB
+                try:
+                    from app.models.arena import ArenaParticipant
+                    result = await db.execute(
+                        select(ArenaParticipant).where(
+                            ArenaParticipant.arena_id == arena_id,
+                            ArenaParticipant.student_id == user_id,
+                        )
+                    )
+                    participant = result.scalar_one_or_none()
+                    if participant:
+                        participant.ai_pronunciation_score = round(final_result.pronunciation_score, 2)
+                        participant.ai_fluency_score = round(final_result.fluency_score, 2)
+                        await db.commit()
+                        log.info("audio_analysis_scores_persisted")
+                except Exception as e:
+                    log.warning("audio_analysis_score_persist_failed", extra={"error": str(e)})
         await connection_manager.disconnect(arena_id, user_id, websocket)
         log.info("websocket_connection_closed")
 
@@ -1114,6 +1201,10 @@ async def end_arena_session(
 
     log.info("arena_session_end_broadcasted")
 
+    # Close all audio analysis sessions for this arena
+    await audio_analysis_service.close_all_sessions(arena_id)
+    log.info("audio_analysis_sessions_closed")
+
     # TODO: Gracefully close all WebSocket connections for this arena
 
     return SuccessResponse(
@@ -1242,6 +1333,16 @@ async def get_arena_scores(
     # Build score cards
     score_cards = []
     for participant, user, reactions_count in participants_data:
+        # Get AI scores: prefer live analysis, fall back to persisted DB values
+        live_analysis = audio_analysis_service.get_latest_analysis(arena_id, participant.student_id)
+        ai_pron = live_analysis.pronunciation_score if live_analysis else None
+        ai_flu = live_analysis.fluency_score if live_analysis else None
+        # Fall back to DB if no live session
+        if ai_pron is None and participant.ai_pronunciation_score is not None:
+            ai_pron = float(participant.ai_pronunciation_score)
+        if ai_flu is None and participant.ai_fluency_score is not None:
+            ai_flu = float(participant.ai_fluency_score)
+
         score_cards.append(
             ParticipantScoreCard(
                 participant_id=participant.id,
@@ -1251,8 +1352,8 @@ async def get_arena_scores(
                 total_speaking_duration_seconds=participant.total_speaking_duration_seconds,
                 engagement_score=float(participant.engagement_score),
                 reactions_received=reactions_count,
-                ai_pronunciation_score=None,  # TODO: AI scoring
-                ai_fluency_score=None,  # TODO: AI scoring
+                ai_pronunciation_score=ai_pron,
+                ai_fluency_score=ai_flu,
                 teacher_rating=None,  # TODO: Fetch teacher rating
             )
         )

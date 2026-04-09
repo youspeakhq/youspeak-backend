@@ -132,6 +132,25 @@ variable "cloudflare_api_token" {
   default     = ""
 }
 
+variable "cloudflare_account_id" {
+  description = "Cloudflare Account ID for RealtimeKit"
+  type        = string
+  default     = ""
+}
+
+variable "azure_speech_key" {
+  description = "Azure Speech Services subscription key for pronunciation assessment"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "azure_speech_region" {
+  description = "Azure Speech Services region"
+  type        = string
+  default     = "eastus"
+}
+
 variable "domain_name" {
   description = "Root domain for API"
   type        = string
@@ -497,6 +516,56 @@ resource "aws_secretsmanager_secret_version" "secret_key" {
   secret_string = var.secret_key
 }
 
+resource "aws_secretsmanager_secret" "cloudflare_realtimekit_app_id" {
+  name = "${var.app_name}/cloudflare-realtimekit-app-id-${var.environment}"
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_secretsmanager_secret_version" "cloudflare_realtimekit_app_id" {
+  secret_id     = aws_secretsmanager_secret.cloudflare_realtimekit_app_id.id
+  secret_string = var.cloudflare_realtimekit_app_id
+}
+
+resource "aws_secretsmanager_secret" "cloudflare_api_token" {
+  name = "${var.app_name}/cloudflare-api-token-${var.environment}"
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_secretsmanager_secret_version" "cloudflare_api_token" {
+  secret_id     = aws_secretsmanager_secret.cloudflare_api_token.id
+  secret_string = var.cloudflare_api_token
+}
+
+resource "aws_secretsmanager_secret" "cloudflare_account_id" {
+  name = "${var.app_name}/cloudflare-account-id-${var.environment}"
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_secretsmanager_secret_version" "cloudflare_account_id" {
+  secret_id     = aws_secretsmanager_secret.cloudflare_account_id.id
+  secret_string = var.cloudflare_account_id
+}
+
+resource "aws_secretsmanager_secret" "azure_speech_key" {
+  name = "${var.app_name}/azure-speech-key-${var.environment}"
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_secretsmanager_secret_version" "azure_speech_key" {
+  secret_id     = aws_secretsmanager_secret.azure_speech_key.id
+  secret_string = var.azure_speech_key
+}
+
+resource "aws_secretsmanager_secret" "azure_speech_region" {
+  name = "${var.app_name}/azure-speech-region-${var.environment}"
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_secretsmanager_secret_version" "azure_speech_region" {
+  secret_id     = aws_secretsmanager_secret.azure_speech_region.id
+  secret_string = var.azure_speech_region
+}
+
 # ECS Cluster
 resource "aws_ecs_cluster" "main" {
   name = "${var.app_name}-cluster"
@@ -528,5 +597,30 @@ output "alb_dns_name" { value = aws_lb.main.dns_name }
 output "ecr_repository_url" { value = aws_ecr_repository.app.repository_url }
 output "database_endpoint" {
   value     = aws_db_instance.postgres.endpoint
+  sensitive = true
+}
+
+output "secret_cloudflare_realtimekit_app_id_arn" {
+  value = aws_secretsmanager_secret.cloudflare_realtimekit_app_id.arn
+  sensitive = true
+}
+
+output "secret_cloudflare_api_token_arn" {
+  value = aws_secretsmanager_secret.cloudflare_api_token.arn
+  sensitive = true
+}
+
+output "secret_cloudflare_account_id_arn" {
+  value = aws_secretsmanager_secret.cloudflare_account_id.arn
+  sensitive = true
+}
+
+output "secret_azure_speech_key_arn" {
+  value = aws_secretsmanager_secret.azure_speech_key.arn
+  sensitive = true
+}
+
+output "secret_azure_speech_region_arn" {
+  value = aws_secretsmanager_secret.azure_speech_region.arn
   sensitive = true
 }

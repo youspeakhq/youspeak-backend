@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     AWS_REGION: str = "us-east-1"
     BEDROCK_MODEL_ID: str = "amazon.nova-lite-v1:0"
 
+    # Azure Speech (Pronunciation Assessment)
+    AZURE_SPEECH_KEY: str = ""
+    AZURE_SPEECH_REGION: str = "eastus"
+
     # Email (Resend)
     RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "YouSpeak <onboarding@resend.dev>"
