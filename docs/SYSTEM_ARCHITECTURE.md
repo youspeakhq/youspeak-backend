@@ -16,7 +16,7 @@ Updated as decisions are made.
 | **Container Registry** | AWS ECR | Native ECS integration |
 | **Secrets** | AWS Secrets Manager | Injected into ECS task definitions at runtime |
 | **IaC** | Terraform | Reproducible infrastructure, version-controlled |
-| **CI/CD** | GitHub Actions | Build, test, deploy on push to main |
+| **CI/CD** | GitHub Actions | Build, test, deploy on push to main. Testmon for incremental testing, Docker Buildx bake for parallel image builds, exponential backoff ECS waiter |
 | **DNS / CDN** | Cloudflare + Route53 | Cloudflare for CDN/DDoS, Route53 for DNS records |
 
 ---
@@ -127,6 +127,13 @@ Frontend (per speaker)                    Backend (FastAPI)
 - Simple token-based auth with presets (host/participant roles)
 - Competitive pricing for WebRTC SFU
 
+**Live Transcription (April 2026):**
+- Enabled via `ai_config.transcription` in the meeting creation payload (backend, `cloudflare_realtimekit_service.py`)
+- Uses Deepgram Nova-3 (built into RealtimeKit) for real-time speech-to-text
+- Presets (`group_call_host`, `group_call_participant`) have `transcription_enabled: true` under `permissions`
+- Frontend receives transcript events via `meeting.ai.on('transcript', ...)` — handled by `useArenaTranscription` hook
+- This is separate from the audio analysis pipeline (pronunciation scoring via Azure Speech)
+
 **Limitation:** No server-side audio stream access. Audio flows P2P through the SFU; backend only gets complete recordings after session ends. This is why we capture audio separately via AudioWorklet for real-time analysis.
 
 ### 6. Curriculum AI Service (Separate Microservice)
@@ -171,6 +178,26 @@ Frontend (per speaker)                    Backend (FastAPI)
 | Cloudflare R2 | Storage only (no egress) | Lifecycle policies for old recordings |
 | RDS PostgreSQL | Instance hours | Right-sized, connection pooling via SQLAlchemy |
 | ECS Fargate | vCPU + memory hours | Auto-scaling, right-sized tasks |
+
+---
+
+### 7. CI/CD Pipeline Optimizations (April 2026)
+
+**Concurrency control:** Deployments queue behind in-progress ones (`concurrency.cancel-in-progress: false`). Prevents ECS stability timeouts from overlapping deploys.
+
+**Incremental testing (pytest-testmon):** Tracks which source files each test depends on. Only reruns tests whose dependencies changed. Testmon database cached across runs via `actions/cache`. First run is full; subsequent runs skip unchanged tests.
+
+**Parallel image builds (docker buildx bake):** Core (runtime) and migration images built in parallel from the same Dockerfile using `docker-bake.hcl`. Shares build layers between targets in a single operation instead of two sequential `build-push-action` steps.
+
+**Custom ECS waiter:** Replaces `aws ecs wait services-stable` (fixed 10-min timeout) with exponential backoff polling (5s → 10s → 20s → 40s → 60s cap, 15-min total timeout). Logs deployment progress each poll.
+
+**Docker smoke tests:** Only run on PRs. On push to main/live, the real Docker image is built in `build-and-push` — no need to rebuild a second time for smoke testing.
+
+### 8. Idempotent Arena Join Codes (April 2026)
+
+**Problem:** Refreshing the arena page regenerated the join code, invalidating codes already shared with students.
+
+**Solution:** `generate_join_code()` checks if a valid, non-expired code already exists before generating a new one. Returns the existing code on subsequent calls (idempotent).
 
 ---
 
