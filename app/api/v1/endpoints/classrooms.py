@@ -9,7 +9,7 @@ from app.api import deps
 from app.models.user import User
 from app.models.enums import UserRole
 from app.services.classroom_service import ClassroomService
-from app.schemas.academic import ClassroomCreate, ClassroomAddTeacher, ClassroomAddStudent
+from app.schemas.academic import ClassroomCreate, ClassroomAddTeacher, ClassroomAddStudent, ClassroomBulkAddStudents
 from app.schemas.responses import SuccessResponse
 from app.schemas.user import UserResponse
 
@@ -211,3 +211,38 @@ async def add_student_to_classroom(
             detail = f"Student already belongs to school '{other_school_name}'."
         raise HTTPException(status_code=400, detail=detail)
     return SuccessResponse(data={}, message="Student added to classroom")
+
+
+@router.post("/{classroom_id}/students/bulk", response_model=SuccessResponse)
+async def bulk_add_students_to_classroom(
+    classroom_id: UUID,
+    body: ClassroomBulkAddStudents,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """Bulk add students to a classroom. Admins can add to any classroom, teachers can add to classrooms they teach."""
+    # Authorization: Admin or teacher who teaches this classroom
+    if current_user.role == UserRole.SCHOOL_ADMIN:
+        classroom = await ClassroomService.get_classroom_by_id(
+            db, classroom_id, current_user.school_id
+        )
+        if not classroom:
+            raise HTTPException(status_code=404, detail="Classroom not found")
+    elif current_user.role == UserRole.TEACHER:
+        teaches = await ClassroomService.teacher_teaches_classroom(
+            db, current_user.id, classroom_id
+        )
+        if not teaches:
+            raise HTTPException(status_code=403, detail="You do not teach this classroom")
+    else:
+        raise HTTPException(status_code=403, detail="Teacher or admin access required")
+
+    result = await ClassroomService.bulk_add_students_to_classroom(
+        db, classroom_id, body.student_ids, current_user.school_id
+    )
+
+    msg = f"{result['added']} students added, {result['skipped']} already enrolled."
+    if result["errors"]:
+        msg += f" {len(result['errors'])} errors."
+
+    return SuccessResponse(data=result, message=msg)

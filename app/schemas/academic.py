@@ -48,6 +48,10 @@ class ClassroomAddStudent(BaseModel):
     student_id: UUID
 
 
+class ClassroomBulkAddStudents(BaseModel):
+    student_ids: List[UUID]
+
+
 class ScheduleBase(BaseModel):
     day_of_week: DayOfWeek
     start_time: time

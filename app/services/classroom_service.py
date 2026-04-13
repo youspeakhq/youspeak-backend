@@ -166,6 +166,60 @@ class ClassroomService:
         return True, None
 
     @staticmethod
+    async def bulk_add_students_to_classroom(
+        db: AsyncSession,
+        classroom_id: UUID,
+        student_ids: List[UUID],
+        school_id: UUID,
+    ) -> Dict[str, Any]:
+        """
+        Add multiple students to a classroom in one operation.
+        Returns summary: {added: int, skipped: int, errors: list[str]}
+        """
+        classroom = await ClassroomService.get_classroom_by_id(db, classroom_id, school_id)
+        if not classroom:
+            return {"added": 0, "skipped": 0, "errors": ["Classroom not found"]}
+
+        added = 0
+        skipped = 0
+        errors: List[str] = []
+
+        for student_id in student_ids:
+            user = await UserService.get_user_by_id(db, student_id)
+            if not user:
+                errors.append(f"Student {student_id} not found")
+                continue
+            if user.role != UserRole.STUDENT:
+                errors.append(f"{user.full_name} is not a student")
+                continue
+            if user.school_id != school_id:
+                errors.append(f"{user.full_name} belongs to a different school")
+                continue
+
+            existing = await db.execute(
+                select(classroom_students).where(
+                    and_(
+                        classroom_students.c.classroom_id == classroom_id,
+                        classroom_students.c.student_id == student_id,
+                    )
+                )
+            )
+            if existing.first():
+                skipped += 1
+                continue
+
+            await db.execute(
+                insert(classroom_students).values(
+                    classroom_id=classroom_id,
+                    student_id=student_id,
+                )
+            )
+            added += 1
+
+        await db.commit()
+        return {"added": added, "skipped": skipped, "errors": errors}
+
+    @staticmethod
     async def teacher_teaches_classroom(
         db: AsyncSession,
         teacher_id: UUID,
