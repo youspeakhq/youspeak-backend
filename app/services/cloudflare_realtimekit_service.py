@@ -47,7 +47,9 @@ class CloudflareRealtimeKitService:
         self,
         arena_id: UUID,
         title: str,
-        record_on_start: bool = True
+        record_on_start: bool = True,
+        enable_transcription: bool = True,
+        transcription_language: str = "en-US"
     ) -> Optional[Dict[str, Any]]:
         """
         Create a RealtimeKit meeting (reusable room).
@@ -56,6 +58,8 @@ class CloudflareRealtimeKitService:
             arena_id: Arena UUID (used in meeting title/metadata)
             title: Meeting title
             record_on_start: Auto-start recording when first participant joins
+            enable_transcription: Enable live AI transcription (Deepgram Nova-3)
+            transcription_language: Language code for transcription (default: en-US)
 
         Returns:
             {
@@ -68,15 +72,26 @@ class CloudflareRealtimeKitService:
             logger.error("Cannot create meeting: RealtimeKit credentials not configured")
             return None
 
+        meeting_payload = {
+            "title": title,
+            "record_on_start": record_on_start,
+            "persist_chat": False
+        }
+
+        if enable_transcription:
+            meeting_payload["ai_config"] = {
+                "transcription": {
+                    "language": transcription_language,
+                    "keywords": [],
+                    "profanity_filter": False
+                }
+            }
+
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.base_url}/meetings",
-                    json={
-                        "title": title,
-                        "record_on_start": record_on_start,
-                        "persist_chat": False
-                    },
+                    json=meeting_payload,
                     headers={
                         "Authorization": f"Bearer {self.api_token}",
                         "Content-Type": "application/json"
@@ -305,6 +320,77 @@ class CloudflareRealtimeKitService:
         except Exception as e:
             logger.error(f"Error getting participants: {e}", exc_info=True)
             return None
+
+    async def update_preset(
+        self,
+        preset_id: str,
+        config: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Update a RealtimeKit preset configuration.
+
+        Args:
+            preset_id: Preset UUID
+            config: Preset config fields to update (e.g. transcription_enabled)
+
+        Returns:
+            Updated preset data or None if error
+        """
+        if not self._credentials_configured():
+            logger.error("Cannot update preset: RealtimeKit credentials not configured")
+            return None
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.patch(
+                    f"{self.base_url}/presets/{preset_id}",
+                    json={"permissions": config},
+                    headers={
+                        "Authorization": f"Bearer {self.api_token}",
+                        "Content-Type": "application/json"
+                    },
+                    timeout=10.0
+                )
+
+                if response.status_code in (200, 201):
+                    result = response.json()
+                    preset_data = result.get("data") or result.get("result") or {}
+                    logger.info(f"Preset updated", extra={
+                        "preset_id": preset_id,
+                        "config": config
+                    })
+                    return preset_data
+                else:
+                    logger.error(
+                        f"Failed to update preset: HTTP {response.status_code}",
+                        extra={"response_body": response.text, "preset_id": preset_id}
+                    )
+                    return None
+
+        except Exception as e:
+            logger.error(f"Error updating preset: {e}", exc_info=True)
+            return None
+
+    async def enable_transcription_on_presets(self) -> bool:
+        """
+        Enable transcription on both group_call_host and group_call_participant presets.
+        This only needs to be run once per app configuration.
+        """
+        preset_ids = {
+            "group_call_host": "873ba0af-4098-468e-9390-efc66e5e3e56",
+            "group_call_participant": "e140b8e2-1c1c-401e-8633-35d0d92ac806",
+        }
+
+        success = True
+        for name, preset_id in preset_ids.items():
+            result = await self.update_preset(preset_id, {"transcription_enabled": True})
+            if result:
+                logger.info(f"Transcription enabled on preset '{name}' ({preset_id})")
+            else:
+                logger.error(f"Failed to enable transcription on preset '{name}' ({preset_id})")
+                success = False
+
+        return success
 
     def _credentials_configured(self) -> bool:
         """Check if RealtimeKit credentials are configured."""
