@@ -309,32 +309,16 @@ jobs:
             exit 1
           fi
           echo "Task definition OK"
-      - name: Build and push core image to Amazon ECR
+      - name: Build and push core + migration images (parallel via bake)
         if: needs.paths.outputs.core == 'true'
-        id: build-image
-        uses: docker/build-push-action@v5
+        uses: docker/bake-action@v4
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+          CACHE_REPO: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
         with:
-          context: .
-          file: ./Dockerfile
-          target: runtime
+          files: docker-bake.hcl
           push: true
-          tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-          cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:cache
-          cache-to: type=registry,mode=max,image-manifest=true,oci-mediatypes=true,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:cache
-      - name: Build and push migration image to Amazon ECR
-        if: needs.paths.outputs.core == 'true'
-        id: build-migration-image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          target: migration
-          push: true
-          tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:migration
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:migration-${{ github.sha }}
       - name: Build and push curriculum image to Amazon ECR
         if: needs.paths.outputs.curriculum == 'true'
         id: build-curriculum-image
