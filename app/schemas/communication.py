@@ -363,6 +363,21 @@ class TeacherRatingResponse(BaseModel):
     overall_rating: float
 
 
+class ArenaSummaryResponse(BaseModel):
+    """Response for GET /arenas/{id}/summary - Post-session summary for evaluation"""
+    arena_id: UUID
+    participant_a_id: Optional[UUID] = None
+    participant_a_name: Optional[str] = None
+    participant_a_average_score: float = 0.0
+    participant_b_id: Optional[UUID] = None
+    participant_b_name: Optional[str] = None
+    participant_b_average_score: float = 0.0
+    total_participants: int
+    total_reactions: int
+    final_judgment: str
+    duration_minutes: Optional[int] = None
+
+
 class PublishArenaRequest(BaseModel):
     """Request for POST /arenas/{id}/publish"""
     include_ai_analysis: bool = True

@@ -49,6 +49,7 @@ from app.schemas.communication import (
     # Phase 4: Evaluation & Publishing
     ParticipantScoreCard,
     ArenaScoresResponse,
+    ArenaSummaryResponse,
     ParticipantAnalytics,
     ArenaAnalyticsResponse,
     TeacherRatingRequest,
@@ -1408,6 +1409,45 @@ async def get_arena_analytics(
             aggregate_stats=analytics_data['aggregate_stats']
         ),
         message="Analytics retrieved successfully"
+    )
+
+
+@router.get("/{arena_id}/summary", response_model=SuccessResponse[ArenaSummaryResponse])
+async def get_arena_summary(
+    arena_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Get post-session summary for arena evaluation.
+
+    Returns top 2 participants (A vs B) with average scores,
+    total reactions, final judgment, and session duration.
+
+    **Teacher only** - requires arena ownership.
+
+    Used by: FinalEvaluationPage
+    """
+    summary_data = await ArenaService.get_arena_summary(db, arena_id, current_user.id)
+
+    if not summary_data:
+        raise HTTPException(status_code=404, detail="Arena not found or access denied")
+
+    return SuccessResponse(
+        data=ArenaSummaryResponse(
+            arena_id=UUID(summary_data['arena_id']),
+            participant_a_id=UUID(summary_data['participant_a_id']) if summary_data['participant_a_id'] else None,
+            participant_a_name=summary_data['participant_a_name'],
+            participant_a_average_score=summary_data['participant_a_average_score'],
+            participant_b_id=UUID(summary_data['participant_b_id']) if summary_data['participant_b_id'] else None,
+            participant_b_name=summary_data['participant_b_name'],
+            participant_b_average_score=summary_data['participant_b_average_score'],
+            total_participants=summary_data['total_participants'],
+            total_reactions=summary_data['total_reactions'],
+            final_judgment=summary_data['final_judgment'],
+            duration_minutes=summary_data['duration_minutes'],
+        ),
+        message="Arena summary retrieved successfully"
     )
 
 

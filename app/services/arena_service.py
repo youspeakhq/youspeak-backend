@@ -959,6 +959,110 @@ class ArenaService:
         }
 
     @staticmethod
+    async def get_arena_summary(
+        db: AsyncSession,
+        arena_id: UUID,
+        teacher_id: UUID,
+    ) -> Optional[dict]:
+        """
+        Get post-session summary for arena evaluation page.
+        Returns top 2 participants (A vs B) with average scores,
+        total reactions, and a final judgment string.
+        """
+        # Verify teacher has access
+        arena = await ArenaService.get_arena(db, arena_id, teacher_id)
+        if not arena:
+            return None
+
+        # Get participants with user info and reaction counts
+        q = (
+            select(
+                ArenaParticipant,
+                User,
+                func.count(ArenaReaction.id).label('reactions_count')
+            )
+            .join(User, User.id == ArenaParticipant.student_id)
+            .outerjoin(
+                ArenaReaction,
+                and_(
+                    ArenaReaction.target_participant_id == ArenaParticipant.id,
+                    ArenaReaction.arena_id == arena_id
+                )
+            )
+            .where(ArenaParticipant.arena_id == arena_id)
+            .group_by(ArenaParticipant.id, User.id)
+            .order_by(ArenaParticipant.engagement_score.desc())
+        )
+
+        result = await db.execute(q)
+        rows = result.all()
+
+        total_reactions = sum(row[2] for row in rows)
+
+        # Calculate average score per participant (engagement + AI scores)
+        def _avg_score(participant: ArenaParticipant) -> float:
+            scores = [float(participant.engagement_score)]
+            if participant.ai_pronunciation_score is not None:
+                scores.append(float(participant.ai_pronunciation_score))
+            if participant.ai_fluency_score is not None:
+                scores.append(float(participant.ai_fluency_score))
+            return round(sum(scores) / len(scores), 1) if scores else 0.0
+
+        # Top 2 participants by engagement score
+        participant_a = None
+        participant_b = None
+
+        if len(rows) >= 1:
+            p, u, _ = rows[0]
+            participant_a = {
+                'id': str(p.id),
+                'name': f"{u.first_name} {u.last_name}",
+                'average_score': _avg_score(p),
+            }
+        if len(rows) >= 2:
+            p, u, _ = rows[1]
+            participant_b = {
+                'id': str(p.id),
+                'name': f"{u.first_name} {u.last_name}",
+                'average_score': _avg_score(p),
+            }
+
+        # Determine final judgment
+        if participant_a and participant_b:
+            if participant_a['average_score'] > participant_b['average_score']:
+                final_judgment = f"{participant_a['name']} leads with a higher average score"
+            elif participant_b['average_score'] > participant_a['average_score']:
+                final_judgment = f"{participant_b['name']} leads with a higher average score"
+            else:
+                final_judgment = "Both participants are tied"
+        elif participant_a:
+            final_judgment = f"{participant_a['name']} is the sole participant"
+        else:
+            final_judgment = "No participants recorded"
+
+        # Session duration
+        duration_minutes = arena.duration_minutes
+        if arena.start_time and arena.session_state in ('completed', 'cancelled'):
+            duration_minutes = arena.duration_minutes
+        elif arena.start_time:
+            elapsed = datetime.utcnow() - arena.start_time
+            duration_minutes = int(elapsed.total_seconds() / 60)
+
+        return {
+            'arena_id': str(arena_id),
+            'participant_a_id': participant_a['id'] if participant_a else None,
+            'participant_a_name': participant_a['name'] if participant_a else None,
+            'participant_a_average_score': participant_a['average_score'] if participant_a else 0.0,
+            'participant_b_id': participant_b['id'] if participant_b else None,
+            'participant_b_name': participant_b['name'] if participant_b else None,
+            'participant_b_average_score': participant_b['average_score'] if participant_b else 0.0,
+            'total_participants': len(rows),
+            'total_reactions': total_reactions,
+            'final_judgment': final_judgment,
+            'duration_minutes': duration_minutes,
+        }
+
+    @staticmethod
     async def save_teacher_rating(
         db: AsyncSession,
         participant_id: UUID,
