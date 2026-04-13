@@ -73,7 +73,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      
+
       redis:
         image: redis:7-alpine
         ports:
@@ -83,28 +83,28 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
-      
+
       - name: Run linting
         run: |
           flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
           flake8 app --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      
+
       - name: Run database migrations
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
@@ -169,7 +169,16 @@ jobs:
           echo "Waiting for API service..."
           timeout 30 bash -c 'until curl -sf http://localhost:8000/health >/dev/null 2>&1; do sleep 0.3; done' || (echo "API failed to start"; exit 1)
           echo "API service healthy"
-      
+
+      - name: Restore testmon cache
+        uses: actions/cache@v4
+        with:
+          path: .testmondata
+          key: testmon-${{ github.ref_name }}-${{ hashFiles('app/**', 'tests/**') }}
+          restore-keys: |
+            testmon-${{ github.ref_name }}-
+            testmon-main-
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
@@ -184,8 +193,8 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          pytest tests/ -v --tb=long -n 4 --cov=app --cov-report=xml --cov-report=term
-      
+          pytest tests/ -v --tb=long -n 4 --testmon --cov=app --cov-report=xml --cov-report=term
+
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
         with:
@@ -197,6 +206,8 @@ jobs:
   docker-smoke:
     name: Docker Smoke Tests
     runs-on: ubuntu-latest
+    # Only run on PRs — pushes to main/live build the real Docker image in build-and-push
+    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -219,18 +230,18 @@ jobs:
           cp .env.example .env
           # Append R2 (and optional) vars from secrets so api/test containers can run R2-dependent tests
           { [ -n "$R2_ACCOUNT_ID" ] && echo "R2_ACCOUNT_ID=$R2_ACCOUNT_ID"; [ -n "$R2_ACCESS_KEY_ID" ] && echo "R2_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID"; [ -n "$R2_SECRET_ACCESS_KEY" ] && echo "R2_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY"; } >> .env || true
-      
+
       - name: Start Docker Compose
         id: compose
         run: |
           docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
-      
+
       - name: Dump API logs on failure
         if: failure() && steps.compose.outcome == 'failure'
         run: |
           docker compose -f docker-compose.yml -f docker-compose.ci.yml logs api || true
           docker compose -f docker-compose.yml -f docker-compose.ci.yml ps -a || true
-      
+
       - name: Wait for API health
         run: |
           for i in $(seq 1 60); do
@@ -238,7 +249,7 @@ jobs:
             sleep 2
           done
           curl -sf http://localhost:8000/health || (echo "API not healthy"; docker compose -f docker-compose.yml -f docker-compose.ci.yml logs api; exit 1)
-      
+
       - name: Smoke test API
         run: |
           curl -sf http://localhost:8000/docs >/dev/null && echo "Docs OK"
@@ -490,9 +501,39 @@ jobs:
             --task-definition ${{ steps.register-task.outputs.task-definition-arn }} \
             --force-new-deployment \
             --no-cli-pager
-          aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE }}-staging
+
+          # Custom waiter with exponential backoff (max 15 min)
+          CLUSTER="${{ env.ECS_CLUSTER }}"
+          SERVICE="${{ env.ECS_SERVICE }}-staging"
+          WAIT=5
+          MAX_WAIT=60
+          TOTAL=0
+          TIMEOUT=900
+          echo "Waiting for service to stabilize..."
+          while [ $TOTAL -lt $TIMEOUT ]; do
+            DEPLOYMENTS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments | length(@)' --output text)
+            PRIMARY_RUNNING=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].runningCount | [0]' --output text)
+            PRIMARY_DESIRED=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].desiredCount | [0]' --output text)
+
+            echo "[${TOTAL}s] deployments=$DEPLOYMENTS primary_running=$PRIMARY_RUNNING/$PRIMARY_DESIRED"
+
+            if [ "$DEPLOYMENTS" = "1" ] && [ "$PRIMARY_RUNNING" = "$PRIMARY_DESIRED" ] && [ "$PRIMARY_RUNNING" != "0" ]; then
+              echo "Service stable after ${TOTAL}s"
+              exit 0
+            fi
+
+            sleep $WAIT
+            TOTAL=$((TOTAL + WAIT))
+            WAIT=$((WAIT * 2 > MAX_WAIT ? MAX_WAIT : WAIT * 2))
+          done
+
+          echo "::error::Service did not stabilize within ${TIMEOUT}s"
+          aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query 'services[0].deployments' --output json
+          exit 1
       # Staging curriculum uses Terraform-managed task def (youspeak-curriculum-task-tf) with env-specific secrets; only force new deployment to pull new image.
       - name: Deploy curriculum ECS service (staging)
         if: needs.build-and-push.outputs.curriculum_built == 'true'
@@ -502,9 +543,37 @@ jobs:
             --service ${{ env.ECS_SERVICE_CURRICULUM }}-staging \
             --force-new-deployment \
             --no-cli-pager
-          aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE_CURRICULUM }}-staging
+
+          # Custom waiter with exponential backoff (max 15 min)
+          CLUSTER="${{ env.ECS_CLUSTER }}"
+          SERVICE="${{ env.ECS_SERVICE_CURRICULUM }}-staging"
+          WAIT=5
+          MAX_WAIT=60
+          TOTAL=0
+          TIMEOUT=900
+          echo "Waiting for curriculum service to stabilize..."
+          while [ $TOTAL -lt $TIMEOUT ]; do
+            DEPLOYMENTS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments | length(@)' --output text)
+            PRIMARY_RUNNING=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].runningCount | [0]' --output text)
+            PRIMARY_DESIRED=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].desiredCount | [0]' --output text)
+
+            echo "[${TOTAL}s] deployments=$DEPLOYMENTS primary_running=$PRIMARY_RUNNING/$PRIMARY_DESIRED"
+
+            if [ "$DEPLOYMENTS" = "1" ] && [ "$PRIMARY_RUNNING" = "$PRIMARY_DESIRED" ] && [ "$PRIMARY_RUNNING" != "0" ]; then
+              echo "Curriculum service stable after ${TOTAL}s"
+              exit 0
+            fi
+
+            sleep $WAIT
+            TOTAL=$((TOTAL + WAIT))
+            WAIT=$((WAIT * 2 > MAX_WAIT ? MAX_WAIT : WAIT * 2))
+          done
+
+          echo "::error::Curriculum service did not stabilize within ${TIMEOUT}s"
+          exit 1
 
   deploy-live:
     name: Deploy to Live API (ECS)
@@ -618,9 +687,39 @@ jobs:
             --task-definition ${{ steps.register-task.outputs.task-definition-arn }} \
             --force-new-deployment \
             --no-cli-pager
-          aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE }}-production
+
+          # Custom waiter with exponential backoff (max 15 min)
+          CLUSTER="${{ env.ECS_CLUSTER }}"
+          SERVICE="${{ env.ECS_SERVICE }}-production"
+          WAIT=5
+          MAX_WAIT=60
+          TOTAL=0
+          TIMEOUT=900
+          echo "Waiting for service to stabilize..."
+          while [ $TOTAL -lt $TIMEOUT ]; do
+            DEPLOYMENTS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments | length(@)' --output text)
+            PRIMARY_RUNNING=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].runningCount | [0]' --output text)
+            PRIMARY_DESIRED=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].desiredCount | [0]' --output text)
+
+            echo "[${TOTAL}s] deployments=$DEPLOYMENTS primary_running=$PRIMARY_RUNNING/$PRIMARY_DESIRED"
+
+            if [ "$DEPLOYMENTS" = "1" ] && [ "$PRIMARY_RUNNING" = "$PRIMARY_DESIRED" ] && [ "$PRIMARY_RUNNING" != "0" ]; then
+              echo "Service stable after ${TOTAL}s"
+              exit 0
+            fi
+
+            sleep $WAIT
+            TOTAL=$((TOTAL + WAIT))
+            WAIT=$((WAIT * 2 > MAX_WAIT ? MAX_WAIT : WAIT * 2))
+          done
+
+          echo "::error::Service did not stabilize within ${TIMEOUT}s"
+          aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query 'services[0].deployments' --output json
+          exit 1
       - name: Fill in curriculum image in curriculum task definition
         if: needs.build-and-push.outputs.curriculum_built == 'true'
         id: task-def-curriculum
@@ -646,12 +745,40 @@ jobs:
             --task-definition ${{ steps.register-curriculum-task.outputs.task-definition-arn }} \
             --force-new-deployment \
             --no-cli-pager
-          aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE_CURRICULUM }}-production
+
+          # Custom waiter with exponential backoff (max 15 min)
+          CLUSTER="${{ env.ECS_CLUSTER }}"
+          SERVICE="${{ env.ECS_SERVICE_CURRICULUM }}-production"
+          WAIT=5
+          MAX_WAIT=60
+          TOTAL=0
+          TIMEOUT=900
+          echo "Waiting for curriculum service to stabilize..."
+          while [ $TOTAL -lt $TIMEOUT ]; do
+            DEPLOYMENTS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments | length(@)' --output text)
+            PRIMARY_RUNNING=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].runningCount | [0]' --output text)
+            PRIMARY_DESIRED=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].desiredCount | [0]' --output text)
+
+            echo "[${TOTAL}s] deployments=$DEPLOYMENTS primary_running=$PRIMARY_RUNNING/$PRIMARY_DESIRED"
+
+            if [ "$DEPLOYMENTS" = "1" ] && [ "$PRIMARY_RUNNING" = "$PRIMARY_DESIRED" ] && [ "$PRIMARY_RUNNING" != "0" ]; then
+              echo "Curriculum service stable after ${TOTAL}s"
+              exit 0
+            fi
+
+            sleep $WAIT
+            TOTAL=$((TOTAL + WAIT))
+            WAIT=$((WAIT * 2 > MAX_WAIT ? MAX_WAIT : WAIT * 2))
+          done
+
+          echo "::error::Curriculum service did not stabilize within ${TIMEOUT}s"
+          exit 1
 
       - name: Notify deployment
         if: success()
         run: |
-          echo "🚀 Production deployment successful!"
+          echo "Production deployment successful!"
           # Add Slack/Discord notification here if needed
