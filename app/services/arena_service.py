@@ -359,6 +359,11 @@ class ArenaService:
         if not arena:
             return None
 
+        # Idempotency: return existing code if still valid
+        if arena.join_code and arena.join_code_expires_at:
+            if datetime.utcnow() < arena.join_code_expires_at:
+                return (arena.join_code, arena.qr_code_url, arena.join_code_expires_at)
+
         # Generate unique join code (retry up to 3 times if collision)
         join_code = None
         for attempt in range(3):
