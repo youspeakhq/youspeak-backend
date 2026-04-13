@@ -1,5 +1,5 @@
 import secrets
-from typing import Any
+from typing import Any, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -145,28 +145,34 @@ async def create_student(
 @router.post("/import", response_model=SuccessResponse)
 async def import_students_csv(
     file: UploadFile = File(...),
+    classroom_id: Optional[UUID] = None,
     current_user: User = Depends(deps.require_admin),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """
     Bulk import students from CSV.
-    Columns: first_name, last_name, language_code (required), email (optional), student_id (optional), class_id (optional).
+    Columns: first_name, last_name, language_code (required), email (optional),
+             student_id (optional), class_id (optional), classroom_id (optional).
     student_id: human-readable ID (e.g. 2025-001). Auto-generated if omitted.
     language_code: ISO 639-1 two-letter code (e.g., 'en', 'fr', 'es').
+    classroom_id: Optional query param to assign all imported students to a classroom.
+                  Per-row classroom_id in CSV takes precedence if both provided.
     """
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(
             status_code=400,
             detail=(
                 "Only CSV files are supported. Use columns: first_name, last_name, language_code (required), "
-                "email (optional), student_id (optional), class_id (optional)."
+                "email (optional), student_id (optional), class_id (optional), classroom_id (optional)."
             ),
         )
     content = await file.read()
     result = await AcademicService.import_students_from_csv(
-        db, content, current_user.school_id
+        db, content, current_user.school_id, classroom_id=classroom_id
     )
     msg = f"Imported: {result['created']} created, {result['enrolled']} enrolled, {result['skipped']} skipped."
+    if result.get("classroom_assigned"):
+        msg += f" {result['classroom_assigned']} assigned to classroom."
     if result.get("errors"):
         msg += f" Errors: {'; '.join(result['errors'][:5])}"
         if len(result["errors"]) > 5:
