@@ -2,7 +2,8 @@ from datetime import timedelta
 from typing import Any
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -12,13 +13,15 @@ from app.services.user_service import UserService
 from app.services.school_service import SchoolService
 from app.schemas.auth import (
     LoginRequest, Token, RegisterSchoolRequest, RegisterTeacherRequest,
-    VerifyCodeRequest, PasswordResetRequest, PasswordResetEmailRequest
+    VerifyCodeRequest, PasswordResetRequest, PasswordResetEmailRequest,
+    RefreshTokenRequest,
 )
 from app.schemas.school import SchoolCreate, ContactInquiryCreate
 from app.models.enums import SchoolType, ProgramType
 from app.models.onboarding import ContactInquiry
 from app.schemas.responses import SuccessResponse
 from app.services.email_service import send_password_reset
+from app.core.logging import get_logger
 
 router = APIRouter()
 
@@ -46,6 +49,20 @@ async def submit_contact_inquiry(
     )
 
 
+def _set_refresh_cookie(response: JSONResponse, refresh_token: str) -> None:
+    """Set refresh token as HttpOnly cookie on the response."""
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,  # days -> seconds
+        path="/api/v1/auth",  # only sent to auth endpoints
+        domain=None,  # auto-detect from request
+        secure=settings.is_production,  # HTTPS only in production
+        httponly=True,  # not accessible via JS
+        samesite="lax",  # CSRF protection
+    )
+
+
 @router.post("/login", response_model=SuccessResponse[Token])
 async def login(
     login_data: LoginRequest,
@@ -54,6 +71,7 @@ async def login(
     """
     Unified login for all users.
     Returns JWT access token, refresh token, and user role.
+    Also sets refresh token as HttpOnly cookie.
     """
     user = await UserService.authenticate_user(db, email=login_data.email, password=login_data.password)
     if not user:
@@ -75,7 +93,7 @@ async def login(
         data={"sub": str(user.id), "role": user.role}
     )
 
-    return SuccessResponse(
+    data = SuccessResponse(
         data=Token(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -86,6 +104,116 @@ async def login(
         ),
         message="Login successful"
     )
+
+    response = JSONResponse(content=data.model_dump())
+    _set_refresh_cookie(response, refresh_token)
+    return response
+
+
+@router.post("/refresh-token")
+async def refresh_token(
+    body: RefreshTokenRequest = None,
+    refresh_token_cookie: str = Cookie(None, alias="refresh_token"),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Refresh access token using refresh token.
+
+    Accepts refresh token from:
+    1. HttpOnly cookie (preferred, XSS-safe)
+    2. Request body (backward compatible with existing frontend)
+
+    Returns new access + refresh token pair (token rotation).
+    """
+    log = get_logger(__name__)
+
+    # Get refresh token: cookie takes precedence over body
+    token = refresh_token_cookie
+    if not token and body and body.refresh_token:
+        token = body.refresh_token
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token not provided",
+        )
+
+    # Decode and validate
+    payload = security.decode_token(token)
+    if not payload:
+        log.warning("refresh_token_invalid")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+
+    if payload.get("type") != "refresh":
+        log.warning("refresh_token_wrong_type", extra={"type": payload.get("type")})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    # Verify user still exists and is active
+    from uuid import UUID
+    user = await UserService.get_user_by_id(db, UUID(user_id))
+    if not user or not user.is_active or user.is_deleted:
+        log.warning("refresh_token_user_inactive", extra={"user_id": user_id})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account is inactive or deleted",
+        )
+
+    # Issue new token pair (rotation)
+    token_data = {"sub": str(user.id), "role": user.role}
+    if user.school_id:
+        token_data["school_id"] = str(user.school_id)
+
+    new_access_token = security.create_access_token(data=token_data)
+    new_refresh_token = security.create_refresh_token(
+        data={"sub": str(user.id), "role": user.role}
+    )
+
+    log.info("token_refreshed", extra={"user_id": user_id})
+
+    data = SuccessResponse(
+        data=Token(
+            access_token=new_access_token,
+            refresh_token=new_refresh_token,
+            token_type="bearer",
+            role=user.role,
+            user_id=str(user.id),
+            school_id=str(user.school_id) if user.school_id else None,
+        ),
+        message="Token refreshed successfully",
+    )
+
+    response = JSONResponse(content=data.model_dump())
+    _set_refresh_cookie(response, new_refresh_token)
+    return response
+
+
+@router.post("/logout")
+async def logout() -> Any:
+    """
+    Clear the refresh token cookie.
+    Frontend should also clear localStorage tokens.
+    """
+    response = JSONResponse(
+        content=SuccessResponse(data={}, message="Logged out successfully").model_dump()
+    )
+    response.delete_cookie(
+        key="refresh_token",
+        path="/api/v1/auth",
+    )
+    return response
 
 
 @router.post("/register/school", response_model=SuccessResponse)

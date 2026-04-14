@@ -27,7 +27,7 @@ Updated as decisions are made.
 |-----------|-----------|-----|
 | **API Framework** | FastAPI (Python) | Async-first, Pydantic validation, OpenAPI docs, WebSocket support |
 | **ORM** | SQLAlchemy 2.0 (async) | Mature, async support, Alembic migrations |
-| **Auth** | JWT (HS256) | Stateless auth, short-lived access + refresh tokens |
+| **Auth** | JWT (HS256) + HttpOnly cookies | Stateless auth, short-lived access (15min) + refresh tokens (7d) in HttpOnly cookie |
 | **Email** | Resend | Simple API, good deliverability |
 | **AI (Curriculum)** | AWS Bedrock (Nova Lite) | Structured output for curriculum generation, assessment scoring |
 | **AI (Pronunciation)** | Azure Speech Services | Only managed API with real pronunciation assessment (see below) |
@@ -160,11 +160,25 @@ Frontend (per speaker)                    Backend (FastAPI)
 
 ## Security Model
 
+### Authentication & Token Strategy
+
 - **JWT auth** with short-lived access tokens (15 min) and refresh tokens (7 days)
+- **Refresh token flow:** `POST /auth/refresh-token` accepts token from HttpOnly cookie (preferred) or request body (backward compatible)
+- **Token rotation:** Each refresh issues a new access + refresh pair. Old refresh token is implicitly invalidated by short expiry window.
+- **HttpOnly cookie for refresh token:**
+  - Set on login and refresh responses via `Set-Cookie`
+  - Flags: `HttpOnly` (no JS access), `Secure` (HTTPS only in production), `SameSite=Lax` (CSRF protection), `Path=/api/v1/auth` (only sent to auth endpoints)
+  - Prevents XSS from stealing refresh tokens — even if an attacker injects script, they cannot read or exfiltrate the refresh token
+- **Access token** remains in `Authorization: Bearer` header (stored in localStorage for API requests)
+- **Logout:** `POST /auth/logout` clears the HttpOnly cookie server-side. Frontend clears localStorage.
+- **Frontend `withCredentials: true`** on axios instance to send cookies cross-origin
+
+### Authorization & Infrastructure Security
+
 - **RBAC:** Three roles — `school_admin`, `teacher`, `student` — enforced via FastAPI dependencies (`require_admin`, `require_teacher`, `require_teacher_or_admin`)
 - **WebSocket auth:** JWT in query param or Authorization header, verified on connect
 - **Secrets:** Never in code. All via environment variables, injected from AWS Secrets Manager in ECS
-- **CORS:** Explicit origin whitelist + regex for `*.youspeakhq.com`
+- **CORS:** Explicit origin whitelist + regex for `*.youspeakhq.com`, `allow_credentials=True` for cookie support
 - **Rate limiting:** Global per-IP + per-user for authenticated endpoints
 
 ---

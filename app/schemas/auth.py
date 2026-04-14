@@ -57,3 +57,7 @@ class PasswordResetRequest(BaseModel):
 
 class PasswordResetEmailRequest(BaseModel):
     email: EmailStr
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: Optional[str] = None  # Optional: can also come from HttpOnly cookie
