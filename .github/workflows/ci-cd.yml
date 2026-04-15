@@ -311,7 +311,7 @@ jobs:
           echo "Task definition OK"
       - name: Build and push core + migration images (parallel via bake)
         if: needs.paths.outputs.core == 'true'
-        uses: docker/bake-action@v4
+        uses: docker/bake-action@v5
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
