@@ -474,7 +474,6 @@ class UserService:
     ) -> tuple:
         """Create invited teacher and access code; optionally add to classroom. Returns (code, None) or (None, error)."""
         from app.core import security
-        from app.services.classroom_service import ClassroomService
 
         placeholder = secrets.token_hex(32)
         teacher = await UserService.create_invited_teacher(
@@ -495,13 +494,6 @@ class UserService:
             is_used=False,
         )
         db.add(access_code)
-        if classroom_id:
-            await ClassroomService.add_teacher_to_classroom(
-                db, classroom_id, teacher.id, school_id,
-                auto_commit=False,
-                classroom_cache=classroom_cache,
-                skip_user_validation=True,
-            )
         return (code, None)
 
     @staticmethod

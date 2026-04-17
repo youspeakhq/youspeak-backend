@@ -50,7 +50,7 @@ class AcademicService:
             description=class_data.description,
             timeline=class_data.timeline,
             status=ClassStatus.ACTIVE,
-            classroom_id=class_data.classroom_id,
+            level=class_data.level,
         )
         db.add(new_class)
         await db.flush()
@@ -501,19 +501,15 @@ class AcademicService:
         db: AsyncSession,
         file_content: bytes,
         school_id: UUID,
-        classroom_id: Optional[UUID] = None,
     ) -> Dict[str, Any]:
         """
         School-level bulk import of students from CSV.
         CSV columns: first_name, last_name, language_code (required), email (optional),
-        student_id (optional), class_id (optional), classroom_id (optional).
+        student_id (optional), class_id (optional).
         Creates students at school. If class_id provided and valid, enrolls in that class.
-        If classroom_id provided (per-row or via parameter), assigns to that classroom.
-        Per-row classroom_id in CSV takes precedence over the parameter.
-        Returns created count, enrolled count, skipped count, classroom_assigned count, and errors.
+        Returns created count, enrolled count, skipped count, and errors.
         """
         from app.services.user_service import UserService
-        from app.services.classroom_service import ClassroomService
 
         rows, err_result = AcademicService._parse_csv_rows(file_content)
         if err_result is not None:
@@ -532,12 +528,10 @@ class AcademicService:
         created = 0
         enrolled = 0
         skipped = 0
-        classroom_assigned = 0
         errors: List[str] = []
         seen_emails: set = set()
         class_cache: Dict[UUID, Optional[Class]] = {}
         language_cache: Dict[str, int] = {}
-        classroom_cache: Dict[UUID, Optional[Any]] = {}
 
         # When language_code column is missing, fall back to a sensible default
         # so basic CSVs without language information still import successfully.
@@ -567,7 +561,7 @@ class AcademicService:
             if student_id is None:
                 continue
 
-            # Class enrollment (existing behavior)
+            # Class enrollment
             added, enroll_err = await AcademicService._enroll_student_in_class_from_row(
                 db, i, mapped, student_id, school_id, class_cache
             )
@@ -578,32 +572,10 @@ class AcademicService:
             elif added is False:
                 skipped += 1
 
-            # Classroom assignment: per-row value takes precedence over parameter
-            row_classroom_id_str = (mapped.get("classroom_id") or "").strip()
-            effective_classroom_id = None
-            if row_classroom_id_str:
-                try:
-                    effective_classroom_id = UUID(row_classroom_id_str)
-                except ValueError:
-                    errors.append(f"Row {i + 2}: invalid classroom_id format")
-            elif classroom_id:
-                effective_classroom_id = classroom_id
-
-            if effective_classroom_id:
-                success, other_school = await ClassroomService.add_student_to_classroom(
-                    db, effective_classroom_id, student_id, school_id
-                )
-                if success:
-                    classroom_assigned += 1
-                elif other_school:
-                    errors.append(f"Row {i + 2}: student belongs to school '{other_school}'")
-                # silently skip if already assigned (not an error)
-
         await db.commit()
         return {
             "created": created,
             "enrolled": enrolled,
             "skipped": skipped,
-            "classroom_assigned": classroom_assigned,
             "errors": errors,
         }

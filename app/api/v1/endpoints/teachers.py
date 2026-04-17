@@ -12,7 +12,6 @@ from app.models.enums import UserRole
 from app.models.access_code import TeacherAccessCode
 from app.core import security
 from app.services.user_service import UserService
-from app.services.classroom_service import ClassroomService
 from app.services.email_service import send_teacher_invite
 from app.schemas.student import TeacherCreate
 from app.schemas.user import UserResponse
@@ -39,13 +38,7 @@ async def list_teachers(
 
     # Build response dicts while the DB session is still open so that
     # relationships are accessible without lazy loading.
-    from app.schemas.academic import ClassroomBrief
-
     def _teacher_dict(u: User) -> dict:
-        classrooms = [
-            ClassroomBrief.model_validate(c)
-            for c in (u.taught_classrooms or [])
-        ]
         return UserResponse(
             id=u.id,
             email=u.email,
@@ -59,7 +52,6 @@ async def list_teachers(
             created_at=u.created_at,
             updated_at=u.updated_at,
             last_login=getattr(u, "last_login", None),
-            classrooms=classrooms,
         )
 
     serialized = [_teacher_dict(u) for u in teachers]
@@ -85,7 +77,6 @@ async def create_teacher_invite(
     """
     Admin creates teacher (is_active=False). Generates invite code, sends email.
     Teacher activates account at POST /auth/register/teacher with the code.
-    Optionally assign to classrooms via classroom_ids.
     """
     existing_user = await UserService.get_user_by_email(db, teacher_in.email)
     if existing_user:
@@ -112,12 +103,6 @@ async def create_teacher_invite(
     )
     db.add(access_code)
 
-    if teacher_in.classroom_ids:
-        for cid in teacher_in.classroom_ids:
-            await ClassroomService.add_teacher_to_classroom(
-                db, cid, teacher.id, current_user.school_id
-            )
-
     await db.commit()
 
     background_tasks.add_task(
@@ -142,13 +127,13 @@ async def import_teachers_csv(
 ) -> Any:
     """
     Bulk import teachers from CSV.
-    Columns: first_name, last_name, email, classroom_id (optional).
+    Columns: first_name, last_name, email.
     Creates invited teachers (is_active=False) and sends invite emails.
     """
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(
             status_code=400,
-            detail="Only CSV files are supported. Use columns: first_name, last_name, email, classroom_id (optional).",
+            detail="Only CSV files are supported. Use columns: first_name, last_name, email.",
         )
     content = await file.read()
     result = await UserService.import_teachers_from_csv(

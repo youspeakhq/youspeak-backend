@@ -18,7 +18,10 @@
       "Bash(aws ecs list-tasks:*)",
       "Bash(aws ecs describe-tasks:*)",
       "Bash(aws secretsmanager get-secret-value:*)",
-      "Bash(aws logs:*)"
+      "Bash(aws logs:*)",
+      "mcp__exa__crawling_exa",
+      "Bash(python scripts/test_preset_formats.py:*)",
+      "Bash(git push)"
     ]
   }
 }

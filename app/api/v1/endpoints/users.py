@@ -32,24 +32,9 @@ async def list_users(
 
     # Build response dicts while the DB session is still open so that
     # relationships are accessible without lazy loading.
-    from app.schemas.academic import ClassroomBrief
     from app.schemas.user import UserResponse
 
-    def _user_dict(u: UserModel) -> dict:
-        # Combine classrooms from both relationships
-        all_classrooms = []
-        if u.role == UserRole.TEACHER:
-            all_classrooms = [
-                ClassroomBrief.model_validate(c)
-                for c in (u.taught_classrooms or [])
-            ]
-        elif u.role == UserRole.STUDENT:
-            all_classrooms = [
-                ClassroomBrief.model_validate(c)
-                for c in (u.enrolled_classrooms or [])
-            ]
-
-        return UserResponse(
+    def _user_dict(u: UserModel) -> dict:        return UserResponse(
             id=u.id,
             email=u.email,
             full_name=u.full_name,
@@ -62,7 +47,6 @@ async def list_users(
             created_at=u.created_at,
             updated_at=u.updated_at,
             last_login=getattr(u, "last_login", None),
-            classrooms=all_classrooms,
         )
 
     serialized = [_user_dict(u) for u in users]

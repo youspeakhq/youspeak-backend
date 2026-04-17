@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.models.onboarding import School, Language, school_languages
 from app.models.user import User
 from app.models.enums import UserRole, ClassStatus
-from app.models.academic import Class, Term, Classroom
+from app.models.academic import Class, Term
 from app.models.arena import Arena, ArenaPerformer
 from app.schemas.school import SchoolCreate, SchoolUpdate
 from app.schemas.admin import (
@@ -434,13 +434,7 @@ class SchoolService:
         )
         classes_count = await db.scalar(classes_count_stmt) or 0
 
-        # Check usage in classrooms table
-        classrooms_count_stmt = select(func.count()).select_from(Classroom).where(
-            Classroom.language_id == language_id
-        )
-        classrooms_count = await db.scalar(classrooms_count_stmt) or 0
-
-        total_usage = schools_count + classes_count + classrooms_count
+        total_usage = schools_count + classes_count
 
         if total_usage > 0:
             return {
@@ -448,7 +442,7 @@ class SchoolService:
                 "in_use": True,
                 "schools_count": schools_count,
                 "classes_count": classes_count,
-                "classrooms_count": classrooms_count
+                "classrooms_count": 0
             }
 
         # No usage, safe to soft delete

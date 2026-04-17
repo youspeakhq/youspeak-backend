@@ -6,7 +6,6 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator
 
 from app.models.enums import UserRole
-from app.schemas.academic import ClassroomBrief
 from app.schemas.student import LanguageBrief
 
 
@@ -60,7 +59,6 @@ class User(UserBase):
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
-    classrooms: List[ClassroomBrief] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -92,7 +90,6 @@ class User(UserBase):
                 "created_at": v.created_at,
                 "updated_at": v.updated_at,
                 "last_login": getattr(v, "last_login", None),
-                "classrooms": [],
             }
         return v
 

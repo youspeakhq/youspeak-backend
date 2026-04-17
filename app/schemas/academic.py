@@ -1,55 +1,12 @@
+
+
+
 from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 from datetime import time
 
 from app.models.enums import DayOfWeek, ClassStatus, ProficiencyLevel, StudentRole
-
-
-class ClassroomBase(BaseModel):
-    name: str
-    language_id: int
-    level: ProficiencyLevel
-
-
-class ClassroomCreate(ClassroomBase):
-    pass
-
-
-class ClassroomBrief(BaseModel):
-    """Minimal classroom info for embedding in student/teacher responses."""
-    id: UUID
-    name: str
-    level: ProficiencyLevel
-    language_id: int
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ClassroomUpdate(BaseModel):
-    name: Optional[str] = None
-    level: Optional[ProficiencyLevel] = None
-
-
-class ClassroomResponse(ClassroomBase):
-    id: UUID
-    school_id: UUID
-    teacher_count: int = 0
-    student_count: int = 0
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ClassroomAddTeacher(BaseModel):
-    teacher_id: UUID
-
-
-class ClassroomAddStudent(BaseModel):
-    student_id: UUID
-
-
-class ClassroomBulkAddStudents(BaseModel):
-    student_ids: List[UUID]
 
 
 class ScheduleBase(BaseModel):
@@ -78,11 +35,10 @@ class ClassBase(BaseModel):
 
 
 class ClassCreate(ClassBase):
-    level: Optional[str] = None
+    level: Optional[ProficiencyLevel] = None
     schedule: List[ScheduleBase]
     language_id: int
     term_id: UUID
-    classroom_id: Optional[UUID] = None
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -128,7 +84,7 @@ class ClassResponse(ClassBase):
     school_id: UUID
     term_id: UUID
     language_id: int
-    classroom_id: Optional[UUID] = None
+    level: Optional[ProficiencyLevel] = None
     schedules: List[ScheduleBase] = []
 
     model_config = ConfigDict(from_attributes=True)
