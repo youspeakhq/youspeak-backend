@@ -171,7 +171,8 @@ terraform/tfplan
 terraform/tfplan*
 *.tfplan
 terraform/.terraform/
-terraform/terraform.tfvars
+.terraform/
+*.tfvars
 terraform-outputs.txt
 
 # Generated at deploy time (staging task def from production + CURRICULUM_SERVICE_URL_STAGING)
