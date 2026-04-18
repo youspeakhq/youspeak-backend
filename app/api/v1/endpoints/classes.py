@@ -7,7 +7,7 @@ from uuid import UUID
 
 from app.api import deps
 from app.models.user import User
-from app.schemas.academic import ClassResponse, ClassCreate, RosterUpdate
+from app.schemas.academic import ClassResponse, ClassCreate, RosterUpdate, AssignTeacherRequest
 from app.schemas.admin import LeaderboardResponse
 from app.schemas.analytics import (
     ClassPerformanceSummary,
@@ -492,18 +492,30 @@ async def end_class_session(
 @router.get("/{class_id}/roster", response_model=SuccessResponse)
 async def get_class_roster(
     class_id: UUID,
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
     List students with Roles.
+    - Teachers: Can only access rosters for their assigned classes
+    - Admins: Can access any class roster in their school
     """
+    from app.models.enums import UserRole
+
     cls = await AcademicService.get_class_by_id(db, class_id)
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
-    teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
-    if not any(c.id == class_id for c in teacher_classes):
-        raise HTTPException(status_code=404, detail="Class not found")
+
+    if current_user.role == UserRole.SCHOOL_ADMIN:
+        # Admin: can access any class in their school
+        if cls.school_id != current_user.school_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        # Teacher: can only access their assigned classes
+        teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+        if not any(c.id == class_id for c in teacher_classes):
+            raise HTTPException(status_code=404, detail="Class not found")
+
     roster = await AcademicService.get_class_roster(db, class_id)
     return SuccessResponse(data=roster)
 
@@ -537,6 +549,47 @@ async def add_student_to_roster(
     # Fetch student to return in response
     student = await UserService.get_user_by_id(db, roster_in.student_id)
     return SuccessResponse(data=UserResponse.model_validate(student), message="Student added to class")
+
+
+@router.post("/{class_id}/teachers", response_model=SuccessResponse)
+async def assign_teacher_to_class(
+    class_id: UUID,
+    body: AssignTeacherRequest,
+    current_user: User = Depends(deps.require_admin),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Assign a teacher to a class (Admin only).
+
+    - Validates the class belongs to the admin's school
+    - Validates the teacher exists and belongs to the same school
+    - Idempotent: re-assigning an already-assigned teacher is a no-op
+    """
+    from app.models.enums import UserRole
+
+    # Verify class exists and belongs to this admin's school
+    cls = await AcademicService.get_class_by_id(db, class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    if cls.school_id != current_user.school_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Validate the target teacher
+    teacher = await UserService.get_user_by_id(db, body.teacher_id)
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    if teacher.role != UserRole.TEACHER:
+        raise HTTPException(status_code=400, detail="User is not a teacher")
+    if teacher.school_id != current_user.school_id:
+        raise HTTPException(status_code=400, detail="Teacher does not belong to this school")
+
+    success = await AcademicService.assign_teacher_to_classes(
+        db, body.teacher_id, [class_id], current_user.school_id
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail="Could not assign teacher to class")
+
+    return SuccessResponse(data={"class_id": class_id, "teacher_id": body.teacher_id}, message="Teacher assigned successfully")
 
 
 @router.post("/{class_id}/roster/import", response_model=SuccessResponse)

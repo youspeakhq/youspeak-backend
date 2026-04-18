@@ -79,6 +79,10 @@ class RosterUpdate(BaseModel):
     role: StudentRole
 
 
+class AssignTeacherRequest(BaseModel):
+    teacher_id: UUID
+
+
 class ClassResponse(ClassBase):
     id: UUID
     school_id: UUID
