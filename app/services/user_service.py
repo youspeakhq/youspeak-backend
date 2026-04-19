@@ -183,10 +183,6 @@ class UserService:
         # Get users
         result = await db.execute(
             select(User)
-            .options(
-                selectinload(User.enrolled_classrooms),
-                selectinload(User.taught_classrooms)
-            )
             .offset(skip)
             .limit(limit)
             .order_by(User.created_at.desc())
@@ -598,21 +594,12 @@ class UserService:
         status: str = "active"
     ) -> List[User]:
         """Get users by school and role, filtering by status (active or deleted)"""
-        if role == UserRole.TEACHER:
-            query = (
-                select(User)
-                .where(User.school_id == school_id)
-                .options(selectinload(User.taught_classrooms))
-            )
-        else:
-            query = (
-                select(User)
-                .where(User.school_id == school_id)
-                .options(
-                    selectinload(User.enrolled_classrooms),
-                    selectinload(User.language)
-                )
-            )
+        query = (
+            select(User)
+            .where(User.school_id == school_id)
+        )
+        if role != UserRole.TEACHER:
+            query = query.options(selectinload(User.language))
 
         if role:
             query = query.where(User.role == role)

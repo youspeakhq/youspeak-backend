@@ -87,9 +87,8 @@ async def delete_language(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"Cannot delete language: currently in use by "
-                f"{result['schools_count']} school(s), "
-                f"{result['classes_count']} class(es), "
-                f"and {result['classrooms_count']} classroom(s)"
+                f"{result['schools_count']} school(s) "
+                f"and {result['classes_count']} class(es)"
             )
         )
 

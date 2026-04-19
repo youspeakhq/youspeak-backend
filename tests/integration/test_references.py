@@ -205,38 +205,6 @@ async def test_delete_language_in_use_by_school(async_client: AsyncClient, api_b
 
 
 @pytest.mark.asyncio
-async def test_delete_language_in_use_by_classroom(
-    async_client: AsyncClient, api_base: str, registered_school: dict
-):
-    """Test deleting a language in use by a classroom returns 400 with counts."""
-    # Create a classroom with Spanish
-    get_resp = await async_client.get(f"{api_base}/references/languages")
-    languages = get_resp.json()["data"]
-    spanish = next(lang for lang in languages if lang["code"] == "es")
-    
-    classroom_resp = await async_client.post(
-        f"{api_base}/classrooms",
-        headers=registered_school["headers"],
-        json={
-            "name": "Test Classroom",
-            "language_id": spanish["id"],
-            "level": "beginner"
-        }
-    )
-    assert classroom_resp.status_code in [200, 201]
-    
-    # Try to delete the language
-    resp = await async_client.delete(
-        f"{api_base}/references/languages/{spanish['id']}",
-        headers=registered_school["headers"]
-    )
-    assert resp.status_code == 400
-    error_msg = resp.json()["error"]["message"]
-    assert "in use" in error_msg
-    assert "classroom" in error_msg
-
-
-@pytest.mark.asyncio
 async def test_delete_language_not_found(async_client: AsyncClient, api_base: str, registered_school: dict):
     """Test deleting a non-existent language returns 404."""
     resp = await async_client.delete(

@@ -301,29 +301,6 @@ async def test_admin_can_access_all_school_classes(
 
 
 @pytest.mark.asyncio
-async def test_unauthenticated_cannot_access_classrooms(async_client: AsyncClient, api_base: str):
-    """No auth header: expect 401 or 403."""
-    resp = await async_client.get(f"{api_base}/classrooms")
-    assert resp.status_code in (401, 403)
-
-
-@pytest.mark.asyncio
-async def test_teacher_cannot_create_classroom(
-    async_client: AsyncClient, api_base: str, teacher_headers: dict, unique_suffix: str
-):
-    resp = await async_client.post(
-        f"{api_base}/classrooms",
-        headers=teacher_headers,
-        json={
-            "name": f"Unauth {unique_suffix}",
-            "language_id": 1,
-            "level": "b1",
-        },
-    )
-    assert resp.status_code == 403
-
-
-@pytest.mark.asyncio
 async def test_create_class_rejects_non_csv_roster_file(
     async_client: AsyncClient,
     api_base: str,

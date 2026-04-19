@@ -49,9 +49,6 @@ async def list_students(
     total = len(all_students)
     total_pages = (total + limit - 1) // limit if limit > 0 else 0
 
-    # Build response dicts while the DB session is still open so that
-    # selectinload-populated enrolled_classrooms is accessible without lazy loading.
-
     def _student_dict(u: User) -> dict:
         return UserResponse(
             id=u.id,

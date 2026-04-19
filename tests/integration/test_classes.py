@@ -210,55 +210,6 @@ async def test_create_class_with_timeline(
 
 
 @pytest.mark.asyncio
-async def test_create_class_with_classroom_id(
-    async_client: AsyncClient,
-    api_base: str,
-    registered_school: dict,
-    teacher_headers: dict,
-    classroom_id,
-    unique_suffix: str,
-):
-    resp = await async_client.get(
-        f"{api_base}/schools/terms",
-        headers=teacher_headers,
-    )
-    assert resp.status_code == 200
-    term_id = resp.json()["data"][0]["id"]
-    resp = await async_client.post(
-        f"{api_base}/my-classes",
-        headers=teacher_headers,
-        json={
-            "name": f"Class in Classroom {unique_suffix}",
-            "schedule": [
-                {"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}
-            ],
-            "language_id": 1,
-            "term_id": term_id,
-            "classroom_id": classroom_id,
-        },
-    )
-    assert resp.status_code == 200
-    data = resp.json()["data"]
-    assert data["classroom_id"] == classroom_id
-
-
-@pytest.fixture
-async def classroom_id(async_client, api_base, registered_school, unique_suffix):
-    """Create a classroom for class-with-classroom tests."""
-    resp = await async_client.post(
-        f"{api_base}/classrooms",
-        headers=registered_school["headers"],
-        json={
-            "name": f"Test Classroom {unique_suffix}",
-            "language_id": 1,
-            "level": "b1",
-        },
-    )
-    assert resp.status_code == 200
-    return resp.json()["data"]["id"]
-
-
-@pytest.mark.asyncio
 async def test_create_class_with_roster_csv(
     async_client: AsyncClient,
     api_base: str,

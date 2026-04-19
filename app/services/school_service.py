@@ -412,7 +412,6 @@ class SchoolService:
         - 'in_use': bool - whether language is in use
         - 'schools_count': int - number of schools using it
         - 'classes_count': int - number of classes using it
-        - 'classrooms_count': int - number of classrooms using it
         """
         # Check if language exists
         lang_stmt = select(Language).where(Language.id == language_id)
@@ -442,7 +441,6 @@ class SchoolService:
                 "in_use": True,
                 "schools_count": schools_count,
                 "classes_count": classes_count,
-                "classrooms_count": 0
             }
 
         # No usage, safe to soft delete
@@ -454,5 +452,4 @@ class SchoolService:
             "in_use": False,
             "schools_count": 0,
             "classes_count": 0,
-            "classrooms_count": 0
         }
