@@ -84,7 +84,7 @@ async def test_import_students_csv(
     csv_content = (
         f"first_name,last_name,email,student_id,class_id\n"
         f"Import,One,import1_{unique_suffix}@test.com,2025-{unique_suffix[:3]},{class_id_for_student}\n"
-        f"Import,Two,import2_{unique_suffix}@test.com,,,\n"
+        f"Import,Two,import2_{unique_suffix}@test.com,,{class_id_for_student}\n"
     ).encode("utf-8")
     resp = await async_client.post(
         f"{api_base}/students/import",

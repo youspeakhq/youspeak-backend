@@ -7,6 +7,19 @@ pytestmark = requires_db
 from httpx import AsyncClient
 
 
+@pytest.fixture
+async def seeded_languages(async_client: AsyncClient, api_base: str, registered_school: dict):
+    """Ensure Spanish and French languages exist for school program tests."""
+    headers = registered_school["headers"]
+    for name, code in [("Spanish", "es"), ("French", "fr")]:
+        await async_client.post(
+            f"{api_base}/references/languages",
+            headers=headers,
+            json={"name": name, "code": code},
+        )
+    # Return doesn't matter; just ensures they exist (ignores 409 if already created)
+
+
 @pytest.mark.asyncio
 async def test_get_school_profile_requires_auth(async_client: AsyncClient, api_base: str):
     resp = await async_client.get(f"{api_base}/schools/profile")
@@ -51,7 +64,7 @@ async def test_update_school_profile(
 
 @pytest.mark.asyncio
 async def test_school_profile_returns_languages_after_program_update(
-    async_client: AsyncClient, api_base: str, registered_school: dict
+    async_client: AsyncClient, api_base: str, registered_school: dict, seeded_languages
 ):
     """GET /schools/profile returns current languages; updating program then profile reflects it."""
     put_resp = await async_client.put(
@@ -71,7 +84,7 @@ async def test_school_profile_returns_languages_after_program_update(
 
 @pytest.mark.asyncio
 async def test_remove_school_program(
-    async_client: AsyncClient, api_base: str, registered_school: dict
+    async_client: AsyncClient, api_base: str, registered_school: dict, seeded_languages
 ):
     """DELETE /schools/program/{code} removes one language; profile then reflects it."""
     await async_client.put(
@@ -96,7 +109,7 @@ async def test_remove_school_program(
 
 @pytest.mark.asyncio
 async def test_remove_school_program_not_offered_returns_404(
-    async_client: AsyncClient, api_base: str, registered_school: dict
+    async_client: AsyncClient, api_base: str, registered_school: dict, seeded_languages
 ):
     """DELETE /schools/program/{code} returns 404 when school does not offer that language."""
     await async_client.put(
@@ -139,7 +152,7 @@ async def test_update_school_profile_email_and_phone(
 
 @pytest.mark.asyncio
 async def test_update_school_programs(
-    async_client: AsyncClient, api_base: str, registered_school: dict
+    async_client: AsyncClient, api_base: str, registered_school: dict, seeded_languages
 ):
     resp = await async_client.put(
         f"{api_base}/schools/program",
