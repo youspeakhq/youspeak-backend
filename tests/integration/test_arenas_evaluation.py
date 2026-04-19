@@ -192,7 +192,7 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     token = create_access_token({"sub": str(teacher.id), "type": "access"})
     headers = {"Authorization": f"Bearer {token}"}
 
-    return {
+    yield {
         "teacher_id": teacher.id,
         "headers": headers,
         "class_id": class_.id,
@@ -200,6 +200,21 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
         "student_ids": student_ids,
         "participant_ids": participant_ids
     }
+
+    # Cleanup: delete all committed data in reverse dependency order
+    from sqlalchemy import delete
+    await db.execute(delete(ArenaReaction).where(ArenaReaction.arena_id == arena.id))
+    await db.execute(delete(ArenaParticipant).where(ArenaParticipant.arena_id == arena.id))
+    await db.execute(delete(ArenaWaitingRoom).where(ArenaWaitingRoom.arena_id == arena.id))
+    await db.execute(delete(Arena).where(Arena.id == arena.id))
+    await db.execute(delete(teacher_assignments).where(teacher_assignments.c.class_id == class_.id))
+    await db.execute(delete(class_enrollments).where(class_enrollments.c.class_id == class_.id))
+    await db.execute(delete(Class).where(Class.id == class_.id))
+    await db.execute(delete(Term).where(Term.id == term.id))
+    await db.execute(delete(User).where(User.school_id == fake_school_id))
+    await db.execute(delete(Language).where(Language.id == lang_id))
+    await db.execute(delete(School).where(School.id == fake_school_id))
+    await db.commit()
 
 
 # ============================================================================
