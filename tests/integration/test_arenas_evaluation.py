@@ -46,15 +46,13 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     db.add(school)
     await db.flush()
 
-    # Create language record (required FK for Class)
+    # Create a unique language record (required FK for Class).
+    # Use a unique code to avoid collisions with seeded data in parallel test workers.
     from app.models.onboarding import Language
-    from sqlalchemy import select as sa_select
-    lang_result = await db.execute(sa_select(Language).where(Language.code == "en"))
-    language = lang_result.scalar_one_or_none()
-    if not language:
-        language = Language(name="English", code="en")
-        db.add(language)
-        await db.flush()
+    lang_code = f"t{unique_suffix[:5]}"
+    language = Language(name=f"TestLang-{unique_suffix}", code=lang_code)
+    db.add(language)
+    await db.flush()
     lang_id = language.id
 
     # Create teacher with school_id
