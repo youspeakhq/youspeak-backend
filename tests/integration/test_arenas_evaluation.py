@@ -54,7 +54,6 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
         role=UserRole.TEACHER,
         hashed_password="fake_hash",
         is_active=True,
-        language_id=1,
         school_id=fake_school_id
     )
     db.add(teacher)
@@ -108,7 +107,6 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
             role=UserRole.STUDENT,
             hashed_password="fake_hash",
             is_active=True,
-            language_id=1,
             school_id=fake_school_id
         )
         db.add(student)
