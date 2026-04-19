@@ -46,13 +46,16 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     db.add(school)
     await db.flush()
 
-    # Create a unique language record (required FK for Class).
-    # Use a unique code to avoid collisions with seeded data in parallel test workers.
+    # Look up an existing seeded language (avoid creating rows that leak across parallel workers)
     from app.models.onboarding import Language
-    lang_code = f"t{unique_suffix[:5]}"
-    language = Language(name=f"TestLang-{unique_suffix}", code=lang_code)
-    db.add(language)
-    await db.flush()
+    from sqlalchemy import select as sa_select
+    lang_result = await db.execute(sa_select(Language).limit(1))
+    language = lang_result.scalar_one_or_none()
+    if language is None:
+        # Fallback: create one if DB has no seeded languages
+        language = Language(name=f"TestLang-{unique_suffix}", code=f"t{unique_suffix[:5]}")
+        db.add(language)
+        await db.flush()
     lang_id = language.id
 
     # Create teacher with school_id
@@ -212,7 +215,6 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     await db.execute(delete(Class).where(Class.id == class_.id))
     await db.execute(delete(Term).where(Term.id == term.id))
     await db.execute(delete(User).where(User.school_id == fake_school_id))
-    await db.execute(delete(Language).where(Language.id == lang_id))
     await db.execute(delete(School).where(School.id == fake_school_id))
     await db.commit()
 
