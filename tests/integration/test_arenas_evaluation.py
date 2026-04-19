@@ -46,6 +46,17 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
     db.add(school)
     await db.flush()
 
+    # Create language record (required FK for Class)
+    from app.models.onboarding import Language
+    from sqlalchemy import select as sa_select
+    lang_result = await db.execute(sa_select(Language).where(Language.code == "en"))
+    language = lang_result.scalar_one_or_none()
+    if not language:
+        language = Language(name="English", code="en")
+        db.add(language)
+        await db.flush()
+    lang_id = language.id
+
     # Create teacher with school_id
     teacher = User(
         email=f"teacher-{unique_suffix}@test.com",
@@ -77,7 +88,7 @@ async def teacher_with_live_arena(async_client: AsyncClient, db: AsyncSession):
         name="Test Class",
         school_id=fake_school_id,
         term_id=term.id,
-        language_id=1,
+        language_id=lang_id,
         description="Test class for arena"
     )
     db.add(class_)
