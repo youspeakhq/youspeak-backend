@@ -5,7 +5,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from app.utils.time import get_utc_now
-from sqlalchemy import select, func, desc, and_
+from sqlalchemy import select, func, desc, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -104,16 +104,13 @@ class SchoolService:
         ]
         db.add_all(terms)
 
-        # Seed Languages if empty
-        stmt = select(Language).limit(1)
-        result = await db.execute(stmt)
-        if not result.scalar_one_or_none():
-            languages = [
-                Language(code="en", name="English"),
-                Language(code="es", name="Spanish"),
-                Language(code="fr", name="French")
-            ]
-            db.add_all(languages)
+        # Seed Languages using ON CONFLICT DO NOTHING to avoid race conditions
+        # in parallel test execution and concurrent school registrations.
+        await db.execute(text("""
+            INSERT INTO languages (name, code, is_active)
+            VALUES ('English', 'en', true), ('Spanish', 'es', true), ('French', 'fr', true)
+            ON CONFLICT (code) DO NOTHING
+        """))
 
         await db.commit()
         await db.refresh(school)
