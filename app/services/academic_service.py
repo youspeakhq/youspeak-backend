@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.academic import Class, ClassSchedule, class_enrollments, teacher_assignments, Term
 from app.models.enums import StudentRole, ClassStatus, UserRole
-from app.schemas.academic import ClassCreate
+from app.schemas.academic import ClassCreate, ClassUpdate
 from app.services.school_service import SchoolService
 
 
@@ -127,6 +127,36 @@ class AcademicService:
         )
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
+    @staticmethod
+    async def update_class(db: AsyncSession, class_id: UUID, update: ClassUpdate) -> Optional[Class]:
+        """Update editable fields of a class. Replaces schedules when provided."""
+        stmt = select(Class).where(Class.id == class_id).options(selectinload(Class.schedules))
+        result = await db.execute(stmt)
+        cls = result.scalar_one_or_none()
+        if not cls:
+            return None
+
+        for field in ("name", "sub_class", "description", "timeline", "status", "level"):
+            value = getattr(update, field, None)
+            if value is not None:
+                setattr(cls, field, value)
+
+        if update.schedule is not None:
+            await db.execute(
+                delete(ClassSchedule).where(ClassSchedule.class_id == class_id)
+            )
+            for s in update.schedule:
+                db.add(ClassSchedule(
+                    class_id=class_id,
+                    day_of_week=s.day_of_week,
+                    start_time=s.start_time,
+                    end_time=s.end_time,
+                ))
+
+        await db.commit()
+        await db.refresh(cls)
+        return cls
 
     @staticmethod
     async def get_school_classes(db: AsyncSession, school_id: UUID) -> List[Class]:

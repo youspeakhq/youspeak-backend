@@ -7,7 +7,7 @@ from uuid import UUID
 
 from app.api import deps
 from app.models.user import User
-from app.schemas.academic import ClassResponse, ClassCreate, RosterUpdate, AssignTeacherRequest
+from app.schemas.academic import ClassResponse, ClassCreate, ClassUpdate, RosterUpdate, AssignTeacherRequest
 from app.schemas.admin import LeaderboardResponse
 from app.schemas.analytics import (
     ClassPerformanceSummary,
@@ -363,6 +363,38 @@ async def get_class_by_id(
             raise HTTPException(status_code=403, detail="Access denied")
 
     return SuccessResponse(data=cls)
+
+
+@router.patch("/{class_id}", response_model=SuccessResponse[ClassResponse])
+async def update_class(
+    class_id: UUID,
+    update_in: ClassUpdate,
+    current_user: User = Depends(deps.require_teacher_or_admin),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Update a class. Teachers can only update their own assigned classes; admins can update any class in their school.
+
+    All fields are optional:
+    - `name`, `sub_class`, `description`, `timeline`, `status`, `level`
+    - `schedule`: If provided, replaces the existing schedule entirely.
+    """
+    from app.models.enums import UserRole
+
+    cls = await AcademicService.get_class_by_id(db, class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    if current_user.role == UserRole.SCHOOL_ADMIN:
+        if cls.school_id != current_user.school_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+        if class_id not in {c.id for c in teacher_classes}:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    updated = await AcademicService.update_class(db, class_id, update_in)
+    return SuccessResponse(data=updated, message="Class updated successfully")
 
 
 @router.get("/{class_id}/monitor", response_model=SuccessResponse[RoomMonitorResponse])

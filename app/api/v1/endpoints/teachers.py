@@ -21,7 +21,7 @@ from app.schemas.responses import SuccessResponse, PaginatedResponse
 router = APIRouter()
 
 
-@router.get("", response_model=PaginatedResponse[UserResponse])
+@router.get("")
 async def list_teachers(
     status: str = "active",
     current_user: User = Depends(deps.require_admin),
@@ -37,10 +37,25 @@ async def list_teachers(
         status=status,
     )
 
+    # Load class assignments for all teachers in one query.
+    teacher_class_map: dict = {}
+    if teachers:
+        from sqlalchemy import select
+        from app.models.academic import teacher_assignments, Class
+        teacher_ids = [u.id for u in teachers]
+        stmt = (
+            select(teacher_assignments.c.teacher_id, Class.id)
+            .join(Class, Class.id == teacher_assignments.c.class_id)
+            .where(teacher_assignments.c.teacher_id.in_(teacher_ids))
+        )
+        rows = (await db.execute(stmt)).all()
+        for row in rows:
+            teacher_class_map.setdefault(row.teacher_id, []).append(str(row[1]))
+
     # Build response dicts while the DB session is still open so that
     # relationships are accessible without lazy loading.
     def _teacher_dict(u: User) -> dict:
-        return UserResponse(
+        base = UserResponse(
             id=u.id,
             email=u.email,
             full_name=u.full_name,
@@ -49,11 +64,13 @@ async def list_teachers(
             school_id=u.school_id,
             profile_picture_url=u.profile_picture_url,
             student_number=None,
-            is_verified=True,  # Teachers are usually verified if active
+            is_verified=True,
             created_at=u.created_at,
             updated_at=u.updated_at,
             last_login=getattr(u, "last_login", None),
-        )
+        ).model_dump()
+        base["class_ids"] = teacher_class_map.get(u.id, [])
+        return base
 
     serialized = [_teacher_dict(u) for u in teachers]
     total = len(teachers)

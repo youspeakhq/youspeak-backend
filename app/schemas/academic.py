@@ -70,8 +70,12 @@ class ClassCreate(ClassBase):
 
 class ClassUpdate(BaseModel):
     name: Optional[str] = None
+    sub_class: Optional[str] = None
+    description: Optional[str] = None
     timeline: Optional[str] = None
     status: Optional[ClassStatus] = None
+    level: Optional[ProficiencyLevel] = None
+    schedule: Optional[List[ScheduleBase]] = None
 
 
 class RosterUpdate(BaseModel):
