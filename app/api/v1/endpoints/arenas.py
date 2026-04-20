@@ -666,11 +666,17 @@ async def admit_student(
     if not entry:
         raise HTTPException(status_code=404, detail="Waiting room entry not found or already processed")
 
-    # TODO Phase 4: Return actual participant_id from arena_participants table
+    # Look up the ArenaParticipant created during admission
+    from app.models.arena import ArenaParticipant as AP
+    part_result = await db.execute(
+        select(AP).where(AP.arena_id == arena_id, AP.student_id == entry.student_id)
+    )
+    participant = part_result.scalar_one_or_none()
+
     return SuccessResponse(
         data=WaitingRoomAdmitResponse(
             success=True,
-            participant_id=entry.student_id  # Temporary: use student_id
+            participant_id=participant.id if participant else entry.student_id,
         ),
         message="Student admitted successfully"
     )
@@ -885,7 +891,7 @@ async def arena_live_session(
 
     try:
         # Send initial session state
-        participants = []  # TODO Phase 4: Get from arena_participants table
+        participants = await ArenaService.get_arena_participants(db, arena_id)
         await connection_manager.send_personal_message(
             arena_id,
             user_id,
@@ -1137,7 +1143,7 @@ async def start_arena_session(
             start_time=arena.start_time,
             duration_minutes=arena.duration_minutes,
             active_speaker_id=None,
-            participants=[],  # TODO Phase 4: Get from arena_participants
+            participants=await ArenaService.get_arena_participants(db, arena.id),
         ),
         message="Arena session started successfully"
     )
@@ -1180,8 +1186,7 @@ async def end_arena_session(
     if arena.recording_status == "recording":
         arena.recording_status = "completed"
         arena.recording_stopped_at = datetime.utcnow()
-        # TODO: Trigger AWS Transcribe job here (background task)
-        # arena.transcription_status = "processing"
+        # Transcription is handled client-side via Cloudflare SDK
         await db.commit()
         log.info("cloud_recording_will_auto_stop", extra={
             "meeting_id": arena.realtimekit_meeting_id
@@ -1355,7 +1360,7 @@ async def get_arena_scores(
                 reactions_received=reactions_count,
                 ai_pronunciation_score=ai_pron,
                 ai_fluency_score=ai_flu,
-                teacher_rating=None,
+                teacher_rating=float(participant.teacher_rating) if participant.teacher_rating is not None else None,
             )
         )
 

@@ -244,8 +244,14 @@ class ArenaService:
         if config.team_size:
             arena.team_size = config.team_size
 
-        # TODO Phase 4: Create arena_participants entries for selected students
-        # For now, just update the arena configuration
+        # Create arena_participants entries for selected students
+        for student_id in config.selected_student_ids:
+            await ArenaService.create_arena_participant(
+                db=db,
+                arena_id=arena_id,
+                student_id=student_id,
+                role='participant',
+            )
 
         await db.commit()
         await db.refresh(arena)
@@ -733,6 +739,33 @@ class ArenaService:
             return None
 
     @staticmethod
+    async def get_arena_participants(
+        db: AsyncSession,
+        arena_id: UUID,
+    ) -> List[dict]:
+        """Return serialised participant list for an arena (used by session state responses)."""
+        result = await db.execute(
+            select(ArenaParticipant, User)
+            .join(User, User.id == ArenaParticipant.student_id)
+            .where(ArenaParticipant.arena_id == arena_id)
+            .order_by(ArenaParticipant.created_at)
+        )
+        rows = result.all()
+        return [
+            {
+                "participant_id": str(p.id),
+                "student_id": str(p.student_id),
+                "student_name": f"{u.first_name} {u.last_name}",
+                "avatar_url": u.profile_picture_url,
+                "role": p.role,
+                "is_speaking": p.is_speaking,
+                "total_speaking_duration_seconds": p.total_speaking_duration_seconds,
+                "engagement_score": float(p.engagement_score),
+            }
+            for p, u in rows
+        ]
+
+    @staticmethod
     async def update_speaking_state(
         db: AsyncSession,
         participant_id: UUID,
@@ -1072,9 +1105,8 @@ class ArenaService:
         feedback: Optional[str] = None,
     ) -> Optional[ArenaParticipant]:
         """
-        Save teacher rating for participant.
-        Placeholder — ArenaParticipant model does not yet have rating columns.
-        Returns the participant if it exists and the teacher has access, None otherwise.
+        Save teacher rating for a participant.
+        Validates that the teacher is assigned to the arena's class before saving.
         """
         result = await db.execute(
             select(ArenaParticipant, Arena)
@@ -1089,7 +1121,11 @@ class ArenaService:
         if not row:
             return None
 
-        return row[0]
+        participant = row[0]
+        participant.teacher_rating = overall_rating
+        participant.teacher_feedback = feedback
+        await db.flush()
+        return participant
 
     @staticmethod
     async def publish_arena_results(
@@ -1115,8 +1151,8 @@ class ArenaService:
         # Update arena status to published
         arena.status = ArenaStatus.PUBLISHED
 
-        # TODO Phase 5: Generate share URL based on visibility
-        # TODO Phase 5: Trigger AI analysis if enabled
+        # Future: Generate share URL based on visibility (class/school/public)
+        # Future: Trigger post-session AI analysis via Azure Speech if enabled
 
         await db.commit()
         await db.refresh(arena)

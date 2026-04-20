@@ -171,6 +171,8 @@ class ArenaParticipant(BaseModel):
     engagement_score = Column(Numeric(5, 2), default=0.00, nullable=False)  # 0.00 to 100.00
     ai_pronunciation_score = Column(Numeric(5, 2), nullable=True)  # 0.00 to 100.00 from Azure Speech
     ai_fluency_score = Column(Numeric(5, 2), nullable=True)  # 0.00 to 100.00 from Azure Speech
+    teacher_rating = Column(Numeric(5, 2), nullable=True)  # 0.00 to 100.00 from teacher
+    teacher_feedback = Column(Text, nullable=True)
     last_activity = Column(DateTime, nullable=False)
 
     # Relationships
