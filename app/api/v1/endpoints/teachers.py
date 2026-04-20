@@ -12,6 +12,7 @@ from app.models.enums import UserRole
 from app.models.access_code import TeacherAccessCode
 from app.core import security
 from app.services.user_service import UserService
+from app.services.academic_service import AcademicService
 from app.services.email_service import send_teacher_invite
 from app.schemas.student import TeacherCreate
 from app.schemas.user import UserResponse
@@ -102,6 +103,17 @@ async def create_teacher_invite(
         is_used=False,
     )
     db.add(access_code)
+
+    # Assign teacher to classes if provided
+    if teacher_in.class_ids:
+        success = await AcademicService.assign_teacher_to_classes(
+            db, teacher.id, teacher_in.class_ids, current_user.school_id
+        )
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail="One or more class IDs are invalid or don't belong to this school",
+            )
 
     await db.commit()
 

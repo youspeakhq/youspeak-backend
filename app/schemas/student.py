@@ -33,7 +33,7 @@ class StudentCreate(BaseModel):
 
 
 class StudentUpdate(BaseModel):
-    classroom_id: Optional[UUID] = None
+    class_id: Optional[UUID] = None
     status: Optional[str] = None
 
 
@@ -42,11 +42,11 @@ class TeacherCreate(BaseModel):
     first_name: str
     last_name: str
     email: str
-    classroom_ids: Optional[List[UUID]] = None
+    class_ids: Optional[List[UUID]] = None
 
 
 class TeacherAssign(BaseModel):
-    classroom_id: UUID
+    class_id: UUID
 
 
 class UserResponse(UserBase):

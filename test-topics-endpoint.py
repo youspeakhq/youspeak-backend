@@ -48,7 +48,7 @@ async def test_topics():
                 "email": TEACHER_EMAIL,
                 "first_name": "Test",
                 "last_name": "Teacher",
-                "classroom_ids": []
+                "class_ids": []
             }
         )
         print(f"   Status: {response.status_code}")

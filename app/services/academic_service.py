@@ -250,8 +250,7 @@ class AcademicService:
             "last_name": ("last_name", "lastname", "last name", "surname", "family name"),
             "email": ("email", "e-mail", "mail"),
             "student_number": ("student_number", "student_id", "student id", "student number"),
-            "classroom_id": ("classroom_id", "classroom", "classroom id"),
-            "class_id": ("class_id", "class", "class id"),
+            "class_id": ("class_id", "class", "class id", "classroom_id", "classroom", "classroom id"),
             # Language column can be absent (we may fall back to a default),
             # but when present we support a variety of header names.
             "language_code": (
