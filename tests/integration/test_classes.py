@@ -36,6 +36,34 @@ async def teacher_headers(async_client, api_base, registered_school, unique_suff
     return {"Authorization": f"Bearer {resp.json()['data']['access_token']}"}
 
 
+@pytest.fixture
+async def second_teacher_headers(async_client, api_base, registered_school, unique_suffix):
+    """Create a second teacher in the same school and return auth headers."""
+    email = f"teacher2_{unique_suffix}@test.com"
+    resp = await async_client.post(
+        f"{api_base}/teachers",
+        headers=registered_school["headers"],
+        json={"first_name": "Teacher", "last_name": "Two", "email": email},
+    )
+    assert resp.status_code == 200
+    code = resp.json()["data"]["access_code"]
+    await async_client.post(
+        f"{api_base}/auth/register/teacher",
+        json={
+            "access_code": code,
+            "email": email,
+            "password": "Pass123!",
+            "first_name": "Teacher",
+            "last_name": "Two",
+        },
+    )
+    resp = await async_client.post(
+        f"{api_base}/auth/login",
+        json={"email": email, "password": "Pass123!"},
+    )
+    return {"Authorization": f"Bearer {resp.json()['data']['access_token']}"}
+
+
 @pytest.mark.asyncio
 async def test_get_my_classes_empty(
     async_client: AsyncClient, api_base: str, teacher_headers: dict
@@ -610,9 +638,10 @@ async def test_import_roster_requires_teacher_access(
     async_client: AsyncClient,
     api_base: str,
     teacher_headers: dict,
+    second_teacher_headers: dict,
     unique_suffix: str,
 ):
-    """Teacher cannot import roster to class they don't teach."""
+    """Teacher cannot import roster to a class they don't teach."""
     # Create class as first teacher
     resp = await async_client.get(
         f"{api_base}/schools/terms",
@@ -634,21 +663,14 @@ async def test_import_roster_requires_teacher_access(
     assert resp.status_code == 200
     class_id = resp.json()["data"]["id"]
 
-    # Try to import as different teacher (use admin headers as proxy for "other user")
-    resp = await async_client.get(f"{api_base}/schools/terms", headers=teacher_headers)
-    assert resp.status_code == 200
-
+    # Try to import as second teacher — should be denied
     csv_content = b"first_name,last_name,email\nTest,Student,test@test.com\n"
-
-    # TODO: Create second teacher fixture for proper test
-    # For now, test with class_id that doesn't exist
-    fake_class_id = "00000000-0000-0000-0000-000000000999"
     resp = await async_client.post(
-        f"{api_base}/my-classes/{fake_class_id}/roster/import",
-        headers=teacher_headers,
+        f"{api_base}/my-classes/{class_id}/roster/import",
+        headers=second_teacher_headers,
         files={"file": ("roster.csv", csv_content, "text/csv")},
     )
-    assert resp.status_code == 404  # Class not found
+    assert resp.status_code in (403, 404)  # Not their class
 
 
 @pytest.mark.asyncio

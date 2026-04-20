@@ -201,6 +201,27 @@ class ArenaReaction(BaseModel):
     user = relationship("User", backref="sent_reactions")
     target_participant = relationship("ArenaParticipant", backref="received_reactions")
 
+
+class ArenaParticipantEvent(BaseModel):
+    """
+    Event log for participant state changes during live sessions.
+    Used to reconstruct speaking timelines and engagement history.
+    """
+    __tablename__ = "arena_participant_events"
+
+    participant_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("arena_participants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    event_type = Column(String(30), nullable=False)  # 'speaking_start' | 'speaking_stop' | 'engagement_change'
+    timestamp = Column(DateTime, nullable=False)
+    value = Column(Numeric(10, 2), nullable=True)  # speaking duration (on stop) or new engagement score
+
+    # Relationships
+    participant = relationship("ArenaParticipant", backref="events")
+
     def __repr__(self) -> str:
         return f"<ArenaReaction {self.reaction_type} from {self.user_id}>"
 

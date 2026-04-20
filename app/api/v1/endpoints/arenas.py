@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from datetime import datetime
 
+from app.config import settings
 from app.api import deps
 from app.models.user import User
 from app.models.enums import ArenaStatus
@@ -901,7 +902,7 @@ async def arena_live_session(
                 "data": {
                     "arena_id": str(arena_id),
                     "session_state": arena.session_state,
-                    "active_speaker_id": None,  # TODO: Track active speaker
+                    "active_speaker_id": None,  # Tracked client-side via Cloudflare RealtimeKit
                     "participants": participants,
                 },
             },
@@ -1296,7 +1297,7 @@ async def get_arena_session_state(
             session_state=arena.session_state,
             start_time=arena.start_time,
             duration_minutes=arena.duration_minutes,
-            active_speaker_id=None,  # TODO: Track active speaker
+            active_speaker_id=None,  # Tracked client-side via Cloudflare RealtimeKit
             participants=[
                 {"user_id": str(uid), "connected": True}
                 for uid in connected_users
@@ -1537,8 +1538,12 @@ async def publish_arena_results(
         log.warning("arena_publish_failed")
         raise HTTPException(status_code=404, detail="Arena not found, not completed, or access denied")
 
-    # TODO: Generate share URL based on visibility setting
-    share_url = f"https://youspeak.com/arenas/{arena_id}/results"
+    base = settings.FRONTEND_URL
+    if publish_data.visibility == "public":
+        share_url = f"{base}/share/arenas/{arena_id}"
+    else:
+        # class and school visibility require auth; same URL, frontend enforces access
+        share_url = f"{base}/arenas/{arena_id}/results"
 
     log.info("arena_published")
 

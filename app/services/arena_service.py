@@ -15,7 +15,7 @@ from sqlalchemy import select, and_, or_, delete, insert, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.arena import Arena, ArenaCriteria, ArenaRule, arena_moderators, ArenaWaitingRoom, ArenaParticipant, ArenaReaction, ArenaTeam, ArenaTeamMember
+from app.models.arena import Arena, ArenaCriteria, ArenaRule, arena_moderators, ArenaWaitingRoom, ArenaParticipant, ArenaParticipantEvent, ArenaReaction, ArenaTeam, ArenaTeamMember
 from app.models.academic import Class, teacher_assignments, class_enrollments
 from app.models.user import User
 from app.models.enums import ArenaStatus, UserRole
@@ -789,13 +789,25 @@ class ArenaService:
             # Start speaking
             participant.is_speaking = True
             participant.speaking_start_time = now
+            db.add(ArenaParticipantEvent(
+                participant_id=participant.id,
+                event_type='speaking_start',
+                timestamp=now,
+            ))
         elif not is_speaking and participant.is_speaking:
             # Stop speaking - accumulate duration
+            duration_seconds = 0
             if participant.speaking_start_time:
                 duration_seconds = int((now - participant.speaking_start_time).total_seconds())
                 participant.total_speaking_duration_seconds += duration_seconds
             participant.is_speaking = False
             participant.speaking_start_time = None
+            db.add(ArenaParticipantEvent(
+                participant_id=participant.id,
+                event_type='speaking_stop',
+                timestamp=now,
+                value=duration_seconds,
+            ))
 
         participant.last_activity = now
         await db.commit()
@@ -822,7 +834,15 @@ class ArenaService:
 
         new_score = float(participant.engagement_score) + engagement_delta
         participant.engagement_score = max(0.0, min(100.0, new_score))
-        participant.last_activity = datetime.utcnow()
+        now = datetime.utcnow()
+        participant.last_activity = now
+
+        db.add(ArenaParticipantEvent(
+            participant_id=participant.id,
+            event_type='engagement_change',
+            timestamp=now,
+            value=participant.engagement_score,
+        ))
 
         await db.commit()
         await db.refresh(participant)
@@ -946,17 +966,63 @@ class ArenaService:
                     'from_user_id': str(reaction.user_id)
                 })
 
+            # Build speaking timeline from participant events
+            events_result = await db.execute(
+                select(ArenaParticipantEvent)
+                .where(
+                    ArenaParticipantEvent.participant_id == participant.id,
+                    ArenaParticipantEvent.event_type.in_(['speaking_start', 'speaking_stop']),
+                )
+                .order_by(ArenaParticipantEvent.timestamp)
+            )
+            speaking_events = list(events_result.scalars().all())
+            speaking_timeline = []
+            pending_start = None
+            for evt in speaking_events:
+                if evt.event_type == 'speaking_start':
+                    pending_start = evt.timestamp
+                elif evt.event_type == 'speaking_stop' and pending_start:
+                    speaking_timeline.append({
+                        'start': pending_start.isoformat(),
+                        'end': evt.timestamp.isoformat(),
+                        'duration_seconds': int(float(evt.value)) if evt.value else 0,
+                    })
+                    pending_start = None
+
+            # Build engagement timeline from participant events
+            eng_result = await db.execute(
+                select(ArenaParticipantEvent)
+                .where(
+                    ArenaParticipantEvent.participant_id == participant.id,
+                    ArenaParticipantEvent.event_type == 'engagement_change',
+                )
+                .order_by(ArenaParticipantEvent.timestamp)
+            )
+            engagement_events = list(eng_result.scalars().all())
+            engagement_timeline = [
+                {
+                    'timestamp': evt.timestamp.isoformat(),
+                    'score': float(evt.value) if evt.value else 0.0,
+                }
+                for evt in engagement_events
+            ]
+
+            # Peak engagement from timeline or current score
+            peak_engagement = float(participant.engagement_score)
+            if engagement_timeline:
+                peak_engagement = max(e['score'] for e in engagement_timeline)
+
             participant_analytics.append({
                 'participant_id': str(participant.id),
                 'student_id': str(participant.student_id),
                 'student_name': f"{user.first_name} {user.last_name}",
                 'avatar_url': user.profile_picture_url,
-                'speaking_timeline': [],  # TODO: Track individual speaking sessions
-                'engagement_timeline': [],  # TODO: Track engagement changes over time
+                'speaking_timeline': speaking_timeline,
+                'engagement_timeline': engagement_timeline,
                 'reactions_timeline': reactions_timeline,
                 'total_speaking_time_seconds': participant.total_speaking_duration_seconds,
                 'average_engagement_score': float(participant.engagement_score),
-                'peak_engagement_score': float(participant.engagement_score),
+                'peak_engagement_score': peak_engagement,
                 'total_reactions_received': len(reactions),
                 'reaction_breakdown': reaction_breakdown
             })

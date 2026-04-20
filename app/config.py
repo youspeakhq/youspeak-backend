@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     # Email (Resend)
     RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "YouSpeak <onboarding@resend.dev>"
+    FRONTEND_URL: str = "https://app.youspeak.com"
     FRONTEND_SIGNUP_URL: str = "https://app.youspeak.com/signup"
     FRONTEND_RESET_PASSWORD_URL: str = "https://app.youspeak.com/reset-password"
 
