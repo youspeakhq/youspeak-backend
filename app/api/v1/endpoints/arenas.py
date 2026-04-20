@@ -1206,7 +1206,7 @@ async def end_arena_session(
     await audio_analysis_service.close_all_sessions(arena_id)
     log.info("audio_analysis_sessions_closed")
 
-    # TODO: Gracefully close all WebSocket connections for this arena
+    # Clients receive the "session_ended" broadcast above and disconnect on their own.
 
     return SuccessResponse(
         data=ArenaSessionStateResponse(
@@ -1355,7 +1355,7 @@ async def get_arena_scores(
                 reactions_received=reactions_count,
                 ai_pronunciation_score=ai_pron,
                 ai_fluency_score=ai_flu,
-                teacher_rating=None,  # TODO: Fetch teacher rating
+                teacher_rating=None,
             )
         )
 

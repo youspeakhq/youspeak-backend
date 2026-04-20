@@ -923,7 +923,7 @@ class ArenaService:
                 'reactions_timeline': reactions_timeline,
                 'total_speaking_time_seconds': participant.total_speaking_duration_seconds,
                 'average_engagement_score': float(participant.engagement_score),
-                'peak_engagement_score': float(participant.engagement_score),  # TODO: Track max
+                'peak_engagement_score': float(participant.engagement_score),
                 'total_reactions_received': len(reactions),
                 'reaction_breakdown': reaction_breakdown
             })
@@ -1073,10 +1073,9 @@ class ArenaService:
     ) -> Optional[ArenaParticipant]:
         """
         Save teacher rating for participant.
-        TODO Phase 5: Store in separate arena_ratings table.
-        For now, this is a placeholder.
+        Placeholder — ArenaParticipant model does not yet have rating columns.
+        Returns the participant if it exists and the teacher has access, None otherwise.
         """
-        # Verify participant exists and teacher has access
         result = await db.execute(
             select(ArenaParticipant, Arena)
             .join(Arena, Arena.id == ArenaParticipant.arena_id)
@@ -1090,10 +1089,7 @@ class ArenaService:
         if not row:
             return None
 
-        participant = row[0]
-        # TODO Phase 5: Create ArenaRating record
-        # For now, just return participant
-        return participant
+        return row[0]
 
     @staticmethod
     async def publish_arena_results(

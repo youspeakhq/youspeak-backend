@@ -150,12 +150,9 @@ async def test_student_join_waiting_room_success(
 
     # Get student token (from fixture students)
     student_id = teacher_with_class_and_students["student_ids"][0]
-    # Login as student (need to get student email first)
-    # For now, skip actual student login - this test requires student fixture enhancement
-
-    # TODO: Complete this test when student login fixture is available
-    # For now, just test the validation parts
-    pytest.skip("Student login fixture needed for full test")
+    # Student login fixtures exist (create_student_direct in conftest.py)
+    # but this test needs refactoring to use them properly.
+    pytest.skip("Needs refactoring to use create_student_direct fixture")
 
 
 @pytest.mark.asyncio

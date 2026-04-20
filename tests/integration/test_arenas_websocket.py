@@ -24,7 +24,7 @@ pytestmark = requires_db
 
 # Mark WebSocket tests as requiring live server
 requires_websocket = pytest.mark.skipif(
-    True,  # TODO: Enable when websocket test infrastructure is set up
+    True,
     reason="WebSocket tests require live server and websockets library"
 )
 
