@@ -107,8 +107,11 @@ class SchoolService:
         # Seed Languages using ON CONFLICT DO NOTHING to avoid race conditions
         # in parallel test execution and concurrent school registrations.
         await db.execute(text("""
-            INSERT INTO languages (name, code, is_active)
-            VALUES ('English', 'en', true), ('Spanish', 'es', true), ('French', 'fr', true)
+            INSERT INTO languages (name, code, is_active, created_at, updated_at)
+            VALUES
+                ('English', 'en', true, NOW(), NOW()),
+                ('Spanish', 'es', true, NOW(), NOW()),
+                ('French', 'fr', true, NOW(), NOW())
             ON CONFLICT (code) DO NOTHING
         """))
 
