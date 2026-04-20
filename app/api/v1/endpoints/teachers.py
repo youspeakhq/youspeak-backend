@@ -15,13 +15,13 @@ from app.services.user_service import UserService
 from app.services.academic_service import AcademicService
 from app.services.email_service import send_teacher_invite
 from app.schemas.student import TeacherCreate
-from app.schemas.user import UserResponse
+from app.schemas.user import UserResponse, TeacherResponse
 from app.schemas.responses import SuccessResponse, PaginatedResponse
 
 router = APIRouter()
 
 
-@router.get("")
+@router.get("", response_model=PaginatedResponse[TeacherResponse])
 async def list_teachers(
     status: str = "active",
     current_user: User = Depends(deps.require_admin),
@@ -54,8 +54,8 @@ async def list_teachers(
 
     # Build response dicts while the DB session is still open so that
     # relationships are accessible without lazy loading.
-    def _teacher_dict(u: User) -> dict:
-        base = UserResponse(
+    def _teacher_dict(u: User) -> TeacherResponse:
+        return TeacherResponse(
             id=u.id,
             email=u.email,
             full_name=u.full_name,
@@ -68,9 +68,8 @@ async def list_teachers(
             created_at=u.created_at,
             updated_at=u.updated_at,
             last_login=getattr(u, "last_login", None),
-        ).model_dump()
-        base["class_ids"] = teacher_class_map.get(u.id, [])
-        return base
+            class_ids=teacher_class_map.get(u.id, []),
+        )
 
     serialized = [_teacher_dict(u) for u in teachers]
     total = len(teachers)

@@ -97,6 +97,11 @@ class User(UserBase):
 UserResponse = User
 
 
+class TeacherResponse(User):
+    """Teacher response including assigned class IDs."""
+    class_ids: List[UUID] = []
+
+
 # User Login Schema
 
 
