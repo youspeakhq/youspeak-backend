@@ -75,40 +75,40 @@ def create_test_user(email, name, role="student"):
             log_error(f"Response: {resp.text}")
         return None
 
-def create_classroom(teacher_token, name, subject):
-    """Create a test classroom."""
-    log_info(f"Creating classroom: {name}")
-    
+def create_class(teacher_token, name, subject):
+    """Create a test class."""
+    log_info(f"Creating class: {name}")
+
     payload = {
         "name": name,
-        "subject": subject,
-        "description": f"Test classroom for {subject}"
+        "language_id": 1,
+        "level": "beginner"
     }
-    
-    resp = make_request("POST", "/classrooms", token=teacher_token, json_data=payload)
+
+    resp = make_request("POST", "/my-classes", token=teacher_token, json_data=payload)
     if resp and resp.status_code in [200, 201]:
         data = resp.json()
-        log_success(f"Created classroom: {data.get('id')}")
+        log_success(f"Created class: {data.get('id')}")
         return data
     else:
-        log_error(f"Failed to create classroom: {resp.status_code if resp else 'No response'}")
+        log_error(f"Failed to create class: {resp.status_code if resp else 'No response'}")
         if resp:
             log_error(f"Response: {resp.text}")
         return None
 
-def create_audio_meeting(token, classroom_id=None, title="Test Audio Meeting"):
+def create_audio_meeting(token, class_id=None, title="Test Audio Meeting"):
     """Create an audio meeting."""
     log_info(f"Creating audio meeting: {title}")
-    
+
     start_time = datetime.utcnow() + timedelta(minutes=5)
     payload = {
         "title": title,
         "start_time": start_time.isoformat() + "Z",
         "duration_minutes": 30
     }
-    
-    if classroom_id:
-        payload["classroom_id"] = classroom_id
+
+    if class_id:
+        payload["class_id"] = class_id
     
     resp = make_request("POST", "/audio/meetings", token=token, json_data=payload)
     if resp and resp.status_code in [200, 201]:
@@ -168,18 +168,18 @@ def test_audio_flow():
     student_token = "YOUR_STUDENT_TOKEN_HERE"
     print()
     
-    # Step 4: Create classroom
-    log_info("Step 4: Creating classroom")
-    classroom = create_classroom(teacher_token, "Test Audio Classroom", "Physics")
-    if not classroom:
-        log_error("Failed to create classroom")
+    # Step 4: Create class
+    log_info("Step 4: Creating class")
+    cls = create_class(teacher_token, "Test Audio Class", "Physics")
+    if not cls:
+        log_error("Failed to create class")
         return False
-    classroom_id = classroom.get("id")
+    class_id = cls.get("id")
     print()
-    
+
     # Step 5: Create audio meeting
     log_info("Step 5: Creating audio meeting")
-    meeting = create_audio_meeting(teacher_token, classroom_id, "Test Physics Discussion")
+    meeting = create_audio_meeting(teacher_token, class_id, "Test Physics Discussion")
     if not meeting:
         log_error("Failed to create audio meeting")
         return False

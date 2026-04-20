@@ -35,7 +35,7 @@ All paths are relative to **`/api/v1`**. Use **Bearer token** (admin or current 
 
 **Language Management (Admin Only):**
 - `POST /references/languages`: Add a new language to the global list. Requires `name` (e.g., "German") and `code` (ISO 639-1 two-letter lowercase, e.g., "de"). Returns 400 if name or code already exists.
-- `DELETE /references/languages/{id}`: Soft delete a language (sets `is_active=False`). Blocked if the language is in use by any school, class, or classroom. Returns 400 with usage counts if blocked, 404 if language not found.
+- `DELETE /references/languages/{id}`: Soft delete a language (sets `is_active=False`). Blocked if the language is in use by any school or class. Returns 400 with usage counts if blocked, 404 if language not found.
 
 ---
 

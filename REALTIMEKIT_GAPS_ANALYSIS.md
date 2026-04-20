@@ -178,7 +178,7 @@ Replace all mentions of:
 ### Fix 3: Clarify Student Authorization
 ```
 Students must:
-1. Be enrolled in the arena's classroom
+1. Be enrolled in the arena's class
 2. Have been ADMITTED via waiting room
 3. Be in an active arena (initialized or live state)
 ```

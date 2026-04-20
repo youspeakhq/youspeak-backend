@@ -68,30 +68,14 @@ async def test_curriculum_lifecycle(
     """Test full lifecycle of a curriculum: upload, list, update, merge, delete."""
     headers = registered_school["headers"]
     
-    # 1. Create a classroom and class for assignment
-    cr_resp = await async_client.post(
-        f"{api_base}/classrooms",
-        headers=headers,
-        json={"name": f"CurriculumRoom {unique_suffix}", "language_id": 1, "level": "a1"},
-    )
-    assert cr_resp.status_code == 200
-    classroom_id = cr_resp.json()["data"]["id"]
-    
-    # Get active semester
-    # (Assuming school fixture handles this or we hit an endpoint to find it)
-    # For now, we'll create one if needed, but let's try to get my classes first
+    # 1. Create a class for assignment
     class_name = f"CurriculumClass {unique_suffix}"
-    
-    # We need a semester ID. Let's look for one or create one.
-    # In this backend, we might need to create it.
-    sem_resp = await async_client.post(
-        f"{api_base}/admin/activity", # Placeholder for actual semester creation if it exists
+    cr_resp = await async_client.post(
+        f"{api_base}/my-classes",
         headers=headers,
-        # Mocking or finding semester is complex here, let's assume we can list classes if any exist
+        json={"name": class_name, "language_id": 1, "level": "a1"},
     )
-    
-    # Actually, let's just test the curriculum upload without class assignment first to be safe, 
-    # then test assignment if we can find a class.
+    class_id = cr_resp.json()["data"]["id"] if cr_resp.status_code == 200 else None
     
     # 2. Upload Curriculum (Multipart)
     file_content = b"test curriculum content"

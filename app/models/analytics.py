@@ -11,7 +11,7 @@ from app.models.enums import SessionType, SessionStatus
 class LearningSession(BaseModel):
     """
     Live learning session/room activity tracking.
-    Monitors classroom engagement and practice sessions.
+    Monitors class engagement and practice sessions.
     """
     __tablename__ = "learning_sessions"
 

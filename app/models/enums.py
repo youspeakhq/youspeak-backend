@@ -37,11 +37,11 @@ class UserRole(str, enum.Enum):
     STUDENT = "student"
 
 
-# Domain 3: Academic & Classroom
+# Domain 3: Academic & Classes
 
 
 class ProficiencyLevel(str, enum.Enum):
-    """CEFR-style proficiency levels for classrooms"""
+    """CEFR-style proficiency levels for classes"""
     BEGINNER = "beginner"
     A1 = "a1"
     A2 = "a2"
@@ -69,7 +69,7 @@ class ClassStatus(str, enum.Enum):
 
 
 class StudentRole(str, enum.Enum):
-    """Student roles in classroom"""
+    """Student roles in class"""
     STUDENT = "student"
     CLASS_MONITOR = "class_monitor"
     TIME_KEEPER = "time_keeper"

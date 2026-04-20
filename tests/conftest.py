@@ -173,15 +173,15 @@ async def class_id_for_student(
     resp = await async_client.get(f"{api_base}/schools/terms", headers=headers)
     terms = resp.json().get("data", [])
     if not terms:
-        # Create one if missing
+        # Create a class to ensure a term/semester exists
         await async_client.post(
-            f"{api_base}/classrooms", # Admin can create terms/classrooms or just mock one
-            headers=registered_school["headers"], # Actually fallback to registered_school to ensure semester exists or just assume it exists
+            f"{api_base}/my-classes",
+            headers=headers,
             json={"name": f"Dummy_{unique_suffix}", "language_id": 1, "level": "a1"}
         )
         resp = await async_client.get(f"{api_base}/schools/terms", headers=headers)
         terms = resp.json().get("data", [])
-        
+
     term_id = terms[0]["id"]
     # Create class
     resp = await async_client.post(
@@ -333,10 +333,10 @@ async def teacher_with_class_and_students(
     resp = await async_client.get(f"{api_base}/schools/terms", headers=headers)
     terms = resp.json().get("data", [])
     if not terms:
-        # Create a dummy classroom to ensure semester exists
+        # Create a class to ensure a term/semester exists
         await async_client.post(
-            f"{api_base}/classrooms",
-            headers=registered_school["headers"],
+            f"{api_base}/my-classes",
+            headers=headers,
             json={"name": f"Dummy_{unique_suffix}", "language_id": 1, "level": "a1"}
         )
         resp = await async_client.get(f"{api_base}/schools/terms", headers=headers)

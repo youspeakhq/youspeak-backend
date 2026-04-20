@@ -96,7 +96,7 @@ curl -X POST "https://api-staging.youspeakhq.com/api/v1/my-classes" \
 | `timeline` | string | null | Timeline text | "Jan 2026 - May 2026" |
 | `sub_class` | string | null | Sub-class name | "Section A" |
 | `level` | string | null | Proficiency level | "beginner" |
-| `classroom_id` | UUID | null | Physical classroom UUID | "456e7890-e89b-12d3-a456-426614174111" |
+| `class_id` | UUID | null | Class UUID | "456e7890-e89b-12d3-a456-426614174111" |
 | `status` | string | "active" | Class status: "active", "inactive", or "archived" | "active" |
 
 ### Schedule Object Format
@@ -136,7 +136,7 @@ Each schedule object in the `schedule` array must have:
     "school_id": "61981545-179f-41b0-a910-e4d680f5bcb6",
     "semester_id": "bbf3c6e4-c26d-4389-a6f2-3c9e1d125369",
     "language_id": 1,
-    "classroom_id": null,
+    "class_id": null,
     "sub_class": null,
     "schedules": [
       {
@@ -362,9 +362,9 @@ Before creating a class, you need:
      - 3 = German
      - etc.
 
-4. **(Optional) Classroom ID**
-   - If assigning to physical classroom: `GET /api/v1/classrooms`
-   - Use the `id` of the desired classroom
+4. **(Optional) Class ID**
+   - If assigning to a class: `GET /api/v1/my-classes`
+   - Use the `id` of the desired class
 
 ---
 
@@ -403,7 +403,7 @@ You can test this endpoint using:
 - **Get Class Roster**: `GET /api/v1/my-classes/{class_id}/roster`
 - **Add Student to Class**: `POST /api/v1/my-classes/{class_id}/roster`
 - **List Semesters**: `GET /api/v1/schools/semesters`
-- **List Classrooms**: `GET /api/v1/classrooms`
+- **List Classes**: `GET /api/v1/my-classes`
 
 ---
 

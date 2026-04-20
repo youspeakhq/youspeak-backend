@@ -75,12 +75,12 @@ Teacher clicks link in email (frontend validates code).
 
 ---
 
-## 2.5. Classroom Setup (Admin)
+## 2.5. Class Setup (Admin)
 **Actor**: Admin
-**Goal**: Create organizational units (classrooms) by language and level.
+**Goal**: Create organizational units (classes) by language and level.
 
-### Step 2.5.1: Create Classroom
-- **Endpoint**: `POST /api/v1/classrooms`
+### Step 2.5.1: Create Class
+- **Endpoint**: `POST /api/v1/my-classes`
 - **Headers**: `Authorization: Bearer <AdminToken>`
 - **Payload**:
   ```json
@@ -91,19 +91,19 @@ Teacher clicks link in email (frontend validates code).
   }
   ```
 - **Level values**: `beginner`, `a1`, `a2`, `b1`, `b2`, `intermediate`, `c1`
-- **Response**: `200 OK` (Classroom ID)
+- **Response**: `200 OK` (Class ID)
 
-### Step 2.5.2: Add Teacher to Classroom
-- **Endpoint**: `POST /api/v1/classrooms/{classroom_id}/teachers`
+### Step 2.5.2: Add Teacher to Class
+- **Endpoint**: `POST /api/v1/my-classes/{class_id}/teachers`
 - **Payload**: `{ "teacher_id": "<uuid>" }`
 
-### Step 2.5.3: Add Student to Classroom
-- **Endpoint**: `POST /api/v1/classrooms/{classroom_id}/students`
+### Step 2.5.3: Add Student to Class
+- **Endpoint**: `POST /api/v1/my-classes/{class_id}/roster`
 - **Payload**: `{ "student_id": "<uuid>" }`
 
 ---
 
-## 3. Classroom Setup (Teacher - Class)
+## 3. Class Setup (Teacher)
 **Actor**: Teacher
 **Goal**: Create a class schedule (scheduled offering).
 

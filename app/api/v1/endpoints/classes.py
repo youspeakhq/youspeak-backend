@@ -219,7 +219,7 @@ async def create_class(
     - `timeline`: Timeline text (string, e.g., "Jan 2026 - May 2026")
     - `sub_class`: Sub-class name (string)
     - `level`: Proficiency level (string)
-    - `classroom_id`: Physical classroom UUID (optional)
+    - `class_id`: Class UUID (optional)
     - `status`: "active" | "inactive" | "archived" (defaults to "active")
 
     **Multipart Form-Data Alternative (for CSV roster upload):**

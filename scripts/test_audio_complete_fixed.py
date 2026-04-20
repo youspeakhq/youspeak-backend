@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Complete test for audio meeting creation - WORKING VERSION
-Creates school, admin, classroom, arena, and tests audio token generation.
+Creates school, admin, class, arena, and tests audio token generation.
 """
 import requests
 import json
@@ -14,7 +14,7 @@ class TestRunner:
     def __init__(self):
         self.school_id = None
         self.admin_token = None
-        self.classroom_id = None
+        self.class_id = None
         self.arena_id = None
         self.meeting_id = None
         self.audio_token = None
@@ -84,24 +84,24 @@ class TestRunner:
         self.log("✅", "Admin logged in successfully")
         return True
 
-    def step_2_create_classroom(self):
-        """Create a classroom."""
-        self.log("📚", "Step 2: Creating classroom...")
-        
+    def step_2_create_class(self):
+        """Create a class."""
+        self.log("📚", "Step 2: Creating class...")
+
         payload = {
-            "name": "Audio Test Classroom",
+            "name": "Audio Test Class",
             "language_id": 2,  # Spanish
             "level": "beginner"
         }
-        
-        resp = self.make_request("POST", "/classrooms", token=self.admin_token, json_data=payload)
+
+        resp = self.make_request("POST", "/my-classes", token=self.admin_token, json_data=payload)
         if not resp or resp.status_code not in [200, 201]:
             self.log("❌", f"Failed: {resp.text if resp else 'No response'}")
             return False
-            
+
         data = resp.json().get("data", {})
-        self.classroom_id = data.get("id")
-        self.log("✅", f"Classroom created: {self.classroom_id}")
+        self.class_id = data.get("id")
+        self.log("✅", f"Class created: {self.class_id}")
         return True
 
     def step_3_create_arena(self):
@@ -110,7 +110,7 @@ class TestRunner:
         
         payload = {
             "title": "Audio Meeting Test Arena",
-            "classroom_id": self.classroom_id,
+            "class_id": self.class_id,
             "description": "Testing Cloudflare RealtimeKit audio",
             "challenge_type": "speaking",
             "difficulty_level": "beginner",
@@ -176,7 +176,7 @@ class TestRunner:
         
         steps = [
             ("Register School & Admin", self.step_1_register_school),
-            ("Create Classroom", self.step_2_create_classroom),
+            ("Create Class", self.step_2_create_class),
             ("Create Arena", self.step_3_create_arena),
             ("Start Arena Session", self.step_4_start_arena),
             ("🎯 Generate Audio Token (RealtimeKit)", self.step_5_generate_audio_token)
@@ -193,7 +193,7 @@ class TestRunner:
         print("="*70)
         print(f"\n📋 Test Results:")
         print(f"   School ID:    {self.school_id}")
-        print(f"   Classroom ID: {self.classroom_id}")
+        print(f"   Class ID:     {self.class_id}")
         print(f"   Arena ID:     {self.arena_id}")
         print(f"   Meeting ID:   {self.meeting_id}")
         print(f"   Audio Token:  {self.audio_token[:40]}...")

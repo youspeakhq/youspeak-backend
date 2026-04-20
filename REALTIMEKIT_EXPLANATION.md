@@ -243,7 +243,7 @@ curl -X POST https://api-staging.youspeakhq.com/api/v1/auth/login \
   }'
 ```
 
-### **Step 3:** Create classroom, arena, start session
+### **Step 3:** Create class, arena, start session
 
 ### **Step 4:** Get audio token
 ```bash

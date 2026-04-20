@@ -78,14 +78,14 @@ async def login(email):
         return token
 
 
-async def create_classroom(token):
-    """Create a classroom."""
-    print("\n3. Creating classroom...")
+async def create_class(token):
+    """Create a class."""
+    print("\n3. Creating class...")
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{BASE_URL}/classrooms",
+            f"{BASE_URL}/my-classes",
             json={
-                "name": "Preset Test Classroom",
+                "name": "Preset Test Class",
                 "language_id": 1,  # Assuming 1 is a valid language ID
                 "level": "beginner"
             },
@@ -94,17 +94,17 @@ async def create_classroom(token):
         )
 
         if response.status_code != 200:
-            print(f"❌ Classroom creation failed: {response.status_code}")
+            print(f"❌ Class creation failed: {response.status_code}")
             print(f"Response: {response.text}")
             return None
 
         data = response.json()
-        classroom_id = data["data"]["id"]
-        print(f"✅ Classroom created: {classroom_id}")
-        return classroom_id
+        class_id = data["data"]["id"]
+        print(f"✅ Class created: {class_id}")
+        return class_id
 
 
-async def create_arena(token, classroom_id):
+async def create_arena(token, class_id):
     """Create an arena."""
     print("\n4. Creating arena...")
     async with httpx.AsyncClient() as client:
@@ -112,7 +112,7 @@ async def create_arena(token, classroom_id):
             f"{BASE_URL}/arenas",
             json={
                 "title": "Preset Format Test Arena",
-                "classroom_id": classroom_id,
+                "class_id": class_id,
                 "difficulty_level": "beginner",
                 "topic": "Testing preset names",
                 "mode": "speaking_challenge"
@@ -217,14 +217,14 @@ async def main():
         print("\n❌ Test failed at login step")
         return
 
-    # Step 3: Create classroom
-    classroom_id = await create_classroom(token)
-    if not classroom_id:
-        print("\n❌ Test failed at classroom creation step")
+    # Step 3: Create class
+    class_id = await create_class(token)
+    if not class_id:
+        print("\n❌ Test failed at class creation step")
         return
 
     # Step 4: Create arena
-    arena_id = await create_arena(token, classroom_id)
+    arena_id = await create_arena(token, class_id)
     if not arena_id:
         print("\n❌ Test failed at arena creation step")
         return

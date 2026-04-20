@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Complete test for audio meeting creation.
-Creates school, admin, teacher, classroom, arena, and tests audio token generation.
+Creates school, admin, teacher, class, arena, and tests audio token generation.
 """
 import requests
 import json
@@ -17,7 +17,7 @@ class TestRunner:
         self.admin_token = None
         self.teacher_token = None
         self.teacher_id = None
-        self.classroom_id = None
+        self.class_id = None
         self.arena_id = None
 
     def log(self, emoji, message):
@@ -99,23 +99,23 @@ class TestRunner:
         self.log("✅", "Using admin token as teacher for testing")
         return True
 
-    def step_3_create_classroom(self):
-        """Create a classroom."""
-        self.log("📚", "Step 3: Creating classroom...")
-        
+    def step_3_create_class(self):
+        """Create a class."""
+        self.log("📚", "Step 3: Creating class...")
+
         payload = {
-            "name": "Test Spanish Classroom",
-            "language": "spanish",
+            "name": "Test Spanish Class",
+            "language_id": 1,
             "level": "beginner"
         }
-        
-        resp = self.make_request("POST", "/classrooms", token=self.teacher_token, json_data=payload)
+
+        resp = self.make_request("POST", "/my-classes", token=self.teacher_token, json_data=payload)
         if not resp:
             return False
-            
+
         data = resp.json().get("data", {})
-        self.classroom_id = data.get("id")
-        self.log("✅", f"Classroom created: {self.classroom_id}")
+        self.class_id = data.get("id")
+        self.log("✅", f"Class created: {self.class_id}")
         return True
 
     def step_4_create_arena(self):
@@ -124,7 +124,7 @@ class TestRunner:
         
         payload = {
             "title": "Test Audio Arena",
-            "classroom_id": self.classroom_id,
+            "class_id": self.class_id,
             "description": "Testing audio functionality",
             "challenge_type": "speaking",
             "difficulty_level": "beginner",
@@ -183,7 +183,7 @@ class TestRunner:
         steps = [
             self.step_1_register_school,
             self.step_2_create_teacher,
-            self.step_3_create_classroom,
+            self.step_3_create_class,
             self.step_4_create_arena,
             self.step_5_start_arena,
             self.step_6_test_audio_token
@@ -201,7 +201,7 @@ class TestRunner:
         print()
         print(f"📋 Summary:")
         print(f"   School ID: {self.school_id}")
-        print(f"   Classroom ID: {self.classroom_id}")
+        print(f"   Class ID: {self.class_id}")
         print(f"   Arena ID: {self.arena_id}")
         print()
         return True
