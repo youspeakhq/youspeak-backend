@@ -7,7 +7,14 @@ from uuid import UUID
 
 from app.api import deps
 from app.models.user import User
-from app.schemas.academic import ClassResponse, ClassCreate, ClassUpdate, RosterUpdate, AssignTeacherRequest
+from app.schemas.academic import (
+    ClassResponse,
+    ClassCreate,
+    ClassUpdate,
+    RosterUpdate,
+    StudentRoleUpdate,
+    AssignTeacherRequest,
+)
 from app.schemas.admin import LeaderboardResponse
 from app.schemas.analytics import (
     ClassPerformanceSummary,
@@ -581,6 +588,48 @@ async def add_student_to_roster(
     # Fetch student to return in response
     student = await UserService.get_user_by_id(db, roster_in.student_id)
     return SuccessResponse(data=UserResponse.model_validate(student), message="Student added to class")
+
+
+@router.patch("/{class_id}/roster/{student_id}/role", response_model=SuccessResponse)
+async def update_student_role_in_roster(
+    class_id: UUID,
+    student_id: UUID,
+    body: StudentRoleUpdate,
+    current_user: User = Depends(deps.require_teacher_or_admin),
+    db: AsyncSession = Depends(deps.get_db),
+) -> Any:
+    """
+    Update a student's role in a class roster.
+    Allowed roles: student, class_monitor, assistant, time_keeper.
+    """
+    from app.models.enums import UserRole
+
+    cls = await AcademicService.get_class_by_id(db, class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    if current_user.role == UserRole.SCHOOL_ADMIN:
+        if cls.school_id != current_user.school_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+        if not any(c.id == class_id for c in teacher_classes):
+            raise HTTPException(status_code=403, detail="You do not teach this class")
+
+    success, error = await AcademicService.update_student_role_in_class(
+        db, class_id, student_id, body.role
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail=error or "Student enrollment not found")
+
+    return SuccessResponse(
+        data={
+            "class_id": class_id,
+            "student_id": student_id,
+            "role": body.role,
+        },
+        message="Student role updated successfully",
+    )
 
 
 @router.post("/{class_id}/teachers", response_model=SuccessResponse)

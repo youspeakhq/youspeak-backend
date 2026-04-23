@@ -754,3 +754,110 @@ async def test_import_roster_empty_csv(
     assert data["created"] == 0
     assert data["enrolled"] == 0
     assert data["skipped"] == 0
+
+
+@pytest.mark.asyncio
+async def test_patch_student_role_in_class_roster(
+    async_client: AsyncClient,
+    api_base: str,
+    teacher_headers: dict,
+    unique_suffix: str,
+):
+    """Teacher can update enrolled student's role in class roster."""
+    term_resp = await async_client.get(f"{api_base}/schools/terms", headers=teacher_headers)
+    assert term_resp.status_code == 200
+    term_id = term_resp.json()["data"][0]["id"]
+
+    class_payload = {
+        "name": f"Role Update Class {unique_suffix}",
+        "schedule": [{"day_of_week": "Mon", "start_time": "09:00:00", "end_time": "10:00:00"}],
+        "language_id": 1,
+        "term_id": term_id,
+    }
+    csv_content = (
+        b"first_name,last_name,email\n"
+        + f"Role,Student,role.student.{unique_suffix}@test.com\n".encode()
+    )
+    create_resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        data={"data": json.dumps(class_payload)},
+        files={"file": ("roster.csv", csv_content, "text/csv")},
+    )
+    assert create_resp.status_code == 200
+    class_id = create_resp.json()["data"]["id"]
+
+    roster_resp = await async_client.get(
+        f"{api_base}/my-classes/{class_id}/roster",
+        headers=teacher_headers,
+    )
+    assert roster_resp.status_code == 200
+    student_id = roster_resp.json()["data"][0]["id"]
+
+    patch_resp = await async_client.patch(
+        f"{api_base}/my-classes/{class_id}/roster/{student_id}/role",
+        headers=teacher_headers,
+        json={"role": "assistant"},
+    )
+    assert patch_resp.status_code == 200
+    patch_data = patch_resp.json()["data"]
+    assert patch_data["class_id"] == class_id
+    assert patch_data["student_id"] == student_id
+    assert patch_data["role"] == "assistant"
+
+    roster_check = await async_client.get(
+        f"{api_base}/my-classes/{class_id}/roster",
+        headers=teacher_headers,
+    )
+    assert roster_check.status_code == 200
+    updated_student = next(
+        student for student in roster_check.json()["data"] if student["id"] == student_id
+    )
+    assert updated_student["role"] == "assistant"
+
+
+@pytest.mark.asyncio
+async def test_patch_student_role_requires_class_access(
+    async_client: AsyncClient,
+    api_base: str,
+    teacher_headers: dict,
+    second_teacher_headers: dict,
+    unique_suffix: str,
+):
+    """Teacher cannot update role for classes they don't teach."""
+    term_resp = await async_client.get(f"{api_base}/schools/terms", headers=teacher_headers)
+    assert term_resp.status_code == 200
+    term_id = term_resp.json()["data"][0]["id"]
+
+    class_payload = {
+        "name": f"Role Access Class {unique_suffix}",
+        "schedule": [{"day_of_week": "Tue", "start_time": "10:00:00", "end_time": "11:00:00"}],
+        "language_id": 1,
+        "term_id": term_id,
+    }
+    csv_content = (
+        b"first_name,last_name,email\n"
+        + f"Access,Student,access.student.{unique_suffix}@test.com\n".encode()
+    )
+    create_resp = await async_client.post(
+        f"{api_base}/my-classes",
+        headers=teacher_headers,
+        data={"data": json.dumps(class_payload)},
+        files={"file": ("roster.csv", csv_content, "text/csv")},
+    )
+    assert create_resp.status_code == 200
+    class_id = create_resp.json()["data"]["id"]
+
+    roster_resp = await async_client.get(
+        f"{api_base}/my-classes/{class_id}/roster",
+        headers=teacher_headers,
+    )
+    assert roster_resp.status_code == 200
+    student_id = roster_resp.json()["data"][0]["id"]
+
+    patch_resp = await async_client.patch(
+        f"{api_base}/my-classes/{class_id}/roster/{student_id}/role",
+        headers=second_teacher_headers,
+        json={"role": "class_monitor"},
+    )
+    assert patch_resp.status_code == 403

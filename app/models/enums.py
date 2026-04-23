@@ -72,6 +72,7 @@ class StudentRole(str, enum.Enum):
     """Student roles in class"""
     STUDENT = "student"
     CLASS_MONITOR = "class_monitor"
+    ASSISTANT = "assistant"
     TIME_KEEPER = "time_keeper"
 
 

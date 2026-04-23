@@ -4,7 +4,7 @@ import secrets
 from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
 from app.utils.time import get_utc_now
-from sqlalchemy import select, and_, delete, insert
+from sqlalchemy import select, and_, delete, insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -240,6 +240,38 @@ class AcademicService:
         result = await db.execute(stmt)
         await db.commit()
         return result.rowcount > 0
+
+    @staticmethod
+    async def update_student_role_in_class(
+        db: AsyncSession,
+        class_id: UUID,
+        student_id: UUID,
+        role: StudentRole,
+    ) -> Tuple[bool, Optional[str]]:
+        """Update role for an existing student enrollment in a class."""
+        enrollment = await db.execute(
+            select(class_enrollments).where(
+                and_(
+                    class_enrollments.c.class_id == class_id,
+                    class_enrollments.c.student_id == student_id,
+                )
+            )
+        )
+        if not enrollment.first():
+            return False, "Student is not enrolled in this class"
+
+        await db.execute(
+            update(class_enrollments)
+            .where(
+                and_(
+                    class_enrollments.c.class_id == class_id,
+                    class_enrollments.c.student_id == student_id,
+                )
+            )
+            .values(role=role)
+        )
+        await db.commit()
+        return True, None
 
     @staticmethod
     async def get_class_roster(db: AsyncSession, class_id: UUID) -> List[Dict]:
