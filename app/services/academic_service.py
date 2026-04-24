@@ -38,7 +38,7 @@ class AcademicService:
         db: AsyncSession,
         school_id: UUID,
         class_data: ClassCreate,
-        teacher_id: UUID,
+        teacher_id: Optional[UUID] = None,
     ) -> Class:
         # Create Class
         new_class = Class(
@@ -55,13 +55,14 @@ class AcademicService:
         db.add(new_class)
         await db.flush()
 
-        # Assign creating teacher to the class
-        stmt = insert(teacher_assignments).values(
-            class_id=new_class.id,
-            teacher_id=teacher_id,
-            is_primary=True,
-        )
-        await db.execute(stmt)
+        # Assign creating teacher to the class (skip if created by admin)
+        if teacher_id is not None:
+            stmt = insert(teacher_assignments).values(
+                class_id=new_class.id,
+                teacher_id=teacher_id,
+                is_primary=True,
+            )
+            await db.execute(stmt)
 
         # Add Schedules
         for sched in class_data.schedule:

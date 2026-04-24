@@ -189,7 +189,7 @@ async def create_awards(
 @router.post("", response_model=SuccessResponse[Any])
 async def create_class(
     parsed: Tuple[ClassCreate, Optional[bytes]] = Depends(parse_create_class_request),
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """
@@ -237,13 +237,17 @@ async def create_class(
 
     **Time Format:** "HH:MM:SS" (24-hour format, e.g., "09:00:00", "14:30:00")
     """
+    from app.models.enums import UserRole
+
     class_in, roster_file = parsed
+    # Only auto-assign teacher if the creator is a teacher (not admin)
+    teacher_id = current_user.id if current_user.role == UserRole.TEACHER else None
     try:
         new_class = await AcademicService.create_class(
             db,
             current_user.school_id,
             class_in,
-            teacher_id=current_user.id,
+            teacher_id=teacher_id,
         )
     except IntegrityError:
         raise HTTPException(status_code=400, detail="Invalid data provided, e.g., nonexistent term_id or language_id.")
