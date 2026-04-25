@@ -45,6 +45,28 @@ async def lifespan(app: FastAPI):
     await connection_manager.initialize()
     logger.info("WebSocket connection manager initialized")
 
+    # Validate Azure Speech credentials — audio analysis is silently disabled if these are missing.
+    if not settings.AZURE_SPEECH_KEY:
+        logger.warning(
+            "AZURE_SPEECH_KEY not configured — student pronunciation analysis will be disabled. "
+            "Set AZURE_SPEECH_KEY and AZURE_SPEECH_REGION to enable real-time AI feedback."
+        )
+    else:
+        logger.info("Azure Speech configured", extra={"region": settings.AZURE_SPEECH_REGION})
+
+    # Ensure transcription is enabled on both RTK presets (group_call_host + group_call_participant).
+    # This is idempotent — safe to run on every startup. Without this, the teacher's speech
+    # (host preset) is never transcribed and no transcript events fire on the client SDK.
+    from app.services.cloudflare_realtimekit_service import realtimekit_service
+    try:
+        enabled = await realtimekit_service.enable_transcription_on_presets()
+        if enabled:
+            logger.info("RTK transcription presets configured successfully")
+        else:
+            logger.warning("RTK transcription preset configuration had partial failures — check RTK credentials and preset IDs")
+    except Exception as e:
+        logger.warning(f"Could not configure RTK transcription presets: {e} — teacher transcription may not work")
+
     # Curriculum service HTTP client (internal proxy)
     app.state.curriculum_http = None
     if settings.CURRICULUM_SERVICE_URL:

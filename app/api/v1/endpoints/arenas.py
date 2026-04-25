@@ -860,8 +860,16 @@ async def arena_live_session(
 
     log.info("websocket_connection_attempt")
 
-    # Verify arena exists
-    arena = await ArenaService.get_arena(db, arena_id, user_id)
+    # Verify arena exists + role-based access path.
+    # IMPORTANT: ArenaService.get_arena() is teacher-scoped (joins teacher_assignments),
+    # so using it for students incorrectly returns None and denies valid admitted users.
+    from app.models.enums import UserRole
+    is_teacher = user.role in [UserRole.TEACHER, UserRole.SCHOOL_ADMIN]
+    arena = (
+        await ArenaService.get_arena(db, arena_id, user_id)
+        if is_teacher
+        else await ArenaService.get_arena_by_id(db, arena_id)
+    )
     if not arena:
         log.warning("websocket_denied_arena_not_found")
         await websocket.close(code=4004, reason="Arena not found or access denied")
@@ -874,8 +882,6 @@ async def arena_live_session(
         return
 
     # Authorization: Verify user is teacher or admitted participant
-    from app.models.enums import UserRole
-    is_teacher = user.role in [UserRole.TEACHER, UserRole.SCHOOL_ADMIN]
     if not is_teacher:
         # Verify student was admitted from waiting room
         is_admitted = await ArenaService.is_arena_participant(db, arena_id, user_id)
@@ -933,6 +939,15 @@ async def arena_live_session(
                 )
                 if _analysis_session_started:
                     log.info("audio_analysis_session_initialized", extra={"lang": lang_code})
+                else:
+                    from app.config import settings as _settings
+                    if not _settings.AZURE_SPEECH_KEY:
+                        log.warning(
+                            "audio_analysis_disabled_no_azure_key",
+                            extra={"hint": "Set AZURE_SPEECH_KEY env var to enable pronunciation feedback"},
+                        )
+                    else:
+                        log.warning("audio_analysis_session_start_failed_unknown")
             except Exception as e:
                 log.warning("audio_analysis_init_failed", extra={"error": str(e)})
 
@@ -965,7 +980,9 @@ async def arena_live_session(
                         log.warning("audio_byte_rate_limit_exceeded")
                         continue  # Drop chunk, don't disconnect
 
-                # Feed to analysis service
+                # Feed to analysis service (students only). Teacher monitoring streams their
+                # own mic tap here but Azure sessions are not started for teachers — analysis
+                # runs on each student's /live connection so broadcasts reach the teacher UI.
                 if _analysis_session_started:
                     await audio_analysis_service.process_audio_chunk(arena_id, user_id, audio_data)
                 continue

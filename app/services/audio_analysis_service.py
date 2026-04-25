@@ -148,9 +148,14 @@ class AudioAnalysisService:
         return self._bedrock
 
     def _get_or_create_loop(self) -> asyncio.AbstractEventLoop:
-        """Get the event loop, caching it for use from SDK callback threads."""
+        """Get the event loop, caching it for use from SDK callback threads.
+
+        Must be called from within a running async context (i.e. from start_session).
+        Uses get_running_loop() which is the correct Python 3.10+ API and guarantees
+        we capture the actual uvicorn event loop, not a stale one.
+        """
         if self._loop is None or self._loop.is_closed():
-            self._loop = asyncio.get_event_loop()
+            self._loop = asyncio.get_running_loop()
         return self._loop
 
     async def start_session(
@@ -381,8 +386,12 @@ class AudioAnalysisService:
         )
 
     def _schedule_broadcast(self, session: ParticipantAudioSession, student_name: str):
-        """Schedule an async broadcast from the SDK callback thread."""
+        """Schedule an async broadcast from the Azure SDK callback thread."""
         if not self._broadcast_callback or not self._loop:
+            return
+
+        if self._loop.is_closed():
+            logger.warning("analysis_broadcast_skipped_loop_closed", extra={"user_id": str(session.user_id)})
             return
 
         result = session.latest_result
@@ -415,18 +424,31 @@ class AudioAnalysisService:
             and len(session._recent_words) >= 3
         )
 
+        coro = (
+            self._generate_and_broadcast(session, data, student_name)
+            if should_generate_feedback
+            else self._broadcast_callback(session.arena_id, data)
+        )
         if should_generate_feedback:
             session.last_feedback_time = now
-            # Generate feedback then broadcast
-            asyncio.run_coroutine_threadsafe(
-                self._generate_and_broadcast(session, data, student_name),
-                self._loop,
-            )
-        else:
-            # Broadcast immediately without new feedback
-            asyncio.run_coroutine_threadsafe(
-                self._broadcast_callback(session.arena_id, data),
-                self._loop,
+
+        try:
+            future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+
+            def _on_done(fut: "asyncio.Future[None]") -> None:
+                try:
+                    fut.result()
+                except Exception as exc:
+                    logger.error(
+                        "analysis_broadcast_failed",
+                        extra={"user_id": str(session.user_id), "error": str(exc)},
+                    )
+
+            future.add_done_callback(_on_done)
+        except RuntimeError as exc:
+            logger.error(
+                "analysis_broadcast_schedule_failed",
+                extra={"user_id": str(session.user_id), "error": str(exc)},
             )
 
     async def _generate_and_broadcast(
