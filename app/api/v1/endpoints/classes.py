@@ -567,21 +567,27 @@ async def get_class_roster(
 async def add_student_to_roster(
     class_id: UUID,
     roster_in: RosterUpdate,
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """
     Add single student to class roster with specific role.
-    Verifies teacher ownership and student school affiliation.
+    Verifies teacher ownership or admin school membership and student school affiliation.
     """
-    # Check class exists and teacher has access
+    from app.models.enums import UserRole
+
+    # Check class exists and user has access
     cls = await AcademicService.get_class_by_id(db, class_id)
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
 
-    teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
-    if not any(c.id == class_id for c in teacher_classes):
-        raise HTTPException(status_code=403, detail="You do not teach this class")
+    if current_user.role == UserRole.SCHOOL_ADMIN:
+        if cls.school_id != current_user.school_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+        if not any(c.id == class_id for c in teacher_classes):
+            raise HTTPException(status_code=403, detail="You do not teach this class")
 
     success, error = await AcademicService.add_student_to_class(
         db, class_id, roster_in.student_id, current_user.school_id, roster_in.role
@@ -681,13 +687,13 @@ async def assign_teacher_to_class(
 async def import_class_roster(
     class_id: UUID,
     file: UploadFile = File(...),
-    current_user: User = Depends(deps.require_teacher),
+    current_user: User = Depends(deps.require_teacher_or_admin),
     db: AsyncSession = Depends(deps.get_db),
 ) -> Any:
     """
     Bulk import students to existing class from CSV.
 
-    This endpoint allows teachers to upload a roster CSV for an existing class
+    This endpoint allows teachers or admins to upload a roster CSV for an existing class
     (useful when roster upload was skipped during class creation).
 
     **CSV Format:**
@@ -714,14 +720,20 @@ async def import_class_roster(
     - `skipped`: Number of students skipped (already enrolled or duplicates)
     - `errors`: List of error messages if any rows failed
     """
-    # Check class exists and teacher has access
+    from app.models.enums import UserRole
+
+    # Check class exists and user has access
     cls = await AcademicService.get_class_by_id(db, class_id)
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
 
-    teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
-    if not any(c.id == class_id for c in teacher_classes):
-        raise HTTPException(status_code=404, detail="Class not found")
+    if current_user.role == UserRole.SCHOOL_ADMIN:
+        if cls.school_id != current_user.school_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        teacher_classes = await AcademicService.get_teacher_classes(db, current_user.id)
+        if not any(c.id == class_id for c in teacher_classes):
+            raise HTTPException(status_code=404, detail="Class not found")
 
     # Validate file format
     if not file.filename or not file.filename.lower().endswith(".csv"):
