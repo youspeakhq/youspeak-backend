@@ -81,6 +81,12 @@ from app.services.cloudflare_realtimekit_service import realtimekit_service
 from app.websocket.arena_connection_manager import connection_manager
 from app.core.logging import get_logger
 
+# Set broadcast callback once at module load — no per-connection override needed.
+async def _global_broadcast_analysis(arena_id, data: dict):
+    await connection_manager.broadcast(arena_id, data)
+
+audio_analysis_service.set_broadcast_callback(_global_broadcast_analysis)
+
 router = APIRouter()
 
 
@@ -915,12 +921,6 @@ async def arena_live_session(
         )
 
         log.info("websocket_initial_state_sent")
-
-        # Set up audio analysis broadcast callback
-        async def _broadcast_analysis(aid: UUID, data: dict):
-            await connection_manager.broadcast(aid, data)
-
-        audio_analysis_service.set_broadcast_callback(_broadcast_analysis)
 
         # Initialize audio analysis session if participant (not audience)
         # Resolve arena language: arena -> class -> language -> code
