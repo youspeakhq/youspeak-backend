@@ -14,7 +14,7 @@ from app.models.academic import (
 
 from app.models.curriculum import Curriculum, Topic
 from app.models.assessment import Question, Assignment, assignment_questions, StudentSubmission, assignment_classes
-from app.models.arena import Arena, ArenaCriteria, ArenaRule, ArenaPerformer, arena_moderators
+from app.models.arena import Arena, ArenaCriteria, ArenaRule, ArenaPerformer, ArenaParticipant, arena_moderators
 from app.models.communication import Announcement, AnnouncementReminder
 from app.models.analytics import LearningSession, Award
 from app.models.billing import Bill
@@ -63,6 +63,7 @@ __all__ = [
     "ArenaCriteria",
     "ArenaRule",
     "ArenaPerformer",
+    "ArenaParticipant",
     "arena_moderators",
 
     # Communication

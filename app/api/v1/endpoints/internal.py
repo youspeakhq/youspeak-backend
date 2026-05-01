@@ -46,16 +46,14 @@ async def get_arena_internal(
     participants = p_result.scalars().all()
     
     return {
-        "id": arena.id,
+        "id": str(arena.id),
         "title": arena.title,
         "status": arena.status,
         "language_code": "en", # Default for now
         "participants": [
             {
-                "user_id": p.user_id, 
+                "user_id": str(p.student_id), 
                 "role": p.role,
-                # In Phase 3, we could add more details here to avoid the Arena service 
-                # needing to query the user table at all.
             } for p in participants
         ]
     }
