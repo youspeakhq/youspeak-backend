@@ -7,6 +7,14 @@ from sqlalchemy.pool import NullPool
 from services.arena.main import app
 from services.arena.config import settings
 from services.arena.models_local.base import Base
+from services.arena.security import create_access_token
+
+CORE_SERVICE_URL = os.environ.get("CORE_SERVICE_URL", "http://localhost:8000")
+LIVE_SERVER_URL = os.environ.get("LIVE_SERVER_URL", "http://localhost:8002")
+USE_LIVE_SERVER = os.environ.get("TEST_USE_LIVE_SERVER", "").lower() == "true"
+
+FAKE_TEACHER_ID = "00000000-0000-0000-0000-000000000002"
+FAKE_CLASS_ID = "00000000-0000-0000-0000-000000000001"
 
 requires_db = pytest.mark.skipif(
     not os.environ.get("DATABASE_URL"),
@@ -36,38 +44,93 @@ async def db() -> AsyncSession:
         finally:
             await session.close()
 
+
 @pytest.fixture
 def api_base() -> str:
+    """Base URL for core service arena endpoints (CRUD lives in core)."""
+    if USE_LIVE_SERVER:
+        return f"{CORE_SERVICE_URL}/api/v1"
+    return "http://test/api/v1"
+
+
+@pytest.fixture
+def arena_api_base() -> str:
+    """Base URL for arena microservice endpoints (WebSocket, audio)."""
+    if USE_LIVE_SERVER:
+        return f"{LIVE_SERVER_URL}{settings.API_V1_PREFIX}"
     return f"http://test{settings.API_V1_PREFIX}"
+
 
 @pytest.fixture
 async def async_client(api_base: str):
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url=api_base, timeout=30.0) as client:
-        yield client
+    """HTTP client for core service arena CRUD endpoints."""
+    if USE_LIVE_SERVER:
+        async with AsyncClient(base_url=api_base, timeout=30.0) as client:
+            yield client
+    else:
+        # In unit test mode, route to core via ASGI is not available —
+        # use live server for integration tests that need core endpoints.
+        async with AsyncClient(base_url=api_base, timeout=30.0) as client:
+            yield client
+
+
+@pytest.fixture
+async def arena_client(arena_api_base: str):
+    """HTTP client for arena microservice endpoints."""
+    if USE_LIVE_SERVER:
+        async with AsyncClient(base_url=arena_api_base, timeout=30.0) as client:
+            yield client
+    else:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url=arena_api_base, timeout=30.0) as client:
+            yield client
+
 
 @pytest.fixture
 def unique_suffix() -> str:
     import uuid
     return str(uuid.uuid4())[:8]
 
+
 @pytest.fixture
-def teacher_headers() -> dict:
-    return {"Authorization": "Bearer mock-teacher-token"}
+def teacher_token() -> str:
+    return create_access_token({"sub": FAKE_TEACHER_ID, "type": "access"})
+
+
+@pytest.fixture
+def teacher_headers(teacher_token: str) -> dict:
+    return {"Authorization": f"Bearer {teacher_token}"}
+
+
+FAKE_STUDENT_IDS = [
+    f"00000000-0000-0000-0000-00000000001{i}" for i in range(5)
+]
+
+
+@pytest.fixture
+def teacher_with_class_and_students(teacher_headers: dict) -> dict:
+    """Fixed teacher + class + student IDs for tests that need class/student context."""
+    return {
+        "headers": teacher_headers,
+        "class_id": FAKE_CLASS_ID,
+        "student_ids": FAKE_STUDENT_IDS,
+    }
+
 
 @pytest.fixture
 def registered_school() -> dict:
+    admin_token = create_access_token({"sub": "00000000-0000-0000-0000-000000000001", "type": "access"})
     return {
-        "headers": {"Authorization": "Bearer mock-admin-token"},
+        "headers": {"Authorization": f"Bearer {admin_token}"},
         "school_id": "00000000-0000-0000-0000-000000000001",
-        "user_id": "00000000-0000-0000-0000-000000000002"
+        "user_id": "00000000-0000-0000-0000-000000000002",
     }
 
-# Mocking Core API for Arena tests
+
+# Mocking Core API for Arena microservice tests
 @pytest.fixture(autouse=True)
 def mock_core_api(respx_mock):
-    """Mock Core API responses for Arena tests."""
-    # Mock /internal/arenas/{id}
+    """Mock Core API responses for Arena microservice tests."""
     respx_mock.get(url__regex=r".*/internal/arenas/.*").mock(
         return_value=httpx.Response(200, json={
             "id": "00000000-0000-0000-0000-000000000001",
@@ -81,12 +144,10 @@ def mock_core_api(respx_mock):
         })
     )
 
-    # Mock /internal/verify-token
     respx_mock.get(url__regex=r".*/internal/verify-token.*").mock(
         return_value=httpx.Response(200, json={"user_id": "00000000-0000-0000-0000-000000000010"})
     )
 
-    # Mock /internal/classes/{id}
     respx_mock.get(url__regex=r".*/internal/classes/.*").mock(
         return_value=httpx.Response(200, json={"id": "00000000-0000-0000-0000-000000000001", "name": "Mock Class"})
     )
