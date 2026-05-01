@@ -178,7 +178,9 @@
       "Bash(git -C /Users/abba/Desktop/youspeak_backend add app/api/v1/endpoints/arenas.py)",
       "Bash(git -C /Users/abba/Desktop/youspeak_backend commit -m \"fix: set audio analysis broadcast callback once at startup instead of per-connection\")",
       "Bash(pnpm dev *)",
-      "Bash(psql *)"
+      "Bash(psql *)",
+      "Bash(pip show *)",
+      "Bash(pip3 show *)"
     ]
   }
 }
