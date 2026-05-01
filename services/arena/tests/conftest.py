@@ -128,9 +128,11 @@ def registered_school() -> dict:
 
 
 # Mocking Core API for Arena microservice tests
-@pytest.fixture(autouse=True)
+# autouse=False: only apply in unit-test mode. When USE_LIVE_SERVER=true, tests
+# make real HTTP calls to localhost:8000 and respx must not intercept them.
+@pytest.fixture(autouse=not USE_LIVE_SERVER)
 def mock_core_api(respx_mock):
-    """Mock Core API responses for Arena microservice tests."""
+    """Mock Core API responses for Arena microservice tests (unit-test mode only)."""
     respx_mock.get(url__regex=r".*/internal/arenas/.*").mock(
         return_value=httpx.Response(200, json={
             "id": "00000000-0000-0000-0000-000000000001",

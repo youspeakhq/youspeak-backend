@@ -11,7 +11,7 @@ from .enums import ArenaStatus
 class Arena(BaseModel):
     __tablename__ = "arenas"
 
-    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, index=True)
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE", use_alter=True), nullable=False, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     status = Column(ENUM(ArenaStatus, name="arena_status", create_type=False), default=ArenaStatus.DRAFT, nullable=False, index=True)
@@ -41,7 +41,7 @@ class Arena(BaseModel):
     source_pool_challenge_id = Column(UUID(as_uuid=True), ForeignKey("arenas.id", ondelete="SET NULL"), nullable=True)
     usage_count = Column(Integer, default=0, nullable=False)
     published_at = Column(DateTime, nullable=True)
-    published_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    published_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL", use_alter=True), nullable=True)
 
     waiting_room_entries = relationship("ArenaWaitingRoom", back_populates="arena", lazy="select")
     participants = relationship("ArenaParticipant", back_populates="arena", lazy="noload", cascade="all, delete-orphan")
@@ -56,11 +56,11 @@ class ArenaWaitingRoom(BaseModel):
     __tablename__ = "arena_waiting_room"
 
     arena_id = Column(UUID(as_uuid=True), ForeignKey("arenas.id", ondelete="CASCADE"), nullable=False, index=True)
-    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE", use_alter=True), nullable=False, index=True)
     entry_timestamp = Column(DateTime, nullable=False)
     status = Column(String(20), default='pending', nullable=False)
     admitted_at = Column(DateTime, nullable=True)
-    admitted_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    admitted_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL", use_alter=True), nullable=True)
     rejection_reason = Column(Text, nullable=True)
 
     arena = relationship("Arena", back_populates="waiting_room_entries")
@@ -73,7 +73,7 @@ class ArenaParticipant(BaseModel):
     __tablename__ = "arena_participants"
 
     arena_id = Column(UUID(as_uuid=True), ForeignKey("arenas.id", ondelete="CASCADE"), nullable=False, index=True)
-    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE", use_alter=True), nullable=False, index=True)
     role = Column(String(50), default='participant', nullable=False)
     team_id = Column(UUID(as_uuid=True), nullable=True)
     is_speaking = Column(Boolean, default=False, nullable=False)
@@ -96,7 +96,7 @@ class ArenaReaction(BaseModel):
     __tablename__ = "arena_reactions"
 
     arena_id = Column(UUID(as_uuid=True), ForeignKey("arenas.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE", use_alter=True), nullable=False)
     target_participant_id = Column(UUID(as_uuid=True), ForeignKey("arena_participants.id", ondelete="CASCADE"), nullable=True)
     reaction_type = Column(String(20), nullable=False)
     timestamp = Column(DateTime, nullable=False)
@@ -121,7 +121,7 @@ class ArenaTeamMember(BaseModel):
     __tablename__ = "arena_team_members"
 
     team_id = Column(UUID(as_uuid=True), ForeignKey("arena_teams.id", ondelete="CASCADE"), nullable=False, index=True)
-    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE", use_alter=True), nullable=False, index=True)
     role = Column(String(50), default='member', nullable=False)
 
     team = relationship("ArenaTeam", back_populates="members")
