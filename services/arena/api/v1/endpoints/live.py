@@ -14,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....websocket.connection_manager import connection_manager
 from ....services.audio_analysis_service import audio_analysis_service
+from ....services.audio_stream_service import audio_stream_service
+from ....services.core_api_client import core_api_client
 from ....database import get_db
 from ....security import get_user_id_from_token
 from ....models import Arena
@@ -43,24 +45,31 @@ async def arena_websocket(
     
     user_id = UUID(user_id_str)
     
-    # Phase 1: Verify arena existence via shared database
-    # In Phase 2, this will move to an internal API call to the Core service
-    result = await db.execute(select(Arena).where(Arena.id == arena_id))
-    arena = result.scalar_one_or_none()
+    # Phase 2: Fetch arena metadata and participants from Core API
+    arena_data = await core_api_client.get_arena_metadata(arena_id)
     
-    if not arena:
-        logger.warning(f"WebSocket connection rejected: arena {arena_id} not found")
+    if not arena_data:
+        logger.warning(f"WebSocket connection rejected: arena {arena_id} not found or Core API error")
         await websocket.close(code=4004)  # Not Found
         return
 
+    # Verify user is a participant
+    participants = arena_data.get("participants", [])
+    user_data = next((p for p in participants if UUID(p["user_id"]) == user_id), None)
+    
+    if not user_data:
+        logger.warning(f"WebSocket connection rejected: user {user_id} is not a participant in arena {arena_id}")
+        await websocket.close(code=4003)  # Forbidden
+        return
+
+    student_name = user_data.get("name", "Student")
+    language_code = arena_data.get("language_code", "en")
+
     # Initialize connection
     await connection_manager.connect(arena_id, user_id, websocket)
-    logger.info(f"User {user_id} connected to arena {arena_id}")
+    logger.info(f"User {user_id} ({student_name}) connected to arena {arena_id}")
     
     try:
-        # Start audio analysis session if it's a student (optional, based on role)
-        # For Phase 1, we start it for everyone who sends audio
-        
         while True:
             data = await websocket.receive_text()
             try:
@@ -68,6 +77,7 @@ async def arena_websocket(
             except json.JSONDecodeError:
                 continue
             
+            # The frontend contract uses 'type' for event identification
             event_type = message.get("type")
             
             # Handle Audio Streaming for AI Analysis
@@ -76,25 +86,34 @@ async def arena_websocket(
                 if payload:
                     try:
                         audio_bytes = base64.b64decode(payload)
-                        # Ensure session is started (idempotent)
-                        # We use "Student" as a placeholder name for now
-                        await audio_analysis_service.start_session(
+                        # Phase 3: Push to Redis Stream for background processing
+                        await audio_stream_service.push_chunk(
                             arena_id=arena_id, 
                             user_id=user_id, 
-                            language_code="en" # TODO: Get from arena metadata
+                            audio_bytes=audio_bytes,
+                            language_code=language_code,
+                            metadata={"student_name": student_name}
                         )
-                        await audio_analysis_service.process_audio_chunk(arena_id, user_id, audio_bytes)
                     except Exception as e:
-                        logger.error(f"Error processing audio chunk: {e}")
+                        logger.error(f"Error pushing audio chunk to stream: {e}")
             
             # Broadcast all other messages to participants in the same arena
             await connection_manager.broadcast(arena_id, message, exclude_user=user_id)
             
     except WebSocketDisconnect:
-        logger.info(f"User {user_id} disconnected from arena {arena_id}")
         await connection_manager.disconnect(arena_id, user_id, websocket)
-        await audio_analysis_service.close_session(arena_id, user_id)
+        # Signal worker to close the audio session and release resources
+        await audio_stream_service.push_chunk(
+            arena_id=arena_id,
+            user_id=user_id,
+            event_type="session_end"
+        )
+        logger.info(f"User {user_id} disconnected from arena {arena_id}")
     except Exception as e:
         logger.error(f"WebSocket error for user {user_id} in arena {arena_id}: {e}")
         await connection_manager.disconnect(arena_id, user_id, websocket)
-        await audio_analysis_service.close_session(arena_id, user_id)
+        await audio_stream_service.push_chunk(
+            arena_id=arena_id,
+            user_id=user_id,
+            event_type="session_end"
+        )

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # Security & Authentication
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
+    INTERNAL_API_SECRET: str = "dev_internal_secret"
 
     # Redis (Shared for Pub/Sub and scaling)
     REDIS_URL: str = "redis://localhost:6379/0"

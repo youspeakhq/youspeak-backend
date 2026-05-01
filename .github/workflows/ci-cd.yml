@@ -622,6 +622,45 @@ jobs:
             --force-new-deployment \
             --no-cli-pager
 
+      - name: Generate staging arena worker task definition
+        if: needs.build-and-push.outputs.arena_built == 'true'
+        run: |
+          jq '
+            .containerDefinitions[0].environment |= (
+              map(if .name == "SERVICE_ROLE" then .value = "worker" else . end)
+            ) |
+            del(.containerDefinitions[0].portMappings) |
+            del(.containerDefinitions[0].healthCheck)
+          ' .aws/task-definition-arena-staging.json > .aws/task-definition-arena-worker-staging.json
+
+      - name: Fill in arena image in worker task definition (staging)
+        if: needs.build-and-push.outputs.arena_built == 'true'
+        id: task-def-arena-worker-staging
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: .aws/task-definition-arena-worker-staging.json
+          container-name: ${{ env.CONTAINER_NAME_ARENA }}
+          image: ${{ needs.build-and-push.outputs.arena_image }}
+
+      - name: Register arena worker task definition (staging)
+        if: needs.build-and-push.outputs.arena_built == 'true'
+        id: register-arena-worker-task-staging
+        run: |
+          TASK_DEF_FILE="${{ steps.task-def-arena-worker-staging.outputs.task-definition }}"
+          [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
+
+      - name: Deploy arena worker service (staging)
+        if: needs.build-and-push.outputs.arena_built == 'true'
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE_ARENA }}-worker-staging \
+            --task-definition ${{ steps.register-arena-worker-task-staging.outputs.task-definition-arn }} \
+            --force-new-deployment \
+            --no-cli-pager
+
           # Custom waiter with exponential backoff (max 15 min)
           CLUSTER="${{ env.ECS_CLUSTER }}"
           SERVICE="${{ env.ECS_SERVICE_ARENA }}-staging"
@@ -877,6 +916,45 @@ jobs:
             --cluster ${{ env.ECS_CLUSTER }} \
             --service ${{ env.ECS_SERVICE_ARENA }}-production \
             --task-definition ${{ steps.register-arena-task.outputs.task-definition-arn }} \
+            --force-new-deployment \
+            --no-cli-pager
+
+      - name: Generate arena worker task definition
+        if: needs.build-and-push.outputs.arena_built == 'true'
+        run: |
+          jq '
+            .containerDefinitions[0].environment |= (
+              map(if .name == "SERVICE_ROLE" then .value = "worker" else . end)
+            ) |
+            del(.containerDefinitions[0].portMappings) |
+            del(.containerDefinitions[0].healthCheck)
+          ' .aws/task-definition-arena.json > .aws/task-definition-arena-worker.json
+
+      - name: Fill in arena image in worker task definition
+        if: needs.build-and-push.outputs.arena_built == 'true'
+        id: task-def-arena-worker
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: .aws/task-definition-arena-worker.json
+          container-name: ${{ env.CONTAINER_NAME_ARENA }}
+          image: ${{ needs.build-and-push.outputs.arena_image }}
+
+      - name: Register arena worker task definition
+        if: needs.build-and-push.outputs.arena_built == 'true'
+        id: register-arena-worker-task
+        run: |
+          TASK_DEF_FILE="${{ steps.task-def-arena-worker.outputs.task-definition }}"
+          [[ "$TASK_DEF_FILE" != /* ]] && TASK_DEF_FILE="$GITHUB_WORKSPACE/$TASK_DEF_FILE"
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://$TASK_DEF_FILE" --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "task-definition-arn=$TASK_ARN" >> $GITHUB_OUTPUT
+
+      - name: Deploy arena worker service (production)
+        if: needs.build-and-push.outputs.arena_built == 'true'
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE_ARENA }}-worker-production \
+            --task-definition ${{ steps.register-arena-worker-task.outputs.task-definition-arn }} \
             --force-new-deployment \
             --no-cli-pager
 

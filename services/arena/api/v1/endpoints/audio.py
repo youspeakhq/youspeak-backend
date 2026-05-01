@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....services.realtimekit_service import realtimekit_service
+from ....services.core_api_client import core_api_client
 from ....database import get_db
 from ....security import get_user_id_from_token
 from ....models import Arena
@@ -33,19 +34,21 @@ async def generate_audio_token(
     
     user_id = UUID(user_id_str)
     
-    # Phase 1: Shared DB lookup
-    result = await db.execute(select(Arena).where(Arena.id == arena_id))
-    arena = result.scalar_one_or_none()
+    # Phase 2: Fetch metadata from Core API
+    arena_data = await core_api_client.get_arena_metadata(arena_id)
     
-    if not arena:
-        raise HTTPException(status_code=404, detail="Arena not found")
+    if not arena_data:
+        raise HTTPException(status_code=404, detail="Arena not found or Core API error")
         
-    # TODO: Verify participant status
+    # Verify participant status
+    participant_ids = [UUID(p["user_id"]) for p in arena_data.get("participants", [])]
+    if user_id not in participant_ids:
+        raise HTTPException(status_code=403, detail="Not a participant in this arena")
     
     # Get or create meeting
     meeting_data = await realtimekit_service.create_meeting(
         arena_id=arena_id,
-        title=f"Arena: {arena.title}"
+        title=f"Arena: {arena_data['title']}"
     )
     
     if not meeting_data:

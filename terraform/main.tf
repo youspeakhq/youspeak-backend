@@ -559,6 +559,38 @@ resource "aws_ecs_service" "arena_staging" {
   }
 }
 
+resource "aws_ecs_service" "arena_worker_production" {
+  name            = "${var.app_name}-arena-worker-production"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = "youspeak-arena-task"
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets         = aws_subnet.private[*].id
+    security_groups = [aws_security_group.ecs.id]
+  }
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [task_definition]
+  }
+}
+
+resource "aws_ecs_service" "arena_worker_staging" {
+  name            = "${var.app_name}-arena-worker-staging"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = "youspeak-arena-task"
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets         = aws_subnet.private[*].id
+    security_groups = [aws_security_group.ecs.id]
+  }
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [task_definition]
+  }
+}
+
 # ECR
 resource "aws_ecr_repository" "app" {
   name                 = "${var.app_name}-backend"
@@ -568,12 +600,6 @@ resource "aws_ecr_repository" "app" {
 
 resource "aws_ecr_repository" "curriculum" {
   name                 = "${var.app_name}-curriculum-backend"
-  image_tag_mutability = "MUTABLE"
-  lifecycle { prevent_destroy = true }
-}
-
-resource "aws_ecr_repository" "arena" {
-  name                 = "${var.app_name}-arena-backend"
   image_tag_mutability = "MUTABLE"
   lifecycle { prevent_destroy = true }
 }
