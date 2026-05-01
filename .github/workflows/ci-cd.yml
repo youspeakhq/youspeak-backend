@@ -183,18 +183,29 @@ jobs:
           uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 
       - name: Wait for services to be healthy
+        env:
+          WAIT_CURRICULUM: ${{ needs.paths.outputs.core == 'true' || needs.paths.outputs.curriculum == 'true' }}
+          WAIT_ARENA: ${{ needs.paths.outputs.core == 'true' || needs.paths.outputs.arena == 'true' }}
         run: |
-          echo "Waiting for curriculum service..."
-          timeout 60 bash -c 'until curl -sf http://localhost:8001/health >/dev/null 2>&1; do sleep 0.5; done' || (echo "Curriculum service failed to start"; echo "=== curriculum logs ==="; cat /tmp/curriculum.log 2>/dev/null || true; exit 1)
-          echo "Curriculum service healthy"
+          if [ "$WAIT_CURRICULUM" = "true" ]; then
+            echo "Waiting for curriculum service..."
+            timeout 60 bash -c 'until curl -sf http://localhost:8001/health >/dev/null 2>&1; do sleep 0.5; done' || (echo "Curriculum service failed to start"; echo "=== curriculum logs ==="; cat /tmp/curriculum.log 2>/dev/null || true; exit 1)
+            echo "Curriculum service healthy"
+          else
+            echo "Curriculum service not started (no curriculum/core changes) — skipping"
+          fi
 
           echo "Waiting for API service..."
           timeout 30 bash -c 'until curl -sf http://localhost:8000/health >/dev/null 2>&1; do sleep 0.3; done' || (echo "API failed to start"; exit 1)
           echo "API service healthy"
 
-          echo "Waiting for arena service..."
-          timeout 30 bash -c 'until curl -sf http://localhost:8002/health >/dev/null 2>&1; do sleep 0.3; done' || (echo "Arena service failed to start"; exit 1)
-          echo "Arena service healthy"
+          if [ "$WAIT_ARENA" = "true" ]; then
+            echo "Waiting for arena service..."
+            timeout 30 bash -c 'until curl -sf http://localhost:8002/health >/dev/null 2>&1; do sleep 0.3; done' || (echo "Arena service failed to start"; exit 1)
+            echo "Arena service healthy"
+          else
+            echo "Arena service not started (no arena/core changes) — skipping"
+          fi
 
       - name: Restore testmon cache
         uses: actions/cache@v5
