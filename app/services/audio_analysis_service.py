@@ -121,8 +121,6 @@ class AudioAnalysisService:
         self._sessions: Dict[Tuple[UUID, UUID], ParticipantAudioSession] = {}
         # Callback for broadcasting results (set by WebSocket handler)
         self._broadcast_callback = None
-        # Bedrock client (lazy init)
-        self._bedrock = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
     def set_broadcast_callback(self, callback):
@@ -132,20 +130,14 @@ class AudioAnalysisService:
         """
         self._broadcast_callback = callback
 
-    def _get_bedrock(self):
-        """Lazy-init Bedrock client (reuse boto3 pattern from curriculum service)."""
-        if self._bedrock is None:
-            import boto3
-            from botocore.config import Config
-
-            config = Config(
-                region_name=settings.AWS_REGION,
-                retries={"max_attempts": 2},
-                connect_timeout=5,
-                read_timeout=15,
-            )
-            self._bedrock = boto3.client("bedrock-runtime", config=config)
-        return self._bedrock
+    def _bedrock_config(self):
+        from botocore.config import Config
+        return Config(
+            region_name=settings.AWS_REGION,
+            retries={"max_attempts": 2},
+            connect_timeout=5,
+            read_timeout=15,
+        )
 
     def _get_or_create_loop(self) -> asyncio.AbstractEventLoop:
         """Get the event loop, caching it for use from SDK callback threads.
@@ -510,17 +502,15 @@ class AudioAnalysisService:
         )
 
         try:
-            bedrock = self._get_bedrock()
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: bedrock.converse(
+            import aioboto3
+            session = aioboto3.Session()
+            async with session.client("bedrock-runtime", config=self._bedrock_config()) as bedrock:
+                response = await bedrock.converse(
                     modelId=settings.BEDROCK_MODEL_ID,
                     messages=[{"role": "user", "content": [{"text": prompt}]}],
                     inferenceConfig={"maxTokens": 60, "temperature": 0.3},
-                ),
-            )
+                )
             text = response["output"]["message"]["content"][0]["text"].strip()
-            # Truncate if somehow too long
             if len(text) > 200:
                 text = text[:197] + "..."
             return text
@@ -550,9 +540,11 @@ class AudioAnalysisService:
             # Signal end of audio
             session.push_stream.close()
 
-            # Stop recognition
+            # Stop recognition — call .get() so the C++ SDK thread fully shuts
+            # down before we drop the reference (avoids segfaults/memory leaks).
             if session._recognizing:
-                session.speech_recognizer.stop_continuous_recognition_async()
+                future = session.speech_recognizer.stop_continuous_recognition_async()
+                await asyncio.get_event_loop().run_in_executor(None, future.get)
                 session._recognizing = False
 
             logger.info(
