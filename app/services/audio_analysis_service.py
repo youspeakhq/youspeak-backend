@@ -310,24 +310,34 @@ class AudioAnalysisService:
             return
 
         try:
-            pronunciation_result = speechsdk.PronunciationAssessmentResult(result)
+            # Parse scores from raw JSON — stable across all SDK versions.
+            # PronunciationAssessmentResult wrapper accesses private attrs that
+            # can be absent when the result lacks NBest/PronunciationAssessment data.
+            import json as _json
+            raw_json = result.properties.get(speechsdk.PropertyId.SpeechServiceResponse_JsonResult)
+            if not raw_json:
+                return
 
-            accuracy = pronunciation_result.accuracy_score or 0.0
-            fluency = pronunciation_result.fluency_score or 0.0
-            pronunciation = pronunciation_result.pronunciation_score or 0.0
-            prosody = None
-            if session.language_locale == "en-US":
-                prosody = getattr(pronunciation_result, "prosody_score", None)
+            resp = _json.loads(raw_json)
+            nbest = resp.get("NBest", [])
+            if not nbest:
+                return
+
+            pron = nbest[0].get("PronunciationAssessment", {})
+            accuracy = float(pron.get("AccuracyScore", 0.0))
+            fluency = float(pron.get("FluencyScore", 0.0))
+            pronunciation = float(pron.get("PronScore", 0.0))
+            prosody = float(pron["ProsodyScore"]) if "ProsodyScore" in pron else None
 
             # Extract word-level results
             words = []
-            if pronunciation_result.words:
-                for w in pronunciation_result.words:
-                    words.append(WordResult(
-                        word=w.word,
-                        accuracy_score=w.accuracy_score or 0.0,
-                        error_type=w.error_type if hasattr(w, "error_type") else "None",
-                    ))
+            for w in nbest[0].get("Words", []):
+                w_pron = w.get("PronunciationAssessment", {})
+                words.append(WordResult(
+                    word=w.get("Word", ""),
+                    accuracy_score=float(w_pron.get("AccuracyScore", 0.0)),
+                    error_type=w_pron.get("ErrorType", "None"),
+                ))
 
             # Update rolling window
             session._recent_words.extend(words)
