@@ -225,6 +225,8 @@ jobs:
       - name: Run tests (arena)
         if: needs.paths.outputs.arena == 'true' || github.event_name == 'pull_request'
         env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          SECRET_KEY: test-secret-key-for-ci-pipeline-min-32-chars
           REDIS_URL: redis://localhost:6379/0
           INTERNAL_API_SECRET: test-internal-secret
           CORE_SERVICE_URL: http://localhost:8000
