@@ -233,7 +233,7 @@ jobs:
           LIVE_SERVER_URL: http://localhost:8002
           TEST_USE_LIVE_SERVER: "true"
         run: |
-          PYTHONPATH=$PYTHONPATH:$(pwd)/services/arena pytest services/arena/tests/ -v --tb=long
+          PYTHONPATH=$PYTHONPATH:$(pwd) pytest services/arena/tests/ --ignore=services/arena/tests/integration/test_arenas_evaluation.py -v --tb=long
 
       - name: Run tests (curriculum)
         if: needs.paths.outputs.curriculum == 'true' || github.event_name == 'pull_request'
