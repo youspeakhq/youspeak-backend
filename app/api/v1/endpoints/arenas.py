@@ -1045,22 +1045,6 @@ async def arena_live_session(
                 )
                 log.debug("websocket_speaking_stopped_broadcasted")
 
-            elif event_type == "reaction_sent":
-                reaction_type = message.get("reaction_type", "thumbs_up")
-                await connection_manager.broadcast(
-                    arena_id,
-                    {
-                        "event_type": "reaction_broadcast",
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "data": {
-                            "user_id": str(user_id),
-                            "reaction_type": reaction_type,
-                        },
-                    },
-                    exclude_user=user_id,  # Don't send back to sender
-                )
-                log.debug("websocket_reaction_broadcasted")
-
             else:
                 log.warning("websocket_unknown_event_type")
 
