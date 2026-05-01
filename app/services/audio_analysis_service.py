@@ -14,10 +14,12 @@ Architecture:
 import asyncio
 import json
 import logging
+import random
 import time
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, Tuple
 from uuid import UUID
 
 import azure.cognitiveservices.speech as speechsdk
@@ -107,8 +109,8 @@ class ParticipantAudioSession:
     _recent_accuracy_scores: List[float] = field(default_factory=list)
     _recent_fluency_scores: List[float] = field(default_factory=list)
     _recent_pronunciation_scores: List[float] = field(default_factory=list)
-    # Last 2 tips sent — passed to prompt to prevent repetition
-    _recent_tips: List[str] = field(default_factory=list)
+    # Last 3 tips sent — passed to prompt to prevent repetition (bounded deque, O(1) pops)
+    _recent_tips: Deque[str] = field(default_factory=lambda: deque(maxlen=3))
     # Snapshot of accuracy 30s ago for trend detection
     _accuracy_snapshot: float = 0.0
     _accuracy_snapshot_time: float = 0.0
@@ -129,21 +131,42 @@ class AudioAnalysisService:
         self._broadcast_callback = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
+        # Persistent aioboto3 session — created once, reuses TLS connections across calls.
+        # The actual client context is opened lazily on first feedback call and held open.
+        import aioboto3
+        from aiobotocore.config import AioConfig
+        self._boto_session = aioboto3.Session()
+        self._bedrock_client_ctx = None  # opened on first use, never closed
+        self._bedrock_client = None
+
+        # Adaptive retry config: botocore maintains a client-side token bucket
+        # that slows outgoing requests automatically when throttling is observed.
+        self._aioboto_config = AioConfig(
+            region_name=settings.AWS_REGION,
+            retries={"max_attempts": 8, "mode": "adaptive"},
+            connect_timeout=5,
+            read_timeout=15,
+        )
+
+        # Global semaphore: caps in-flight Bedrock calls across all sessions.
+        # At 10s/participant, 15 concurrent participants ≈ 90 RPM — within default quotas.
+        self._bedrock_semaphore = asyncio.Semaphore(15)
+
+    async def _get_bedrock_client(self):
+        """Lazy-open a persistent Bedrock client — reuses the same TLS connection."""
+        if self._bedrock_client is None:
+            self._bedrock_client_ctx = self._boto_session.client(
+                "bedrock-runtime", config=self._aioboto_config
+            )
+            self._bedrock_client = await self._bedrock_client_ctx.__aenter__()
+        return self._bedrock_client
+
     def set_broadcast_callback(self, callback):
         """Set the async callback for broadcasting analysis results.
 
         Signature: async def callback(arena_id: UUID, data: dict) -> None
         """
         self._broadcast_callback = callback
-
-    def _bedrock_config(self):
-        from botocore.config import Config
-        return Config(
-            region_name=settings.AWS_REGION,
-            retries={"max_attempts": 2},
-            connect_timeout=5,
-            read_timeout=15,
-        )
 
     def _get_or_create_loop(self) -> asyncio.AbstractEventLoop:
         """Get the event loop, caching it for use from SDK callback threads.
@@ -336,12 +359,14 @@ class AudioAnalysisService:
                 w_pron = w.get("PronunciationAssessment", {})
                 error_type = w_pron.get("ErrorType", "None")
 
-                # P2: find most likely substitution from NBestPhonemes on mispronounced phonemes
+                # P2: find most likely substitution from NBestPhonemes on mispronounced phonemes.
+                # Dual-threshold guard: require both word-level < 65 AND phoneme-level < 45
+                # to avoid noisy false substitutions from background/mic artefacts.
                 substitution = None
-                if error_type == "Mispronunciation":
+                if error_type == "Mispronunciation" and float(w_pron.get("AccuracyScore", 100)) < 65:
                     for phoneme in w.get("Phonemes", []):
                         p_pron = phoneme.get("PronunciationAssessment", {})
-                        if p_pron.get("AccuracyScore", 100) < 60:
+                        if p_pron.get("AccuracyScore", 100) < 45:
                             nbest_phonemes = p_pron.get("NBestPhonemes", [])
                             expected = phoneme.get("Phoneme", "")
                             if nbest_phonemes and expected:
@@ -568,32 +593,47 @@ class AudioAnalysisService:
 
         user_content = _json.dumps(payload, ensure_ascii=False)
 
-        try:
-            import aioboto3
-            boto_session = aioboto3.Session()
-            async with boto_session.client("bedrock-runtime", config=self._bedrock_config()) as bedrock:
-                response = await bedrock.converse(
-                    modelId=settings.BEDROCK_MODEL_ID,
-                    system=[{"text": self._COACHING_SYSTEM_PROMPT}],  # P4: system prompt
-                    messages=[{"role": "user", "content": [{"text": user_content}]}],
-                    inferenceConfig={
-                        "maxTokens": 80,       # P5: was 60, gives room for 2-sentence tip
-                        "temperature": 0.7,    # P5: was 0.3, prevents repetitive outputs
-                    },
-                )
-            text = response["output"]["message"]["content"][0]["text"].strip()
-            if len(text) > 250:
-                text = text[:247] + "..."
+        from botocore.exceptions import ClientError
+        _RETRYABLE = {"ThrottlingException", "ServiceUnavailableException",
+                      "ModelTimeoutException", "InternalServerException"}
 
-            # P3: store tip to prevent repetition next cycle
-            session._recent_tips.append(text)
-            if len(session._recent_tips) > 3:
-                session._recent_tips.pop(0)
+        for attempt in range(5):
+            try:
+                async with self._bedrock_semaphore:
+                    bedrock = await self._get_bedrock_client()
+                    response = await bedrock.converse(
+                        modelId=settings.BEDROCK_MODEL_ID,
+                        system=[{"text": self._COACHING_SYSTEM_PROMPT}],
+                        messages=[{"role": "user", "content": [{"text": user_content}]}],
+                        inferenceConfig={"maxTokens": 80, "temperature": 0.7},
+                    )
 
-            return text
-        except Exception as e:
-            logger.warning("bedrock_feedback_failed", extra={"error": str(e)})
-            return None
+                text = response["output"]["message"]["content"][0]["text"].strip()
+                if len(text) > 250:
+                    text = text[:247] + "..."
+
+                # deque(maxlen=3) handles eviction automatically — no pop(0) needed
+                session._recent_tips.append(text)
+                return text
+
+            except ClientError as e:
+                code = e.response["Error"]["Code"]
+                if code not in _RETRYABLE or attempt == 4:
+                    logger.warning("bedrock_feedback_failed",
+                                   extra={"error": str(e), "code": code})
+                    return None
+                # Back off past the 60s quota window on throttling; shorter for transient errors
+                cap = 65.0 if code == "ThrottlingException" else 30.0
+                delay = min(1.0 * (2 ** attempt), cap) + random.uniform(0, 0.5)
+                logger.info("bedrock_retry", extra={"attempt": attempt + 1,
+                            "delay": round(delay, 1), "code": code})
+                await asyncio.sleep(delay)
+
+            except Exception as e:
+                logger.warning("bedrock_feedback_failed", extra={"error": str(e)})
+                return None
+
+        return None
 
     def get_latest_analysis(self, arena_id: UUID, user_id: UUID) -> Optional[AnalysisResult]:
         """Get the latest analysis result for a participant."""
