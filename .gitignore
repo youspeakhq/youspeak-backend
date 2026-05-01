@@ -187,3 +187,6 @@ terraform-outputs.txt
 test_*_bearer.py
 test_*_credentials.py
 *_secret_test.py
+
+# Claude Code local settings
+.claude/settings.local.json
