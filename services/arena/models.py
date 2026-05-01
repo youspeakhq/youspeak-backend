@@ -12,8 +12,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 try:
     from app.models.arena import Arena, ArenaParticipant, ArenaStatus
     from app.models.user import User
-    from app.models.student import Student
-    from app.models.speaking_challenge import SpeakingChallenge
 except ImportError:
     # Fallback for when app/ is not available (e.g. during standalone testing)
     # In production Docker, PYTHONPATH should include /app
@@ -24,6 +22,4 @@ __all__ = [
     "ArenaParticipant",
     "ArenaStatus",
     "User",
-    "Student",
-    "SpeakingChallenge",
 ]

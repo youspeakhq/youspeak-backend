@@ -165,7 +165,7 @@ jobs:
           CORE_SERVICE_URL: http://localhost:8000
         run: |
           pip install -r services/arena/requirements.txt
-          REDIS_URL="$REDIS_URL" INTERNAL_API_SECRET="$INTERNAL_API_SECRET" CORE_SERVICE_URL="$CORE_SERVICE_URL" DATABASE_URL="$DATABASE_URL" SECRET_KEY="$SECRET_KEY" python3 -m uvicorn services.arena.main:app --host 0.0.0.0 --port 8002 &
+          PYTHONPATH=$(pwd) REDIS_URL="$REDIS_URL" INTERNAL_API_SECRET="$INTERNAL_API_SECRET" CORE_SERVICE_URL="$CORE_SERVICE_URL" DATABASE_URL="$DATABASE_URL" SECRET_KEY="$SECRET_KEY" python3 -m uvicorn services.arena.main:app --host 0.0.0.0 --port 8002 &
 
       - name: Start API server
         env:
