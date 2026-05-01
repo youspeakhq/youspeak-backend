@@ -390,6 +390,34 @@ resource "aws_lb_listener" "staging_http" {
   }
 }
 
+resource "aws_lb_listener" "staging_http_redirect" {
+  count             = local.enable_https ? 1 : 0
+  load_balancer_arn = aws_lb.staging.arn
+  port              = "80"
+  protocol          = "HTTP"
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_lb_listener" "staging_https" {
+  count             = local.enable_https ? 1 : 0
+  load_balancer_arn = aws_lb.staging.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  certificate_arn   = aws_acm_certificate_validation.api[0].certificate_arn
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.api_staging.arn
+  }
+}
+
 # ECS Services
 resource "aws_ecs_service" "production" {
   name            = "${var.app_name}-api-service-production"

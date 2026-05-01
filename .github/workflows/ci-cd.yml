@@ -15,6 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   AWS_REGION: us-east-1
   ECR_REPOSITORY: youspeak-backend
   ECR_REPOSITORY_CURRICULUM: youspeak-curriculum-backend
@@ -35,8 +36,8 @@ jobs:
       core: ${{ steps.filter.outputs.core }}
       curriculum: ${{ steps.filter.outputs.curriculum }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -86,10 +87,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.9'
           cache: 'pip'
@@ -171,7 +172,7 @@ jobs:
           echo "API service healthy"
 
       - name: Restore testmon cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .testmondata
           key: testmon-${{ github.ref_name }}-${{ hashFiles('app/**', 'tests/**') }}
@@ -196,7 +197,7 @@ jobs:
           pytest tests/ -v --tb=long -n 4 --testmon --cov=app --cov-report=xml --cov-report=term
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           file: ./coverage.xml
           flags: unittests
@@ -210,7 +211,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Free disk space
         uses: jlumbroso/free-disk-space@main
@@ -219,7 +220,7 @@ jobs:
           tool-cache: "true"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Create .env for Docker Compose
         env:
@@ -284,14 +285,14 @@ jobs:
       curriculum_built: ${{ steps.curriculum-image.outputs.curriculum_built }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Free disk space
         uses: jlumbroso/free-disk-space@main
         with:
           docker-images: "false"
           tool-cache: "true"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -300,7 +301,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Validate task definition
         if: needs.paths.outputs.core == 'true'
         run: |
@@ -311,7 +312,7 @@ jobs:
           echo "Task definition OK"
       - name: Build and push core + migration images (parallel via bake)
         if: needs.paths.outputs.core == 'true'
-        uses: docker/bake-action@v5
+        uses: docker/bake-action@v7
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
@@ -322,7 +323,7 @@ jobs:
       - name: Build and push curriculum image to Amazon ECR
         if: needs.paths.outputs.curriculum == 'true'
         id: build-curriculum-image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./services/curriculum/Dockerfile
@@ -356,7 +357,7 @@ jobs:
           output: 'trivy-results.sarif'
       - name: Upload Trivy scan results to GitHub Security
         if: success() && needs.paths.outputs.core == 'true' && hashFiles('trivy-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v5
         with:
           sarif_file: 'trivy-results.sarif'
 
@@ -370,9 +371,9 @@ jobs:
       url: ${{ vars.STAGING_API_URL }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -569,9 +570,9 @@ jobs:
       url: https://api.youspeak.com
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
