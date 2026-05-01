@@ -1,8 +1,39 @@
 import pytest
 import os
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.pool import NullPool
 from services.arena.main import app
 from services.arena.config import settings
+from services.arena.models_local.base import Base
+
+requires_db = pytest.mark.skipif(
+    not os.environ.get("DATABASE_URL"),
+    reason="DATABASE_URL not set"
+)
+
+_test_engine = None
+_TestSessionLocal = None
+
+
+def _get_test_session_factory():
+    global _test_engine, _TestSessionLocal
+    if _TestSessionLocal is None:
+        db_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+        _test_engine = create_async_engine(db_url, poolclass=NullPool)
+        _TestSessionLocal = async_sessionmaker(_test_engine, class_=AsyncSession, expire_on_commit=False)
+    return _TestSessionLocal
+
+
+@pytest.fixture
+async def db() -> AsyncSession:
+    session_factory = _get_test_session_factory()
+    async with session_factory() as session:
+        try:
+            yield session
+            await session.rollback()
+        finally:
+            await session.close()
 
 @pytest.fixture
 def api_base() -> str:

@@ -1,7 +1,5 @@
-"""Arena service models — standalone, no dependency on core app/."""
-
-from .models_local.enums import ArenaStatus, UserRole
-from .models_local.arena import (
+from .enums import ArenaStatus, UserRole
+from .arena import (
     Arena,
     ArenaWaitingRoom,
     ArenaParticipant,
@@ -9,7 +7,7 @@ from .models_local.arena import (
     ArenaTeam,
     ArenaTeamMember,
 )
-from .models_local.base import Base, BaseModel
+from .base import Base, BaseModel
 
 __all__ = [
     "ArenaStatus",
