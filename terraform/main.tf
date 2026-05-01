@@ -316,6 +316,18 @@ resource "aws_lb_target_group" "api" {
   }
 }
 
+resource "aws_lb_target_group" "arena" {
+  name        = "${var.app_name}-arena-tg-${var.environment}"
+  port        = 8002
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    path = "/health"
+    matcher = "200"
+  }
+}
+
 # Listeners for main ALB
 resource "aws_lb_listener" "http" {
   count             = local.enable_https ? 0 : 1
@@ -356,6 +368,22 @@ resource "aws_lb_listener" "https" {
   }
 }
 
+resource "aws_lb_listener_rule" "arena" {
+  listener_arn = local.enable_https ? aws_lb_listener.https[0].arn : aws_lb_listener.http[0].arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.arena.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/v1/arenas/live/*"]
+    }
+  }
+}
+
 # Staging ALB (Only if environment is staging or we want parallel LB)
 resource "aws_lb" "staging" {
   name               = "${var.app_name}-alb-staging"
@@ -370,6 +398,18 @@ resource "aws_lb" "staging" {
 resource "aws_lb_target_group" "api_staging" {
   name        = "${var.app_name}-api-tg-staging"
   port        = 8000
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    path    = "/health"
+    matcher = "200"
+  }
+}
+
+resource "aws_lb_target_group" "arena_staging" {
+  name        = "${var.app_name}-arena-tg-staging"
+  port        = 8002
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
@@ -418,6 +458,22 @@ resource "aws_lb_listener" "staging_https" {
   }
 }
 
+resource "aws_lb_listener_rule" "arena_staging" {
+  listener_arn = local.enable_https ? aws_lb_listener.staging_https[0].arn : aws_lb_listener.staging_http[0].arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.arena_staging.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/v1/arenas/live/*"]
+    }
+  }
+}
+
 # ECS Services
 resource "aws_ecs_service" "production" {
   name            = "${var.app_name}-api-service-production"
@@ -461,6 +517,48 @@ resource "aws_ecs_service" "staging" {
   }
 }
 
+resource "aws_ecs_service" "arena_production" {
+  name            = "${var.app_name}-arena-service-production"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = "youspeak-arena-task" # Managed by CI/CD
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets         = aws_subnet.private[*].id
+    security_groups = [aws_security_group.ecs.id]
+  }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.arena.arn
+    container_name   = "youspeak-arena"
+    container_port   = 8002
+  }
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [task_definition]
+  }
+}
+
+resource "aws_ecs_service" "arena_staging" {
+  name            = "${var.app_name}-arena-service-staging"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = "youspeak-arena-task"
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets         = aws_subnet.private[*].id
+    security_groups = [aws_security_group.ecs.id]
+  }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.arena_staging.arn
+    container_name   = "youspeak-arena"
+    container_port   = 8002
+  }
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [task_definition]
+  }
+}
+
 # ECR
 resource "aws_ecr_repository" "app" {
   name                 = "${var.app_name}-backend"
@@ -470,6 +568,18 @@ resource "aws_ecr_repository" "app" {
 
 resource "aws_ecr_repository" "curriculum" {
   name                 = "${var.app_name}-curriculum-backend"
+  image_tag_mutability = "MUTABLE"
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_ecr_repository" "arena" {
+  name                 = "${var.app_name}-arena-backend"
+  image_tag_mutability = "MUTABLE"
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_ecr_repository" "arena" {
+  name                 = "${var.app_name}-arena-backend"
   image_tag_mutability = "MUTABLE"
   lifecycle { prevent_destroy = true }
 }
@@ -623,6 +733,7 @@ resource "aws_acm_certificate_validation" "api" {
 # Outputs
 output "alb_dns_name" { value = aws_lb.main.dns_name }
 output "ecr_repository_url" { value = aws_ecr_repository.app.repository_url }
+output "ecr_repository_arena_url" { value = aws_ecr_repository.arena.repository_url }
 output "database_endpoint" {
   value     = aws_db_instance.postgres.endpoint
   sensitive = true
