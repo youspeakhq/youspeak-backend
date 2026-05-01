@@ -218,7 +218,7 @@ async def update_curriculum(
     request: Request,
     curriculum_id: UUID,
     curriculum_in: CurriculumUpdate,
-    current_user: User = Depends(deps.require_admin),
+    current_user: User = Depends(deps.require_teacher_or_admin),
 ) -> Any:
     client = _get_curriculum_client(request)
     r = await client.patch(
@@ -271,7 +271,7 @@ async def confirm_merge(
 async def delete_curriculum(
     request: Request,
     curriculum_id: UUID,
-    current_user: User = Depends(deps.require_admin),
+    current_user: User = Depends(deps.require_teacher_or_admin),
 ) -> Any:
     client = _get_curriculum_client(request)
     r = await client.delete(
