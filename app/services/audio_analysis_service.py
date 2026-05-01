@@ -148,9 +148,15 @@ class AudioAnalysisService:
             read_timeout=15,
         )
 
-        # Global semaphore: caps in-flight Bedrock calls across all sessions.
-        # At 10s/participant, 15 concurrent participants ≈ 90 RPM — within default quotas.
-        self._bedrock_semaphore = asyncio.Semaphore(15)
+        # Lazily initialised in _get_bedrock_semaphore() — Semaphore must be created
+        # inside a running event loop, not at module import time.
+        self._bedrock_semaphore: Optional[asyncio.Semaphore] = None
+
+    def _get_semaphore(self) -> asyncio.Semaphore:
+        """Lazy-init semaphore inside a running event loop."""
+        if self._bedrock_semaphore is None:
+            self._bedrock_semaphore = asyncio.Semaphore(15)
+        return self._bedrock_semaphore
 
     async def _get_bedrock_client(self):
         """Lazy-open a persistent Bedrock client — reuses the same TLS connection."""
@@ -599,7 +605,7 @@ class AudioAnalysisService:
 
         for attempt in range(5):
             try:
-                async with self._bedrock_semaphore:
+                async with self._get_semaphore():
                     bedrock = await self._get_bedrock_client()
                     response = await bedrock.converse(
                         modelId=settings.BEDROCK_MODEL_ID,
