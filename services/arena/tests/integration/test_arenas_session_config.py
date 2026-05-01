@@ -11,10 +11,10 @@ Requirements tested:
 """
 
 import pytest
-from tests.conftest import requires_db
+
 from httpx import AsyncClient
 
-pytestmark = requires_db
+
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ async def teacher_with_class_and_students(
     class_id = resp.json()["data"]["id"]
 
     # Create 5 students enrolled in this class (using direct creation)
-    from tests.conftest import create_student_direct
+    # from tests.conftest import create_student_direct
 
     student_ids = []
     for i in range(5):

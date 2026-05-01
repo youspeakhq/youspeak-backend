@@ -12,11 +12,11 @@ Requirements tested:
 """
 
 import pytest
-from tests.conftest import requires_db
+
 from httpx import AsyncClient
 from datetime import datetime, timedelta
 
-pytestmark = requires_db
+
 
 
 @pytest.fixture

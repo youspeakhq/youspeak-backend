@@ -153,6 +153,16 @@ jobs:
           pip install -r services/curriculum/requirements.txt
           (cd services/curriculum && DATABASE_URL="$DATABASE_URL" AWS_REGION="$AWS_REGION" BEDROCK_MODEL_ID="$BEDROCK_MODEL_ID" python3 -m uvicorn main:app --host 0.0.0.0 --port 8001) &
 
+      - name: Start arena service
+        if: needs.paths.outputs.core == 'true' || needs.paths.outputs.arena == 'true'
+        env:
+          REDIS_URL: redis://localhost:6379/0
+          INTERNAL_API_SECRET: test-internal-secret
+          CORE_SERVICE_URL: http://localhost:8000
+        run: |
+          pip install -r services/arena/requirements.txt
+          (cd services/arena && REDIS_URL="$REDIS_URL" INTERNAL_API_SECRET="$INTERNAL_API_SECRET" CORE_SERVICE_URL="$CORE_SERVICE_URL" python3 -m uvicorn main:app --host 0.0.0.0 --port 8002) &
+
       - name: Start API server
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
@@ -178,6 +188,10 @@ jobs:
           timeout 30 bash -c 'until curl -sf http://localhost:8000/health >/dev/null 2>&1; do sleep 0.3; done' || (echo "API failed to start"; exit 1)
           echo "API service healthy"
 
+          echo "Waiting for arena service..."
+          timeout 30 bash -c 'until curl -sf http://localhost:8002/health >/dev/null 2>&1; do sleep 0.3; done' || (echo "Arena service failed to start"; exit 1)
+          echo "Arena service healthy"
+
       - name: Restore testmon cache
         uses: actions/cache@v5
         with:
@@ -187,7 +201,7 @@ jobs:
             testmon-${{ github.ref_name }}-
             testmon-main-
 
-      - name: Run tests
+      - name: Run tests (core)
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379/0
@@ -201,7 +215,28 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
+          pip install respx
           pytest tests/ -v --tb=long -n 4 --testmon --cov=app --cov-report=xml --cov-report=term
+
+      - name: Run tests (arena)
+        if: needs.paths.outputs.arena == 'true' || github.event_name == 'pull_request'
+        env:
+          REDIS_URL: redis://localhost:6379/0
+          INTERNAL_API_SECRET: test-internal-secret
+          CORE_SERVICE_URL: http://localhost:8000
+          LIVE_SERVER_URL: http://localhost:8002
+          TEST_USE_LIVE_SERVER: "true"
+        run: |
+          PYTHONPATH=$PYTHONPATH:$(pwd)/services/arena pytest services/arena/tests/ -v --tb=long
+
+      - name: Run tests (curriculum)
+        if: needs.paths.outputs.curriculum == 'true' || github.event_name == 'pull_request'
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          LIVE_SERVER_URL: http://localhost:8001
+          TEST_USE_LIVE_SERVER: "true"
+        run: |
+          PYTHONPATH=$PYTHONPATH:$(pwd)/services/curriculum pytest services/curriculum/tests/ -v --tb=long
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v6

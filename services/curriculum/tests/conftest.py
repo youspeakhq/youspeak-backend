@@ -1,53 +1,35 @@
-"""Pytest fixtures for curriculum service tests. Run with PYTHONPATH=services/curriculum from repo root."""
-
+import pytest
 import os
 import uuid
-import pytest
 from httpx import ASGITransport, AsyncClient
-
-# Ensure curriculum service is on path when running from repo root
-_svc = os.path.join(os.path.dirname(__file__), "..")
-if _svc not in os.sys.path:
-    os.sys.path.insert(0, os.path.abspath(_svc))
-
 from main import app
-
-
-requires_db = pytest.mark.skipif(
-    not os.getenv("DATABASE_URL"),
-    reason="DATABASE_URL required for curriculum service integration tests",
-)
-
+from config import settings
 
 @pytest.fixture
-def school_id() -> str:
-    return str(uuid.uuid4())
-
-
-@pytest.fixture
-def curriculum_headers(school_id: str) -> dict:
-    return {"X-School-Id": school_id}
-
+def api_base() -> str:
+    # Use the same prefix as the core proxy tests expect, 
+    # but the curriculum app handles /curriculums directly.
+    # However, for pure microservice tests, we hit the app's root.
+    return ""
 
 @pytest.fixture
-async def client():
+async def async_client():
     transport = ASGITransport(app=app)
-    async with AsyncClient(
-        transport=transport,
-        base_url="http://test",
-        timeout=30.0,
-    ) as ac:
-        yield ac
-
+    async with AsyncClient(transport=transport, base_url="http://test", timeout=30.0) as client:
+        yield client
 
 @pytest.fixture
-async def existing_school_id():
-    """Return one existing school_id from DB for create tests (FK). Skip if no schools."""
-    from sqlalchemy import text
-    from database import engine
-    async with engine.connect() as conn:
-        r = await conn.execute(text("SELECT id FROM schools LIMIT 1"))
-        row = r.fetchone()
-    if row is None:
-        pytest.skip("No school in DB; run core migrations or integration tests first")
-    return str(row[0])
+def unique_suffix() -> str:
+    return str(uuid.uuid4())[:8]
+
+@pytest.fixture
+def registered_school() -> dict:
+    return {
+        "headers": {"Authorization": "Bearer mock-admin-token"},
+        "school_id": str(uuid.uuid4()),
+        "user_id": str(uuid.uuid4())
+    }
+
+@pytest.fixture
+def teacher_headers() -> dict:
+    return {"Authorization": "Bearer mock-teacher-token"}

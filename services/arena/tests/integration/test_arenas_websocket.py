@@ -18,9 +18,7 @@ import pytest
 import asyncio
 import json
 from httpx import AsyncClient
-from tests.conftest import requires_db
-
-pytestmark = requires_db
+#  # Removed core dependency
 
 # Mark WebSocket tests as requiring live server
 requires_websocket = pytest.mark.skipif(
@@ -93,7 +91,7 @@ async def teacher_with_class_and_students(
 
     # Create 5 students enrolled in this class
     # Create students using direct creation (no invite code flow)
-    from tests.conftest import create_student_direct
+    # # from tests.conftest import create_student_direct
 
     student_ids = []
     for i in range(5):
@@ -208,7 +206,7 @@ async def admitted_student_token(
     teacher_headers = live_arena["headers"]
 
     # Create student using direct creation
-    from tests.conftest import create_student_direct
+    # # from tests.conftest import create_student_direct
 
     student_email = f"ws_student_{unique_suffix}@test.com"
     student_data = await create_student_direct(
@@ -533,7 +531,7 @@ async def test_websocket_connection_unadmitted_student_rejected(
     arena_id = live_arena["arena_id"]
 
     # Create student but DON'T admit to arena or enroll in class
-    from tests.conftest import create_student_direct
+    # # from tests.conftest import create_student_direct
 
     student_email = f"unadmitted_{unique_suffix}@test.com"
     # Create student without class enrollment (pass empty class_id)

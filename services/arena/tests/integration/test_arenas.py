@@ -5,10 +5,7 @@ the teacher teaches. Assert observable outcomes only.
 """
 
 import pytest
-from tests.conftest import requires_db
 from httpx import AsyncClient
-
-pytestmark = requires_db
 
 
 @pytest.fixture

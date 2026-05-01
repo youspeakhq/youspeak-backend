@@ -6,9 +6,9 @@ from httpx import AsyncClient
 from uuid import UUID
 from unittest.mock import patch
 
-from tests.conftest import requires_db
 
-pytestmark = requires_db
+
+
 
 # Skip curriculum upload tests when R2 is not configured (CI, local without R2)
 requires_r2 = pytest.mark.skipif(
