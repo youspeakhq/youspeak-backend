@@ -1,6 +1,6 @@
 # Branch → deployment:
-#   main → staging (core API + curriculum)
-#   live → production (core API + curriculum)
+#   main → staging (core API + curriculum + arena)
+#   live → production (core API + curriculum + arena)
 # Only changed services are built and deployed (path-based).
 name: CI/CD Pipeline
 
