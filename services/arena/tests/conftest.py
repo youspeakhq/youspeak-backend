@@ -1,5 +1,6 @@
 import pytest
 import os
+import httpx
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
@@ -68,24 +69,24 @@ def mock_core_api(respx_mock):
     """Mock Core API responses for Arena tests."""
     # Mock /internal/arenas/{id}
     respx_mock.get(url__regex=r".*/internal/arenas/.*").mock(
-        return_value={"status_code": 200, "json": {
+        return_value=httpx.Response(200, json={
             "id": "00000000-0000-0000-0000-000000000001",
             "title": "Mock Arena",
             "status": "not_started",
             "language_code": "en",
             "participants": [
                 {"user_id": "00000000-0000-0000-0000-000000000010", "role": "participant"},
-                {"user_id": "00000000-0000-0000-0000-000000000011", "role": "participant"}
-            ]
-        }}
+                {"user_id": "00000000-0000-0000-0000-000000000011", "role": "participant"},
+            ],
+        })
     )
-    
+
     # Mock /internal/verify-token
     respx_mock.get(url__regex=r".*/internal/verify-token.*").mock(
-        return_value={"status_code": 200, "json": {"user_id": "00000000-0000-0000-0000-000000000010"}}
+        return_value=httpx.Response(200, json={"user_id": "00000000-0000-0000-0000-000000000010"})
     )
-    
+
     # Mock /internal/classes/{id}
     respx_mock.get(url__regex=r".*/internal/classes/.*").mock(
-        return_value={"status_code": 200, "json": {"id": "00000000-0000-0000-0000-000000000001", "name": "Mock Class"}}
+        return_value=httpx.Response(200, json={"id": "00000000-0000-0000-0000-000000000001", "name": "Mock Class"})
     )
