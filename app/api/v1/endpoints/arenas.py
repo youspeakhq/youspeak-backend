@@ -881,8 +881,8 @@ async def arena_live_session(
         await websocket.close(code=4004, reason="Arena not found or access denied")
         return
 
-    # Verify arena session is live
-    if arena.session_state != "live":
+    # Verify arena session is live or initialized (teacher opens monitoring before pressing Begin)
+    if arena.session_state not in ("live", "initialized"):
         log.warning("websocket_denied_arena_not_live")
         await websocket.close(code=4003, reason="Arena session not live")
         return
