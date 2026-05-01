@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import ValidationError as PydanticValidationError
+import httpx
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -334,6 +335,19 @@ async def pydantic_validation_exception_handler(request: Request, exc: PydanticV
         content={
             "detail": errors
         },
+    )
+
+
+@app.exception_handler(httpx.RequestError)
+async def httpx_request_error_handler(request: Request, exc: httpx.RequestError):
+    """Upstream microservice unreachable — return 503 instead of 500."""
+    logger.warning(
+        f"Upstream service unreachable: {type(exc).__name__}: {exc}",
+        extra={"path": request.url.path},
+    )
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "Upstream service unavailable"},
     )
 
 
