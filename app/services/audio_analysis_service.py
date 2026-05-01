@@ -74,6 +74,7 @@ class WordResult:
     word: str
     accuracy_score: float
     error_type: str  # "None", "Mispronunciation", "Omission", "Insertion"
+    substitution: Optional[str] = None  # e.g. "said /s/ for /θ/" — from NBestPhonemes
 
 
 @dataclass
@@ -106,6 +107,11 @@ class ParticipantAudioSession:
     _recent_accuracy_scores: List[float] = field(default_factory=list)
     _recent_fluency_scores: List[float] = field(default_factory=list)
     _recent_pronunciation_scores: List[float] = field(default_factory=list)
+    # Last 2 tips sent — passed to prompt to prevent repetition
+    _recent_tips: List[str] = field(default_factory=list)
+    # Snapshot of accuracy 30s ago for trend detection
+    _accuracy_snapshot: float = 0.0
+    _accuracy_snapshot_time: float = 0.0
 
 
 class AudioAnalysisService:
@@ -190,11 +196,14 @@ class AudioAnalysisService:
             # Configure pronunciation assessment
             pronunciation_config = speechsdk.PronunciationAssessmentConfig(
                 grading_system=speechsdk.PronunciationAssessmentGradingSystem.HundredMark,
-                granularity=speechsdk.PronunciationAssessmentGranularity.Word,
+                granularity=speechsdk.PronunciationAssessmentGranularity.Phoneme,
+                enable_miscue=True,  # P1: unlocks Omission/Insertion error types
             )
             # Enable prosody for en-US (only supported locale)
             if locale == "en-US":
                 pronunciation_config.enable_prosody_assessment()
+            # P2: return top-5 probable phonemes so we know what learner actually said
+            pronunciation_config.nbest_phoneme_count = 5
 
             # Create push stream for feeding audio chunks
             audio_format = speechsdk.audio.AudioStreamFormat(
@@ -321,14 +330,32 @@ class AudioAnalysisService:
             pronunciation = float(pron.get("PronScore", 0.0))
             prosody = float(pron["ProsodyScore"]) if "ProsodyScore" in pron else None
 
-            # Extract word-level results
+            # Extract word-level results with phoneme substitution patterns
             words = []
             for w in nbest[0].get("Words", []):
                 w_pron = w.get("PronunciationAssessment", {})
+                error_type = w_pron.get("ErrorType", "None")
+
+                # P2: find most likely substitution from NBestPhonemes on mispronounced phonemes
+                substitution = None
+                if error_type == "Mispronunciation":
+                    for phoneme in w.get("Phonemes", []):
+                        p_pron = phoneme.get("PronunciationAssessment", {})
+                        if p_pron.get("AccuracyScore", 100) < 60:
+                            nbest_phonemes = p_pron.get("NBestPhonemes", [])
+                            expected = phoneme.get("Phoneme", "")
+                            if nbest_phonemes and expected:
+                                # Top-1 is what they actually produced
+                                actual = nbest_phonemes[0].get("Phoneme", "")
+                                if actual and actual != expected:
+                                    substitution = f"/{actual}/ for /{expected}/"
+                                    break  # report first problematic phoneme per word
+
                 words.append(WordResult(
                     word=w.get("Word", ""),
                     accuracy_score=float(w_pron.get("AccuracyScore", 0.0)),
-                    error_type=w_pron.get("ErrorType", "None"),
+                    error_type=error_type,
+                    substitution=substitution,
                 ))
 
             # Update rolling window
@@ -349,14 +376,23 @@ class AudioAnalysisService:
             avg_fluency = sum(session._recent_fluency_scores) / len(session._recent_fluency_scores)
             avg_pronunciation = sum(session._recent_pronunciation_scores) / len(session._recent_pronunciation_scores)
 
+            # P3: update 30s accuracy snapshot for trend detection
+            now = time.time()
+            if session._accuracy_snapshot_time == 0.0:
+                session._accuracy_snapshot = avg_accuracy
+                session._accuracy_snapshot_time = now
+            elif now - session._accuracy_snapshot_time >= 30.0:
+                session._accuracy_snapshot = avg_accuracy
+                session._accuracy_snapshot_time = now
+
             session.latest_result = AnalysisResult(
                 accuracy_score=round(avg_accuracy, 1),
                 fluency_score=round(avg_fluency, 1),
                 pronunciation_score=round(avg_pronunciation, 1),
                 prosody_score=round(prosody, 1) if prosody is not None else None,
-                words=list(session._recent_words[-10:]),  # Last 10 words for broadcast
+                words=list(session._recent_words[-10:]),
                 language=session.language_locale,
-                timestamp=time.time(),
+                timestamp=now,
             )
 
             # Throttle broadcast
@@ -411,6 +447,7 @@ class AudioAnalysisService:
                         "word": w.word,
                         "accuracy": w.accuracy_score,
                         "error_type": w.error_type,
+                        **({"substitution": w.substitution} if w.substitution else {}),
                     }
                     for w in result.words
                 ],
@@ -471,48 +508,88 @@ class AudioAnalysisService:
         if self._broadcast_callback:
             await self._broadcast_callback(session.arena_id, data)
 
+    # P4: static system prompt — cached by Bedrock, never resent as tokens after first call
+    _COACHING_SYSTEM_PROMPT = (
+        "You are a real-time pronunciation coach for language learners. "
+        "You receive structured JSON pronunciation data and return ONE coaching tip.\n\n"
+        "Rules:\n"
+        "- 1-2 sentences maximum, max 30 words total\n"
+        "- Be specific: name the exact word or sound that needs work\n"
+        "- Coach toward being understood, not sounding like a native speaker\n"
+        "- If recent_tips contains similar advice, address a DIFFERENT area\n"
+        "- Tone: direct and encouraging — no filler like 'Great job!' or 'Keep it up!'\n"
+        "- For Omission errors: coach completeness/rhythm\n"
+        "- For Insertion errors: coach smoothness/not adding sounds\n"
+        "- For Mispronunciation with substitution: name the specific sound swap\n"
+        "- If fluency < 60: focus on pausing/rhythm over individual sounds\n\n"
+        "Respond with plain text only — just the coaching tip, nothing else."
+    )
+
     async def _generate_feedback_summary(self, session: ParticipantAudioSession) -> Optional[str]:
-        """
-        Generate a 1-sentence coaching tip using Bedrock (Nova Lite).
-        Based on recent word-level pronunciation scores.
-        """
+        """Generate a coaching tip using Bedrock Nova Lite with enriched prompt data."""
         words = session._recent_words[-15:]
         if not words:
             return None
 
-        # Find mispronounced words
-        problem_words = [w for w in words if w.accuracy_score < 70]
-        if not problem_words and session.latest_result.accuracy_score > 85:
-            return "Great pronunciation! Keep up the natural flow."
+        result = session.latest_result
 
-        word_details = ", ".join(
-            f'"{w.word}" ({w.accuracy_score:.0f}%)' for w in words[-10:]
-        )
-        problem_detail = ""
-        if problem_words:
-            problem_detail = f" Mispronounced: {', '.join(w.word for w in problem_words[:3])}."
+        # Build word details with error types and substitutions
+        word_entries = []
+        for w in words[-10:]:
+            entry = f'"{w.word}" ({w.accuracy_score:.0f}%'
+            if w.error_type != "None":
+                entry += f", {w.error_type}"
+            if w.substitution:
+                entry += f", said {w.substitution}"
+            entry += ")"
+            word_entries.append(entry)
 
-        prompt = (
-            f"You are a language pronunciation coach. A student is speaking {session.language_locale}. "
-            f"Their recent word scores: {word_details}.{problem_detail} "
-            f"Overall accuracy: {session.latest_result.accuracy_score:.0f}%, "
-            f"fluency: {session.latest_result.fluency_score:.0f}%. "
-            f"Give ONE concise sentence of coaching feedback (max 20 words). "
-            f"Focus on the most impactful improvement."
-        )
+        # P3: compute trend
+        delta = result.accuracy_score - session._accuracy_snapshot
+        if abs(delta) < 3:
+            trend = "stable"
+        elif delta > 0:
+            trend = f"improving (+{delta:.0f}pts)"
+        else:
+            trend = f"declining ({delta:.0f}pts)"
+
+        # Build lean user payload (variable data only)
+        import json as _json
+        payload = {
+            "language": session.language_locale,
+            "accuracy": result.accuracy_score,
+            "fluency": result.fluency_score,
+            "trend": trend,
+            "words": ", ".join(word_entries),
+            "recent_tips": session._recent_tips[-2:],  # P3: prevent repetition
+        }
+        if result.prosody_score is not None:
+            payload["prosody"] = result.prosody_score
+
+        user_content = _json.dumps(payload, ensure_ascii=False)
 
         try:
             import aioboto3
-            session = aioboto3.Session()
-            async with session.client("bedrock-runtime", config=self._bedrock_config()) as bedrock:
+            boto_session = aioboto3.Session()
+            async with boto_session.client("bedrock-runtime", config=self._bedrock_config()) as bedrock:
                 response = await bedrock.converse(
                     modelId=settings.BEDROCK_MODEL_ID,
-                    messages=[{"role": "user", "content": [{"text": prompt}]}],
-                    inferenceConfig={"maxTokens": 60, "temperature": 0.3},
+                    system=[{"text": self._COACHING_SYSTEM_PROMPT}],  # P4: system prompt
+                    messages=[{"role": "user", "content": [{"text": user_content}]}],
+                    inferenceConfig={
+                        "maxTokens": 80,       # P5: was 60, gives room for 2-sentence tip
+                        "temperature": 0.7,    # P5: was 0.3, prevents repetitive outputs
+                    },
                 )
             text = response["output"]["message"]["content"][0]["text"].strip()
-            if len(text) > 200:
-                text = text[:197] + "..."
+            if len(text) > 250:
+                text = text[:247] + "..."
+
+            # P3: store tip to prevent repetition next cycle
+            session._recent_tips.append(text)
+            if len(session._recent_tips) > 3:
+                session._recent_tips.pop(0)
+
             return text
         except Exception as e:
             logger.warning("bedrock_feedback_failed", extra={"error": str(e)})
