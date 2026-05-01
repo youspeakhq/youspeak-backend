@@ -34,7 +34,7 @@ def registered_school() -> dict:
 # Mocking Core API for Arena tests
 @pytest.fixture(autouse=True)
 def mock_core_api(respx_mock):
-    \"\"\"Mock Core API responses for Arena tests.\"\"\"
+    """Mock Core API responses for Arena tests."""
     # Mock /internal/arenas/{id}
     respx_mock.get(url__regex=r".*/internal/arenas/.*").mock(
         return_value={"status_code": 200, "json": {
