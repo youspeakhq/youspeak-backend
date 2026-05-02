@@ -21,6 +21,13 @@ requires_db = pytest.mark.skipif(
     reason="DATABASE_URL not set"
 )
 
+# Tests that POST to the live core API need real seeded users/classes in the DB.
+# In CI the test DB is freshly migrated with no seed data, so skip these.
+requires_seeded_data = pytest.mark.skipif(
+    USE_LIVE_SERVER,
+    reason="Requires seeded teacher/class data in live DB — not available in CI"
+)
+
 _test_engine = None
 _TestSessionLocal = None
 
@@ -36,9 +43,13 @@ def _get_test_session_factory():
 
 @pytest.fixture
 async def db() -> AsyncSession:
+    from sqlalchemy import text
     session_factory = _get_test_session_factory()
     async with session_factory() as session:
         try:
+            # Disable FK checks so test fixtures can insert rows with fake
+            # class/user UUIDs that don't exist in the shared live DB.
+            await session.execute(text("SET session_replication_role = replica"))
             yield session
             await session.rollback()
         finally:

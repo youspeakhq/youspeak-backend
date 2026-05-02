@@ -14,7 +14,7 @@ import pytest
 
 from httpx import AsyncClient
 
-from ..conftest import FAKE_CLASS_ID
+from ..conftest import FAKE_CLASS_ID, requires_seeded_data
 
 
 @pytest.fixture
@@ -45,6 +45,7 @@ async def arena_draft(
 # --- Student Search Endpoint Tests ---
 
 
+@requires_seeded_data
 @pytest.mark.asyncio
 async def test_search_students_success(
     async_client: AsyncClient,
@@ -87,6 +88,7 @@ async def test_search_students_success(
         assert "status" in student
 
 
+@requires_seeded_data
 @pytest.mark.asyncio
 async def test_search_students_with_name_filter(
     async_client: AsyncClient,
@@ -115,6 +117,7 @@ async def test_search_students_with_name_filter(
         assert "Student1" in student["name"]
 
 
+@requires_seeded_data
 @pytest.mark.asyncio
 async def test_search_students_pagination(
     async_client: AsyncClient,
@@ -144,6 +147,7 @@ async def test_search_students_pagination(
     assert len(data["students"]) == 2  # First page has 2 students
 
 
+@requires_seeded_data
 @pytest.mark.asyncio
 async def test_search_students_forbidden_when_not_teaching_class(
     async_client: AsyncClient,

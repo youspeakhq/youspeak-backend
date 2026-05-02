@@ -10,7 +10,7 @@ CRUD endpoints (/arenas, /arenas/{id}) are served by core, not the arena microse
 import pytest
 from httpx import AsyncClient
 
-from ..conftest import FAKE_CLASS_ID
+from ..conftest import FAKE_CLASS_ID, requires_seeded_data
 
 
 @pytest.fixture
@@ -49,6 +49,7 @@ async def test_create_arena_requires_auth(async_client: AsyncClient, api_base: s
 # --- List ---
 
 
+@requires_seeded_data
 @pytest.mark.asyncio
 async def test_list_arenas_success(
     async_client: AsyncClient, api_base: str, teacher_headers: dict
@@ -64,6 +65,7 @@ async def test_list_arenas_success(
 # --- Create / get / update ---
 
 
+@requires_seeded_data
 @pytest.mark.asyncio
 async def test_create_arena_success(
     async_client: AsyncClient, api_base: str, teacher_with_class: dict
@@ -124,6 +126,7 @@ async def test_get_arena_404_when_not_found(
     assert resp.status_code == 404
 
 
+@requires_seeded_data
 @pytest.mark.asyncio
 async def test_update_arena_success(
     async_client: AsyncClient, api_base: str, teacher_with_class: dict

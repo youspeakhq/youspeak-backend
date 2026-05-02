@@ -16,6 +16,8 @@ import pytest
 from httpx import AsyncClient
 from datetime import datetime, timedelta
 
+from ..conftest import requires_seeded_data
+
 
 
 
@@ -395,6 +397,7 @@ async def test_qr_code_generation(
 # --- Join Code Uniqueness Test ---
 
 
+@requires_seeded_data
 @pytest.mark.asyncio
 async def test_join_code_uniqueness(
     async_client: AsyncClient,
