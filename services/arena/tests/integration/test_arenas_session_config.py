@@ -16,6 +16,9 @@ from httpx import AsyncClient
 
 from ..conftest import FAKE_CLASS_ID, requires_seeded_data
 
+# All tests in this module need a real seeded teacher+class in the live DB
+pytestmark = requires_seeded_data
+
 
 @pytest.fixture
 async def arena_draft(

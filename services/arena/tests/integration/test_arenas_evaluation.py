@@ -18,7 +18,10 @@ from services.arena.models_local.arena import (
 from services.arena.models_local.enums import ArenaStatus
 from services.arena.security import create_access_token
 
-from ..conftest import requires_db
+from ..conftest import requires_db, requires_seeded_data
+
+# All tests in this module hit core API endpoints that require a real teacher
+pytestmark = requires_seeded_data
 
 
 # ============================================================================

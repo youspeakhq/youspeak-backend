@@ -19,7 +19,10 @@ import asyncio
 import json
 from httpx import AsyncClient
 
-from ..conftest import FAKE_CLASS_ID
+from ..conftest import FAKE_CLASS_ID, requires_seeded_data
+
+# All tests in this module need a real seeded teacher+class in the live DB
+pytestmark = requires_seeded_data
 
 # Mark WebSocket tests as requiring live server
 requires_websocket = pytest.mark.skipif(
