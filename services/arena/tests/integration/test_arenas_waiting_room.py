@@ -18,6 +18,10 @@ from datetime import datetime, timedelta
 
 from ..conftest import requires_seeded_data
 
+# All tests in this module depend on the initialized_arena fixture which
+# creates an arena via the live core API — needs a seeded teacher in the DB
+pytestmark = requires_seeded_data
+
 
 
 
